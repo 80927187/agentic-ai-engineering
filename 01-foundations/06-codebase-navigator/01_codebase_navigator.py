@@ -1,13 +1,11 @@
 """
-Augmented LLM — Codebase Navigator (Anthropic)
+增强型 LLM——代码库导航器（Anthropic）
 
-Demonstrates the "Augmented LLM" pattern: an LLM enhanced with retrieval (RAG),
-tools, and memory. This is the foundational building block of all agentic systems,
-as described in Anthropic's "Building Effective Agents" guide.
+演示“增强型 LLM”模式：通过检索（RAG）、工具和记忆来增强 LLM。
+正如 Anthropic《构建高效智能体》指南所述，这是所有智能体系统的基础构件。
 
-The Codebase Navigator helps engineers explore and understand unfamiliar codebases.
-Point it at any GitHub repo, and it will clone, index, and answer questions using
-semantic search — while maintaining memory across sessions.
+代码库导航器可帮助工程师探索和理解陌生的代码库。只需指定任意 GitHub 仓库，
+它便会克隆并建立索引，利用语义搜索回答问题，同时跨会话保留记忆。
 """
 
 import json
@@ -23,7 +21,7 @@ from rich.panel import Panel
 from common import AnthropicTokenTracker, setup_logging
 from common.menu import interactive_menu
 
-# Load environment variables
+# 加载环境变量
 load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
@@ -36,60 +34,60 @@ SUGGESTED_REPOS = [
 ]
 
 
-SYSTEM_PROMPT = """You are a Codebase Navigator — an AI assistant that helps software engineers \
-explore and understand codebases.
+SYSTEM_PROMPT = """你是代码库导航器——一个帮助软件工程师探索和理解代码库的 AI 助手。
 
-## Your Capabilities
+## 你的能力
 
-You have access to tools for:
-- Cloning and indexing GitHub repositories (clone_and_index)
-- Listing indexed repositories (list_repos)
-- Searching code semantically (search_code)
-- Reading full file contents (read_file)
-- Exploring directory structures (list_directory)
-- Finding exact patterns with regex (grep)
-- Saving memories for future sessions (save_memory)
-- Recalling saved memories (recall_memory)
+你可以使用以下工具：
+- 克隆 GitHub 仓库并建立索引（clone_and_index）
+- 列出已索引的仓库（list_repos）
+- 对代码进行语义搜索（search_code）
+- 读取完整文件内容（read_file）
+- 探索目录结构（list_directory）
+- 使用正则表达式查找精确模式（grep）
+- 保存记忆供未来会话使用（save_memory）
+- 回忆已保存的记忆（recall_memory）
 
-## How to Help Users
+## 如何帮助用户
 
-When a user mentions a GitHub repo (like "pallets/flask" or "look at the httpie repo"):
-1. Use clone_and_index to clone and index it first
-2. Then answer their questions using search_code, read_file, etc.
+当用户提到 GitHub 仓库时（例如“pallets/flask”或“查看 httpie 仓库”）：
+1. 首先使用 clone_and_index 克隆仓库并建立索引
+2. 然后使用 search_code、read_file 等工具回答问题
 
-Use search_code for semantic/conceptual questions:
-- "how does authentication work?"
-- "where is the database connection handled?"
+对于语义或概念性问题，使用 search_code：
+- “身份验证是如何工作的？”
+- “数据库连接在哪里处理？”
 
-Use grep for exact matches:
-- "find all TODO comments"
-- "where is UserModel defined?"
+对于精确匹配，使用 grep：
+- “查找所有 TODO 注释”
+- “UserModel 定义在哪里？”
 
-Use read_file when you need full context after finding relevant chunks.
+找到相关代码块后，如果需要完整上下文，请使用 read_file。
 
-## Memory
+## 记忆
 
-Save important insights to memory, especially:
-- Architectural patterns you discover
-- Key files and their purposes
-- Connections between different repos
-- User preferences for how they like information presented
+将重要见解保存到记忆中，尤其是：
+- 发现的架构模式
+- 关键文件及其用途
+- 不同仓库之间的联系
+- 用户对信息呈现方式的偏好
 
-Check recall_memory at the start of conversations to remember context.
+在对话开始时检查 recall_memory，以回忆上下文。
 
-## Response Style
+## 回答风格
 
-- Be concise but thorough
-- Show relevant code snippets with file paths and line numbers
-- Explain architectural decisions when you discover them
-- Suggest related areas to explore"""
+- 简洁但全面
+- 展示相关代码片段，并标明文件路径和行号
+- 发现架构决策时加以说明
+- 推荐可以继续探索的相关领域
+- 使用中文回答"""
 
 
-# -- Tool registry ----------------------------------------------------------
+# -- 工具注册表 -------------------------------------------------------------
 
 
 def _build_tool_definitions() -> list[dict[str, Any]]:
-    """Collect all tool definitions from tool modules."""
+    """收集所有工具模块中的工具定义。"""
     from tools.files import FILE_TOOLS
     from tools.memory import MEMORY_TOOLS
     from tools.repo import REPO_TOOLS
@@ -100,10 +98,10 @@ def _build_tool_definitions() -> list[dict[str, Any]]:
 
 class CodeNavigatorAgent:
     """
-    An LLM augmented with retrieval, tools, and memory.
+    一个通过检索、工具和记忆增强的 LLM。
 
-    Implements the agentic loop: send message → execute tools → send results → repeat
-    until the LLM responds with just text.
+    实现智能体循环：发送消息 → 执行工具 → 发送结果 → 重复，
+    直到 LLM 仅返回文本。
     """
 
     def __init__(self, model: str = "claude-sonnet-4-6") -> None:
@@ -114,7 +112,7 @@ class CodeNavigatorAgent:
         self.messages: list[dict[str, Any]] = []
         self.max_iterations = 15
 
-        # Initialize shared components (the three augmentations)
+        # 初始化共享组件（三种增强能力）
         from indexer.embedder import Embedder
         from store.memory import MemoryStore
         from store.vector import VectorStore
@@ -124,14 +122,14 @@ class CodeNavigatorAgent:
         self.embedder = Embedder()
 
     def _build_system_prompt(self) -> str:
-        """Build system prompt with memory context."""
+        """构建包含记忆上下文的系统提示词。"""
         memory_summary = self.memory.summary()
-        if memory_summary and memory_summary != "No memories stored yet.":
-            return SYSTEM_PROMPT + f"\n\n## Recalled Memories\n{memory_summary}"
+        if memory_summary and memory_summary != "尚未保存任何记忆。":
+            return SYSTEM_PROMPT + f"\n\n## 已回忆的记忆\n{memory_summary}"
         return SYSTEM_PROMPT
 
     def _execute_tool(self, name: str, tool_input: dict[str, Any]) -> str:
-        """Dispatch a tool call to the appropriate handler."""
+        """将工具调用分派给相应的处理程序。"""
         from tools.files import execute_list_directory, execute_read_file
         from tools.memory import execute_recall_memory, execute_save_memory
         from tools.repo import execute_clone_and_index, execute_list_repos
@@ -152,16 +150,16 @@ class CodeNavigatorAgent:
 
         handler = dispatch.get(name)
         if not handler:
-            return f"Unknown tool: {name}"
+            return f"未知工具：{name}"
 
         try:
             return str(handler(tool_input))
         except Exception as e:
-            logger.error("Tool '%s' failed: %s", name, e)
-            return f"Error executing {name}: {e}"
+            logger.error("工具“%s”执行失败：%s", name, e)
+            return f"执行 {name} 时出错：{e}"
 
     def chat(self, user_message: str, console: Console) -> str:
-        """Send a message and handle the agentic tool-use loop."""
+        """发送消息并处理智能体工具调用循环。"""
         self.messages.append({"role": "user", "content": user_message})
 
         for _iteration in range(self.max_iterations):
@@ -174,16 +172,16 @@ class CodeNavigatorAgent:
                     messages=self.messages,
                 )
             except anthropic.RateLimitError:
-                logger.warning("Rate limited — waiting 30s before retry...")
+                logger.warning("受到速率限制——等待 30 秒后重试……")
                 time.sleep(30)
                 continue
             except anthropic.APIError as e:
-                logger.error("API error: %s", e)
-                return f"API error: {e}"
+                logger.error("API 错误：%s", e)
+                return f"API 错误：{e}"
 
             self.token_tracker.track(response.usage)
 
-            # Collect response content
+            # 收集响应内容
             assistant_content = []
             text_parts: list[str] = []
             tool_uses: list[ToolUseBlock] = []
@@ -203,29 +201,29 @@ class CodeNavigatorAgent:
                         }
                     )
 
-            # Ensure assistant content is never empty (API requirement)
+            # 确保助手内容永不为空（API 要求）
             if not assistant_content:
-                assistant_content = [{"type": "text", "text": "Done."}]
-                text_parts = ["Done."]
+                assistant_content = [{"type": "text", "text": "已完成。"}]
+                text_parts = ["已完成。"]
 
             self.messages.append({"role": "assistant", "content": assistant_content})
 
-            # If no tool use, return the text response
+            # 如果没有工具调用，则返回文本响应
             if response.stop_reason == "end_turn":
-                return "\n".join(text_parts) if text_parts else "Done."
+                return "\n".join(text_parts) if text_parts else "已完成。"
 
-            # Execute each tool and print progress
+            # 执行各个工具并输出进度
             tool_results = []
             for tool_use in tool_uses:
-                # Print tool invocation for educational transparency
+                # 输出工具调用，使教学过程更加透明
                 input_summary = json.dumps(tool_use.input, separators=(",", ":"))
                 if len(input_summary) > 80:
                     input_summary = input_summary[:77] + "..."
-                console.print(f"  [dim][tool: {tool_use.name}] {input_summary}[/dim]")
+                console.print(f"  [dim][工具：{tool_use.name}] {input_summary}[/dim]")
 
                 result = self._execute_tool(tool_use.name, tool_use.input)
 
-                # Print brief result
+                # 输出简要结果
                 result_preview = result.split("\n")[0][:80]
                 console.print(f"  [dim]  → {result_preview}[/dim]")
 
@@ -239,68 +237,68 @@ class CodeNavigatorAgent:
 
             self.messages.append({"role": "user", "content": tool_results})
 
-        return "Reached maximum iterations. Please try a more specific question."
+        return "已达到最大迭代次数，请尝试提出更具体的问题。"
 
 
-# -- Main -------------------------------------------------------------------
+# -- 主程序 -----------------------------------------------------------------
 
 
 def main() -> None:
-    """Main orchestration function."""
+    """主编排函数。"""
 
     agent = CodeNavigatorAgent()
 
     console = Console()
 
     header = Panel(
-        "[bold cyan]Codebase Navigator[/bold cyan]\n\n"
-        "An LLM enhanced with [green]Retrieval (RAG)[/green], "
-        "[yellow]Tools[/yellow], and [magenta]Memory[/magenta].\n\n"
-        "Select a repo to index, then ask questions about the codebase.",
-        title="Codebase Navigator",
+        "[bold cyan]代码库导航器[/bold cyan]\n\n"
+        "一个由[green]检索（RAG）[/green]、[yellow]工具[/yellow]和"
+        "[magenta]记忆[/magenta]增强的 LLM。\n\n"
+        "请选择要建立索引的仓库，然后提出有关代码库的问题。",
+        title="代码库导航器",
     )
 
     repo = interactive_menu(
         console,
         SUGGESTED_REPOS,
-        title="Select a Repo to Explore",
+        title="选择要探索的仓库",
         header=header,
         allow_custom=True,
-        custom_prompt="Enter owner/repo (e.g., pallets/flask)",
+        custom_prompt="输入所有者/仓库（例如 pallets/flask）",
     )
     if not repo:
         return
 
-    console.print(f"\n[bold green]Indexing:[/bold green] {repo}")
-    response = agent.chat(f"index the repo {repo}", console)
+    console.print(f"\n[bold green]正在建立索引：[/bold green] {repo}")
+    response = agent.chat(f"为仓库 {repo} 建立索引", console)
     if response:
-        console.print("\n[bold blue]Navigator:[/bold blue]")
+        console.print("\n[bold blue]导航器：[/bold blue]")
         console.print(Markdown(response))
 
-    console.print("\n[dim]Ask questions about the codebase. Type 'quit' to exit.[/dim]")
+    console.print("\n[dim]请输入有关代码库的问题。输入“quit”可退出。[/dim]")
 
     try:
         while True:
-            console.print("\n[bold green]You:[/bold green] ", end="")
+            console.print("\n[bold green]你：[/bold green] ", end="")
             try:
                 user_input = input().strip()
             except EOFError:
                 break
 
             if user_input.lower() in ("exit", "quit", "q", ""):
-                console.print("\n[yellow]Ending session...[/yellow]")
+                console.print("\n[yellow]正在结束会话……[/yellow]")
                 break
 
             response = agent.chat(user_input, console)
 
             if response:
-                console.print("\n[bold blue]Navigator:[/bold blue]")
+                console.print("\n[bold blue]导航器：[/bold blue]")
                 console.print(Markdown(response))
 
             agent.token_tracker.report()
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]已中断。[/yellow]")
 
     console.print()
     agent.token_tracker.report()

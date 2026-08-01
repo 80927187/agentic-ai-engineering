@@ -1,9 +1,9 @@
 """
-Code Chunker
+代码分块器
 
-Splits source code files into chunks suitable for embedding and semantic search.
-Uses simple heuristics: Python files split on class/function definitions,
-other files split by line count with overlap.
+将源代码文件拆分为适合生成嵌入和语义搜索的代码块。
+使用简单的启发式规则：Python 文件按类/函数定义拆分，
+其他文件按固定行数拆分，并在相邻块之间保留重叠内容。
 """
 
 from pathlib import Path
@@ -13,7 +13,7 @@ from common.logging_config import setup_logging
 
 logger = setup_logging(__name__)
 
-# File extensions to index
+# 要建立索引的文件扩展名
 INDEXABLE_EXTENSIONS = {
     ".py",
     ".js",
@@ -33,7 +33,7 @@ INDEXABLE_EXTENSIONS = {
     ".json",
 }
 
-# Directories to skip
+# 要跳过的目录
 SKIP_DIRS = {
     "node_modules",
     "venv",
@@ -50,13 +50,13 @@ SKIP_DIRS = {
     "egg-info",
 }
 
-# Max lines per chunk for non-Python files
+# 非 Python 文件每个代码块的最大行数
 CHUNK_SIZE = 50
 OVERLAP = 10
 
 
 def collect_files(repo_path: Path) -> list[Path]:
-    """Collect all indexable files from a repository."""
+    """收集仓库中所有可建立索引的文件。"""
     files = []
     for path in repo_path.rglob("*"):
         if any(skip in path.parts for skip in SKIP_DIRS):
@@ -67,13 +67,13 @@ def collect_files(repo_path: Path) -> list[Path]:
 
 
 def chunk_python(content: str, filepath: str, repo: str) -> list[dict[str, Any]]:
-    """Chunk Python files by splitting on top-level class/function definitions."""
+    """按顶层类/函数定义拆分 Python 文件。"""
     lines = content.split("\n")
     chunks: list[dict[str, Any]] = []
     current_chunk_start = 0
 
     for i, line in enumerate(lines):
-        # Split on top-level definitions (no leading whitespace)
+        # 在顶层定义处拆分（行首没有空白字符）
         if i > 0 and (line.startswith("class ") or line.startswith("def ")):
             chunk_content = "\n".join(lines[current_chunk_start:i]).strip()
             if chunk_content:
@@ -88,7 +88,7 @@ def chunk_python(content: str, filepath: str, repo: str) -> list[dict[str, Any]]
                 )
             current_chunk_start = i
 
-    # Don't forget the last chunk
+    # 不要遗漏最后一个代码块
     chunk_content = "\n".join(lines[current_chunk_start:]).strip()
     if chunk_content:
         chunks.append(
@@ -105,7 +105,7 @@ def chunk_python(content: str, filepath: str, repo: str) -> list[dict[str, Any]]
 
 
 def chunk_generic(content: str, filepath: str, repo: str) -> list[dict[str, Any]]:
-    """Chunk non-Python files by fixed line count with overlap."""
+    """按固定行数拆分非 Python 文件，并保留重叠内容。"""
     lines = content.split("\n")
     chunks: list[dict[str, Any]] = []
 
@@ -129,17 +129,17 @@ def chunk_generic(content: str, filepath: str, repo: str) -> list[dict[str, Any]
 
 
 def chunk_file(path: Path, repo_path: Path, repo_name: str) -> list[dict[str, Any]]:
-    """Chunk a single file using the appropriate strategy."""
+    """使用适当的策略拆分单个文件。"""
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
-        logger.warning("Could not read %s: %s", path, e)
+        logger.warning("无法读取 %s：%s", path, e)
         return []
 
     if not content.strip():
         return []
 
-    # Limit very large files
+    # 限制超大文件的大小
     if len(content) > 100_000:
         content = content[:100_000]
 
@@ -151,13 +151,13 @@ def chunk_file(path: Path, repo_path: Path, repo_name: str) -> list[dict[str, An
 
 
 def chunk_repository(repo_path: Path, repo_name: str) -> list[dict[str, Any]]:
-    """Chunk all files in a repository."""
+    """拆分仓库中的所有文件。"""
     files = collect_files(repo_path)
-    logger.info("Found %d indexable files in %s", len(files), repo_path)
+    logger.info("在 %s 中找到 %d 个可建立索引的文件", repo_path, len(files))
 
     all_chunks: list[dict[str, Any]] = []
     for path in files:
         all_chunks.extend(chunk_file(path, repo_path, repo_name))
 
-    logger.info("Created %d chunks from %d files", len(all_chunks), len(files))
+    logger.info("从 %d 个文件创建了 %d 个代码块", len(files), len(all_chunks))
     return all_chunks

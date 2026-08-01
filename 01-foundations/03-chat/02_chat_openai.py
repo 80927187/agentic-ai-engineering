@@ -1,7 +1,7 @@
 """
-Interactive Chat (OpenAI)
+交互式聊天（OpenAI）
 
-Demonstrates an interactive chat loop with a simple message history management.
+演示一个带有简单消息历史管理功能的交互式聊天循环。
 """
 
 from dotenv import find_dotenv, load_dotenv
@@ -12,22 +12,22 @@ from rich.panel import Panel
 
 from common import OpenAITokenTracker, setup_logging
 
-# Load environment variables from root .env file
+# 从根目录的 .env 文件加载环境变量
 load_dotenv(find_dotenv())
 
-# Configure logging
+# 配置日志记录
 logger = setup_logging(__name__)
 
 
 class ChatSession:
     """
-    Chat agent that maintains conversation history and encapsulates
-    all chat logic including message management and API interaction.
+    维护对话历史的聊天智能体，封装了消息管理和 API 交互等
+    全部聊天逻辑。
     """
 
     def __init__(self, model: str, token_callback: OpenAITokenTracker):
         """
-        Initialize the chat session.
+        初始化聊天会话。
         """
         self.client = OpenAI()
         self.token_callback = token_callback
@@ -36,14 +36,14 @@ class ChatSession:
 
     def send_message(self, user_message: str) -> str:
         """
-        Send a message and get a response using the Responses API.
+        使用 Responses API 发送消息并获取响应。
         """
-        # Add user message to history
+        # 将用户消息添加到历史记录
         self.messages.append({"role": "user", "content": user_message})
 
-        logger.info("Sending message to OpenAI (history length: %d)", len(self.messages))
+        logger.info("正在向 OpenAI 发送消息（历史记录长度：%d）", len(self.messages))
 
-        # Make API call with full message history using Responses API
+        # 使用 Responses API 携带完整的消息历史记录调用 API
         response = self.client.responses.create(
             model=self.model,
             temperature=0.1,
@@ -51,13 +51,13 @@ class ChatSession:
             input=self.messages,
         )
 
-        # Track token usage
+        # 记录 token 用量
         self.token_callback.track(response.usage)
 
-        # Extract assistant's response using new output_text property
+        # 使用新的 output_text 属性提取助手的响应
         assistant_message = response.output_text or ""
 
-        # Add assistant's response to history
+        # 将助手的响应添加到历史记录
         self.messages.append({"role": "assistant", "content": assistant_message})
 
         return assistant_message
@@ -65,52 +65,52 @@ class ChatSession:
 
 def main() -> None:
     """
-    Main orchestration function that handles user interaction and coordinates the chat flow.
+    处理用户交互并协调聊天流程的主编排函数。
     """
 
-    # Rich console for beautiful output
+    # 使用 Rich 控制台美化输出
     console = Console()
-    # Create token tracker and chat session
+    # 创建 token 跟踪器和聊天会话
     token_tracker = OpenAITokenTracker()
-    chat = ChatSession("gpt-4.1", token_tracker)
+    chat = ChatSession("gpt-5.4", token_tracker)
 
-    # Welcome message
+    # 欢迎消息
     console.print(
         Panel(
-            "[bold cyan]Welcome to OpenAI Chat![/bold cyan]\n\n"
-            "Type your messages and press Enter.\n"
-            "Type 'quit' or 'exit' to end the conversation.",
-            title="Chat Session",
+            "[bold cyan]欢迎使用 OpenAI 聊天！[/bold cyan]\n\n"
+            "输入消息后按 Enter 键发送。\n"
+            "输入 'quit' 或 'exit' 结束对话。",
+            title="聊天会话",
         )
     )
 
-    # Chat loop
+    # 聊天循环
     while True:
-        # Get user input
-        console.print("\n[bold green]You:[/bold green] ", end="")
+        # 获取用户输入
+        console.print("\n[bold green]你：[/bold green] ", end="")
         user_input = input().strip()
 
         if user_input.lower() in ["quit", "exit", ""]:
-            console.print("\n[yellow]Ending chat session...[/yellow]")
+            console.print("\n[yellow]正在结束聊天会话……[/yellow]")
             break
 
-        # Send message and get response
+        # 发送消息并获取响应
         try:
             response = chat.send_message(user_input)
 
-            # Display response with markdown formatting
+            # 使用 Markdown 格式显示响应
             console.print("\n[bold blue]GPT:[/bold blue]")
             console.print(Markdown(response))
 
         except Exception as e:
-            logger.error("Error during chat: %s", e)
-            console.print(f"\n[red]Error: {e}[/red]")
+            logger.error("聊天过程中发生错误：%s", e)
+            console.print(f"\n[red]错误：{e}[/red]")
             break
 
-    # Report final token usage
+    # 报告最终的 token 用量
     console.print()
     token_tracker.report()
-    console.print(f"\n[dim]Total messages exchanged: {len(chat.messages)}[/dim]")
+    console.print(f"\n[dim]交换的消息总数：{len(chat.messages)}[/dim]")
 
 
 if __name__ == "__main__":

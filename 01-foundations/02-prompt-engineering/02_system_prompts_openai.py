@@ -1,12 +1,12 @@
 """
-System Prompts & Role Engineering (OpenAI)
+系统提示词与角色工程（OpenAI）
 
-Demonstrates how system prompts control LLM behavior by comparing three configurations:
-- Generic assistant (baseline)
-- Role-assigned expert
-- Role + constraints + output format
+通过比较三种配置，演示系统提示词如何控制大语言模型的行为：
+- 通用助手（基线）
+- 指定角色的专家
+- 角色 + 约束 + 输出格式
 
-All three triage the same support tickets, showing the impact of prompt engineering.
+三种配置会对相同的支持工单进行分类，以展示提示工程的影响。
 """
 
 from dotenv import find_dotenv, load_dotenv
@@ -20,58 +20,56 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
-# Ambiguous support tickets that force the system prompt to determine interpretation
+# 含义模糊的支持工单，迫使系统提示词决定如何解读
 SUPPORT_TICKETS = [
     {
-        "label": "Ticket 1 — Performance complaint",
+        "label": "工单 1 — 性能问题投诉",
         "text": (
-            "Subject: App is super slow after the update\n\n"
-            "Hi, ever since the latest update the app takes forever to load anything. "
-            "Pages that used to be instant now hang for 10+ seconds. I'm on Wi-Fi and "
-            "everything else works fine. This is really frustrating — I need this for work. "
-            "Can you please fix this ASAP?"
+            "主题：应用更新后变得非常慢\n\n"
+            "你好，自从最近一次更新后，应用加载任何内容都要花很长时间。"
+            "以前能立即打开的页面现在会卡住 10 多秒。我使用的是 Wi-Fi，"
+            "其他一切都运行正常。这实在让人沮丧——我工作需要用它。"
+            "能请你们尽快修复吗？"
         ),
     },
     {
-        "label": "Ticket 2 — Feature not working",
+        "label": "工单 2 — 功能无法使用",
         "text": (
-            "Subject: Export button doesn't work\n\n"
-            "I've been trying to export my report but nothing happens when I click the "
-            "export button. I've tried multiple times. I'm using Chrome on Windows. "
-            "My colleague says it works for them but I can't figure out what I'm doing wrong. "
-            "Is this a known issue?"
+            "主题：导出按钮不起作用\n\n"
+            "我一直在尝试导出报告，但点击导出按钮后没有任何反应。"
+            "我已经试了很多次。我在 Windows 上使用 Chrome。"
+            "我的同事说他们可以正常使用，但我不知道自己哪里操作错了。"
+            "这是一个已知问题吗？"
         ),
     },
 ]
 
 TICKET_LABELS = [t["label"] for t in SUPPORT_TICKETS]
 
-# Three system prompt configurations showing progressive refinement
+# 三种系统提示词配置，展示逐步优化的过程
 PROMPT_CONFIGS = [
     {
-        "label": "A: Generic Assistant",
-        "system": "You are a helpful assistant. Help analyze this support ticket.",
+        "label": "A：通用助手",
+        "system": "你是一名乐于助人的助手。请帮助分析这张支持工单。",
     },
     {
-        "label": "B: Role-Assigned Expert",
+        "label": "B：指定角色的专家",
         "system": (
-            "You are a senior support engineer at a SaaS company. You've triaged thousands "
-            "of tickets. When analyzing tickets, you identify the most likely root cause, "
-            "estimate severity, and recommend next steps. You don't hedge — you make a call "
-            "based on experience."
+            "你是一家 SaaS 公司的高级支持工程师，已经对数千张工单进行过分类。"
+            "分析工单时，你会找出最可能的根本原因、评估严重程度，并建议下一步行动。"
+            "不要含糊其辞——请根据经验作出明确判断。"
         ),
     },
     {
-        "label": "C: Role + Constraints + Format",
+        "label": "C：角色 + 约束 + 格式",
         "system": (
-            "You are a senior support engineer at a SaaS company. You've triaged thousands "
-            "of tickets.\n\n"
-            "Respond in EXACTLY these sections:\n\n"
-            "CATEGORY: Bug / User Error / Feature Request / Configuration\n\n"
-            "ROOT CAUSE: One sentence.\n\n"
-            "SEVERITY: P1-P4\n\n"
-            "NEXT ACTION: One concrete step for the support team.\n\n"
-            "Be terse. No explanations beyond what's requested."
+            "你是一家 SaaS 公司的高级支持工程师，已经对数千张工单进行过分类。\n\n"
+            "严格按照以下分节作答：\n\n"
+            "类别：缺陷 / 用户错误 / 功能请求 / 配置\n\n"
+            "根本原因：一句话。\n\n"
+            "严重程度：P1-P4\n\n"
+            "下一步行动：支持团队可执行的一个具体步骤。\n\n"
+            "保持简洁。不要提供要求之外的解释。"
         ),
     },
 ]
@@ -80,7 +78,7 @@ CONFIG_LABELS = [c["label"] for c in PROMPT_CONFIGS]
 
 
 class PromptEngineer:
-    """Demonstrates how system prompts shape LLM responses."""
+    """演示系统提示词如何塑造大语言模型的响应。"""
 
     def __init__(self, model: str, token_tracker: OpenAITokenTracker):
         self.client = OpenAI()
@@ -88,10 +86,10 @@ class PromptEngineer:
         self.token_tracker = token_tracker
 
     def run(self, system_prompt: str, user_prompt: str) -> str:
-        """Execute a single LLM call with the given system and user prompts."""
-        logger.info("Calling model: %s", self.model)
+        """使用给定的系统提示词和用户提示词执行一次大语言模型调用。"""
+        logger.info("正在调用模型：%s", self.model)
 
-        # OpenAI uses 'instructions' for the system prompt
+        # OpenAI 使用 instructions 参数传入系统提示词
         response = self.client.responses.create(
             model=self.model,
             temperature=0.1,
@@ -103,7 +101,7 @@ class PromptEngineer:
         if hasattr(response, "usage") and response.usage:
             self.token_tracker.track(response.usage)
             logger.info(
-                "Tokens - Input: %d, Output: %d",
+                "Token 数量 - 输入：%d，输出：%d",
                 response.usage.input_tokens,
                 response.usage.output_tokens,
             )
@@ -112,41 +110,41 @@ class PromptEngineer:
 
 
 def main() -> None:
-    """Run support ticket triage with three different system prompts."""
+    """使用三种不同的系统提示词执行支持工单分类。"""
     console = Console()
     token_tracker = OpenAITokenTracker()
-    engineer = PromptEngineer("gpt-4.1", token_tracker)
+    engineer = PromptEngineer("gpt-5.5", token_tracker)
 
     header = Panel(
-        "[bold cyan]System Prompts & Role Engineering[/bold cyan]\n\n"
-        "Comparing 3 system prompt configurations on support ticket triage.\n"
-        "Watch how the response style and actionability change with better prompts.",
-        title="Prompt Engineering — OpenAI",
+        "[bold cyan]系统提示词与角色工程[/bold cyan]\n\n"
+        "比较 3 种系统提示词配置在支持工单分类任务中的表现。\n"
+        "观察随着提示词改进，响应风格和可操作性如何变化。",
+        title="提示工程 — OpenAI",
     )
 
     try:
         while True:
-            # Step 1: Select a support ticket
+            # 第 1 步：选择一张支持工单
             selection = interactive_menu(
                 console,
                 TICKET_LABELS,
-                title="Select a Support Ticket",
+                title="选择一张支持工单",
                 header=header,
                 allow_custom=True,
-                custom_prompt="Enter a custom support ticket",
+                custom_prompt="输入自定义支持工单",
             )
             if not selection:
                 break
 
             ticket = next((t for t in SUPPORT_TICKETS if t["label"] == selection), None)
             ticket_text = ticket["text"] if ticket else selection
-            ticket_label = ticket["label"] if ticket else "Custom Ticket"
-            user_prompt = f"Analyze this support ticket:\n\n{ticket_text}"
+            ticket_label = ticket["label"] if ticket else "自定义工单"
+            user_prompt = f"分析这张支持工单：\n\n{ticket_text}"
 
-            # Step 2: Select prompt configs to run against the ticket
+            # 第 2 步：选择要用于这张工单的提示词配置
             ticket_header = Panel(
                 f"[bold magenta]{ticket_label}[/bold magenta]\n[dim]{ticket_text}[/dim]",
-                title="Selected Ticket",
+                title="已选工单",
                 border_style="magenta",
             )
 
@@ -154,7 +152,7 @@ def main() -> None:
                 config_selection = interactive_menu(
                     console,
                     CONFIG_LABELS,
-                    title="Select a Prompt Configuration",
+                    title="选择一种提示词配置",
                     header=ticket_header,
                 )
                 if not config_selection:
@@ -163,22 +161,22 @@ def main() -> None:
                 config = next(c for c in PROMPT_CONFIGS if c["label"] == config_selection)
 
                 console.print(f"\n[bold yellow]━━━ {config['label']} ━━━[/bold yellow]")
-                console.print(Panel(config["system"], title="System Prompt", border_style="dim"))
+                console.print(Panel(config["system"], title="系统提示词", border_style="dim"))
 
                 try:
                     response = engineer.run(config["system"], user_prompt)
                     console.print(Panel(response, title=config["label"], border_style="green"))
                 except Exception as e:
-                    logger.error("Error with config %s: %s", config["label"], e)
+                    logger.error("配置 %s 出错：%s", config["label"], e)
 
                 token_tracker.report()
                 token_tracker.reset()
 
-                console.print("\n[dim]Press Enter to continue...[/dim]")
+                console.print("\n[dim]按 Enter 键继续……[/dim]")
                 input()
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]已中断。[/yellow]")
 
 
 if __name__ == "__main__":

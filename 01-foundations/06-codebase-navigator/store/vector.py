@@ -1,8 +1,8 @@
 """
-Vector Store
+向量存储
 
-ChromaDB-based vector store for semantic search over indexed codebases.
-This is the "Retrieval" augmentation of the Augmented LLM pattern.
+基于 ChromaDB 的向量存储，用于对已索引代码库进行语义搜索。
+这是增强型 LLM 模式中的“检索”增强能力。
 """
 
 from pathlib import Path
@@ -14,19 +14,19 @@ from common.logging_config import setup_logging
 
 logger = setup_logging(__name__)
 
-# Persist ChromaDB data to local directory
+# 将 ChromaDB 数据持久化到本地目录
 DEFAULT_CHROMA_PATH = str(Path(__file__).parent.parent / "data" / "chroma")
 
 
 class VectorStore:
-    """ChromaDB wrapper for storing and querying code embeddings."""
+    """用于存储和查询代码嵌入向量的 ChromaDB 封装。"""
 
     def __init__(self, persist_dir: str = DEFAULT_CHROMA_PATH) -> None:
         self.client = chromadb.PersistentClient(path=persist_dir)
-        logger.info("ChromaDB initialized at %s", persist_dir)
+        logger.info("ChromaDB 已在 %s 初始化", persist_dir)
 
     def get_or_create_collection(self, name: str) -> chromadb.Collection:
-        """Get or create a collection for a repository."""
+        """获取或创建仓库对应的集合。"""
         return self.client.get_or_create_collection(
             name=name,
             metadata={"hnsw:space": "cosine"},
@@ -40,9 +40,9 @@ class VectorStore:
         embeddings: list[list[float]],
         metadatas: list[dict[str, Any]],
     ) -> None:
-        """Add code chunks with pre-computed embeddings to a collection."""
+        """将带有预计算嵌入向量的代码块添加到集合。"""
         collection = self.get_or_create_collection(collection_name)
-        # ChromaDB has a batch size limit, add in chunks of 500
+        # ChromaDB 有批次大小限制，每批添加 500 条
         batch_size = 500
         for i in range(0, len(ids), batch_size):
             end = i + batch_size
@@ -52,7 +52,7 @@ class VectorStore:
                 embeddings=embeddings[i:end],
                 metadatas=metadatas[i:end],
             )
-        logger.info("Added %d chunks to collection '%s'", len(ids), collection_name)
+        logger.info("已向集合“%s”添加 %d 个代码块", collection_name, len(ids))
 
     def search(
         self,
@@ -60,7 +60,7 @@ class VectorStore:
         collection_name: str | None = None,
         n_results: int = 5,
     ) -> list[dict[str, Any]]:
-        """Search for similar code chunks across one or all collections."""
+        """在一个或全部集合中搜索相似代码块。"""
         collections = (
             [self.client.get_collection(collection_name)]
             if collection_name
@@ -87,12 +87,12 @@ class VectorStore:
                     }
                 )
 
-        # Sort by distance (lower = more similar for cosine)
+        # 按距离排序（使用余弦距离时，值越小表示越相似）
         all_results.sort(key=lambda x: x["distance"])
         return all_results[:n_results]
 
     def list_collections(self) -> list[dict[str, Any]]:
-        """List all indexed repositories with stats."""
+        """列出所有已索引仓库及其统计信息。"""
         result = []
         for collection in self.client.list_collections():
             result.append(
@@ -104,5 +104,5 @@ class VectorStore:
         return result
 
     def collection_exists(self, name: str) -> bool:
-        """Check if a collection already exists."""
+        """检查集合是否已存在。"""
         return any(c.name == name for c in self.client.list_collections())

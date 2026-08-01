@@ -1,49 +1,49 @@
 <!-- ---
-title: "Prompt Engineering"
-description: "Learn prompt engineering techniques including system messages, few-shot examples, and structured output"
+title: "提示工程"
+description: "学习系统消息、少样本示例和结构化输出等提示工程技术"
 icon: "wand"
 --- -->
 
-# Prompt Engineering
+# 提示工程
 
-Learn how to shape LLM behavior through prompting techniques. Every AI agent's capabilities start with how its prompts are engineered — this tutorial covers the core techniques you'll use in every agent you build.
+学习如何通过提示技术塑造大语言模型的行为。每个 AI 智能体的能力都始于其提示词的设计方式——本教程涵盖你构建每个智能体时都会用到的核心技术。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Use system prompts and role engineering to control LLM behavior
-- Apply few-shot prompting for in-context learning
-- Guide reasoning with chain-of-thought (CoT) prompting
-- Extract structured JSON output via prompt instructions
-- Use provider-specific techniques: Anthropic XML scaffolding, OpenAI JSON schema enforcement
-- Compare prompting strategies side-by-side to understand their trade-offs
+- 使用系统提示词和角色工程控制大语言模型的行为
+- 应用少样本提示进行上下文学习
+- 使用思维链（CoT）提示引导推理
+- 通过提示词指令提取结构化 JSON 输出
+- 使用供应商特有的技术：Anthropic XML 脚手架、OpenAI JSON Schema 强制执行
+- 并排比较不同提示策略，了解各自的权衡
 
-## 📦 Available Examples
+## 📦 可用示例
 
-| Provider                                        | File                                                                   | Description                                                   |
-| ----------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------- |
-| ![Anthropic](../../common/badges/anthropic.svg) | [01_system_prompts_anthropic.py](01_system_prompts_anthropic.py)       | System prompts & role engineering                             |
-| ![OpenAI](../../common/badges/openai.svg)       | [02_system_prompts_openai.py](02_system_prompts_openai.py)             | System prompts & role engineering                             |
-| ![Anthropic](../../common/badges/anthropic.svg) | [03_few_shot_cot_anthropic.py](03_few_shot_cot_anthropic.py)           | Zero-shot, few-shot & chain-of-thought demos                  |
-| ![OpenAI](../../common/badges/openai.svg)       | [04_few_shot_cot_openai.py](04_few_shot_cot_openai.py)                 | Zero-shot, few-shot & chain-of-thought demos                  |
-| ![Anthropic](../../common/badges/anthropic.svg) | [05_structured_output_anthropic.py](05_structured_output_anthropic.py) | Product extraction — prompt, XML scaffolding & native schema  |
-| ![OpenAI](../../common/badges/openai.svg)       | [06_structured_output_openai.py](06_structured_output_openai.py)       | Product extraction — prompt, scaffolding & schema enforcement |
+| 供应商                                          | 文件                                                                   | 说明                                                        |
+| ----------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------- |
+| ![Anthropic](../../common/badges/anthropic.svg) | [01_system_prompts_anthropic.py](01_system_prompts_anthropic.py)       | 系统提示词与角色工程                                        |
+| ![OpenAI](../../common/badges/openai.svg)       | [02_system_prompts_openai.py](02_system_prompts_openai.py)             | 系统提示词与角色工程                                        |
+| ![Anthropic](../../common/badges/anthropic.svg) | [03_few_shot_cot_anthropic.py](03_few_shot_cot_anthropic.py)           | 零样本、少样本与思维链演示                                  |
+| ![OpenAI](../../common/badges/openai.svg)       | [04_few_shot_cot_openai.py](04_few_shot_cot_openai.py)                 | 零样本、少样本与思维链演示                                  |
+| ![Anthropic](../../common/badges/anthropic.svg) | [05_structured_output_anthropic.py](05_structured_output_anthropic.py) | 产品信息提取——提示词、XML 脚手架与原生模式                  |
+| ![OpenAI](../../common/badges/openai.svg)       | [06_structured_output_openai.py](06_structured_output_openai.py)       | 产品信息提取——提示词、脚手架与模式强制执行                  |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+, API keys, and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+、API 密钥和 uv。完整的设置说明请参阅 [SETUP.md](../../SETUP.md)。
 
 ```bash
 uv run --directory 01-foundations/02-prompt-engineering python {script_name}
 
-# Example
+# 示例
 uv run --directory 01-foundations/02-prompt-engineering python 01_system_prompts_anthropic.py
 ```
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，单击一次即可运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
-### 1. Prompt Engineering Layers
+### 1. 提示工程的层次
 
 ```mermaid
 ---
@@ -52,93 +52,98 @@ config:
   theme: neutral
 ---
 flowchart LR
-    A(["🗣️ System Prompt "]) -->|shape behavior| D["🧠 LLM Call   "]
-    B(["📝 Few-Shot Examples"]) -->|teach patterns| D
-    C(["📋 Output Schema "]) -->|constrain format| D
-    D -->|response| E(["📄 Structured Output"])
+    A(["🗣️ 系统提示词 "]) -->|塑造行为| D["🧠 大语言模型调用   "]
+    B(["📝 少样本示例"]) -->|教授模式| D
+    C(["📋 输出模式 "]) -->|约束格式| D
+    D -->|响应| E(["📄 结构化输出"])
 ```
 
-Each layer adds more control over the LLM's response. Used together, they let you build agents that produce reliable, parseable output.
+每一层都会增强对大语言模型响应的控制。组合使用这些层次，就能构建可生成可靠、可解析输出的智能体。
 
-### 2. System Prompts & Role Engineering
+### 2. 系统提示词与角色工程
 
-System prompts are the primary lever for controlling agent behavior. The scripts compare three levels of refinement on the same support ticket triage task — an ambiguous ticket forces each prompt to determine *how* the ticket is interpreted and *what* gets prioritized:
+系统提示词是控制智能体行为的主要手段。这些脚本针对同一个支持工单分类任务比较三个逐步优化的层次——一张含义模糊的工单会迫使每种提示词决定如何解读工单，以及优先处理什么：
 
-| Configuration                   | What It Does                                                            |
-| ------------------------------- | ----------------------------------------------------------------------- |
-| **Generic assistant**           | Baseline — "You are a helpful assistant" (hedges, gives generic advice) |
-| **Role-assigned expert**        | Identity + domain expertise + decisiveness (makes a call)               |
-| **Role + constraints + format** | All of the above + strict output sections (terse, actionable)           |
+| 配置                       | 作用                                                        |
+| -------------------------- | ----------------------------------------------------------- |
+| **通用助手**               | 基线——“你是一名乐于助人的助手”（措辞保守，给出通用建议）    |
+| **指定角色的专家**         | 身份 + 领域专业知识 + 决断力（作出明确判断）                 |
+| **角色 + 约束 + 格式**     | 包含以上全部内容 + 严格的输出分节（简洁、可执行）            |
 
-**Anthropic** — system prompt as a top-level parameter:
+**Anthropic**——将系统提示词作为顶层参数：
+
 ```python
 response = client.messages.create(
     model="claude-sonnet-4-6",
-    system="You are a senior support engineer at a SaaS company...",  # System prompt
-    messages=[{"role": "user", "content": "Analyze this support ticket..."}],
+    system="你是一家 SaaS 公司的高级支持工程师……",  # 系统提示词
+    messages=[{"role": "user", "content": "分析这张支持工单……"}],
 )
 ```
 
-**OpenAI** — system prompt via `instructions`:
+**OpenAI**——通过 `instructions` 传入系统提示词：
+
 ```python
 response = client.responses.create(
     model="gpt-4o",
-    instructions="You are a senior support engineer at a SaaS company...",  # System prompt
-    input="Analyze this support ticket...",
+    instructions="你是一家 SaaS 公司的高级支持工程师……",  # 系统提示词
+    input="分析这张支持工单……",
 )
 ```
 
-> The more specific and constrained your system prompt, the more consistent and useful the output. This is the single most important prompt engineering technique for agents.
+> 系统提示词越具体、约束越明确，输出就越一致、越有用。这是智能体最重要的提示工程技术。
 
-### 3. Few-Shot & Chain-of-Thought
+### 3. 少样本与思维链
 
-The scripts demonstrate three techniques, each on a task where it shines — showing *why* you'd choose one over another:
+这些脚本演示三种技术，每种技术都用于最适合它的任务，以说明为什么要选择其中一种而不是其他技术：
 
-| Technique     | Demo Task                   | Why This Technique                             |
-| ------------- | --------------------------- | ---------------------------------------------- |
-| **Zero-shot** | Sentiment analysis          | Model already knows POSITIVE/NEGATIVE/NEUTRAL  |
-| **Few-shot**  | Custom label classification | Teaches domain labels like `BILLING_DISPUTE`   |
-| **CoT**       | Root cause analysis         | Multi-step reasoning produces better diagnosis |
+| 技术         | 演示任务             | 选择该技术的原因                                      |
+| ------------ | -------------------- | ----------------------------------------------------- |
+| **零样本**   | 情感分析             | 模型已经理解“正面/负面/中性”                          |
+| **少样本**   | 自定义标签分类       | 教授 `BILLING_DISPUTE` 等领域标签                     |
+| **思维链**   | 根本原因分析         | 多步推理可以得到更好的诊断结果                        |
 
-**Zero-shot** — no examples needed when the task is well-understood:
+**零样本**——任务定义清晰时不需要示例：
+
 ```python
 system = (
-    "Classify the sentiment of the following product review.\n"
-    "Respond with exactly one word: POSITIVE, NEGATIVE, or NEUTRAL."
+    "对以下产品评价的情感进行分类。\n"
+    "只能用一个词作答：正面、负面或中性。"
 )
 ```
 
-**Few-shot** — examples teach the model YOUR custom taxonomy:
+**少样本**——通过示例向模型教授你自己的分类体系：
+
 ```python
 EXAMPLES = [
-    ("I was charged twice for the same subscription", "BILLING_DISPUTE"),
-    ("Can't log in even after resetting my password", "ACCOUNT_ACCESS"),
+    ("同一项订阅向我收取了两次费用", "BILLING_DISPUTE"),
+    ("重置密码后仍然无法登录", "ACCOUNT_ACCESS"),
 ]
 
 examples_text = "\n".join(
-    f'Ticket: "{text}"\nCategory: {label}' for text, label in EXAMPLES
+    f'工单："{text}"\n类别：{label}' for text, label in EXAMPLES
 )
 ```
 
-**Chain-of-thought** — step-by-step reasoning for complex problems:
+**思维链**——对复杂问题进行逐步推理：
+
 ```python
 system = (
-    "Analyze this bug report step by step:\n"
-    "1. What patterns do you observe? (timing, scope, triggers)\n"
-    "2. What does each clue rule in or rule out?\n"
-    "3. What is the most likely root cause?\n"
-    "4. What would you check first to confirm?"
+    "逐步分析这份缺陷报告：\n"
+    "1. 你观察到了哪些模式？（时间、范围、触发条件）\n"
+    "2. 每条线索支持或排除了哪些可能性？\n"
+    "3. 最可能的根本原因是什么？\n"
+    "4. 你会首先检查什么来验证结论？"
 )
 ```
 
-> **When to use what:** Zero-shot for well-known tasks (fast, cheap). Few-shot when you need custom labels or domain-specific classification (more input tokens). CoT when accuracy on reasoning tasks matters more than speed (more output tokens).
+> **如何选择：** 对常见任务使用零样本方法（速度快、成本低）。需要自定义标签或领域特定分类时使用少样本方法（需要更多输入 Token）。推理任务的准确性比速度更重要时使用思维链（需要更多输出 Token）。
 
-### 4. Structured Output & Scaffolding
+### 4. 结构化输出与脚手架
 
-Agents must produce parseable output. The scripts extract product data from a single description using three methods each, making it easy to compare reliability:
+智能体必须生成可解析的输出。每个脚本都使用三种方法从同一段描述中提取产品数据，便于比较可靠性：
 
 ```python
-# Product extraction schema used across all methods
+# 所有方法共用的产品信息提取模式
 class ProductExtraction(BaseModel):
     name: str
     category: str
@@ -147,32 +152,35 @@ class ProductExtraction(BaseModel):
     in_stock: bool
 ```
 
-**Anthropic — native JSON schema via `output_config` (recommended):**
+**Anthropic——通过 `output_config` 使用原生 JSON Schema（推荐）：**
+
 ```python
-# API-level schema enforcement — guaranteed valid JSON
+# 在 API 层强制执行模式——保证 JSON 有效
 response = client.messages.parse(
     model="claude-sonnet-4-6",
     messages=[{"role": "user", "content": product_description}],
     output_format=ProductExtraction,
 )
-product = response.parsed_output  # Validated Pydantic model instance
+product = response.parsed_output  # 经过验证的 Pydantic 模型实例
 ```
 
-**Anthropic — XML scaffolding (prompting technique):**
+**Anthropic——XML 脚手架（提示技术）：**
+
 ```python
-# XML tags structure the input — clearly separate schema from data
+# XML 标签构造输入结构——清楚地区分模式与数据
 messages = [
     {"role": "user", "content": "<schema>...</schema>\n<product_description>...</product_description>"},
 ]
 ```
 
-> **Note:** Earlier Claude models supported *assistant-message prefill* — seeding the assistant turn with `{` to force JSON output. Claude 4.6 [removed support](https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-6#breaking-changes) for this: the conversation must end with a user message. If you need prefill-style guarantees today, prefer native schema enforcement (below).
+> **注意：** 早期 Claude 模型支持“助手消息预填充”——在助手轮次中预先放入 `{` 以强制输出 JSON。Claude 4.6 已[移除对此功能的支持](https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-6#breaking-changes)：对话必须以用户消息结束。如果现在需要类似预填充的保证，请优先使用下方的原生模式强制执行。
 
-**OpenAI — native JSON schema enforcement:**
+**OpenAI——原生 JSON Schema 强制执行：**
+
 ```python
 response = client.responses.create(
     model="gpt-4o",
-    instructions="Extract product information...",
+    instructions="提取产品信息……",
     input=product_description,
     text={"format": {
         "type": "json_schema",
@@ -183,16 +191,16 @@ response = client.responses.create(
 )
 ```
 
-> **Both providers now offer schema enforcement.** Anthropic's `output_config` and OpenAI's `text.format` both guarantee valid JSON via constrained decoding. Prompt-based techniques (XML scaffolding) remain useful when you need more control over the prompting strategy.
+> **两家供应商现在都提供模式强制执行。** Anthropic 的 `output_config` 和 OpenAI 的 `text.format` 都通过约束解码保证 JSON 有效。需要更精细地控制提示策略时，基于提示词的技术（XML 脚手架）仍然很有用。
 
-### 5. Output Validation
+### 5. 输出验证
 
-Always validate structured output for prompt-based methods. Native schema enforcement handles validation automatically, but check for refusals (`stop_reason: "refusal"`) and token limits (`stop_reason: "max_tokens"`) which can produce non-conforming output:
+对于基于提示词的方法，始终要验证结构化输出。原生模式强制执行会自动处理验证，但仍需检查拒绝响应（`stop_reason: "refusal"`）和 Token 上限（`stop_reason: "max_tokens"`），这些情况可能产生不符合模式的输出：
 
 ```python
 def try_parse_json(raw: str) -> dict | None:
     text = raw.strip()
-    # Strip markdown fences if the LLM added them
+    # 如果大语言模型添加了 Markdown 代码围栏，则将其移除
     if text.startswith("```"):
         lines = text.splitlines()
         text = "\n".join(lines[1:-1])
@@ -202,16 +210,17 @@ def try_parse_json(raw: str) -> dict | None:
         return None
 ```
 
-## ⚠️ Important Considerations
+## ⚠️ 重要注意事项
 
-- **Prompt injection** — System prompts can be overridden by adversarial user input. Never rely solely on prompts for security boundaries. This becomes critical in [Tool Use](../04-tool-use/README.md).
-- **Token costs** — Few-shot examples add input tokens to every call. In high-volume agents, consider whether the accuracy improvement justifies the cost.
-- **JSON reliability** — Prompt-based JSON extraction can fail. Use provider-native schema enforcement (Anthropic `output_config`, OpenAI `text.format`) for guaranteed valid JSON in production.
-- **Temperature** — Set `temperature=0.0` for classification and structured output tasks where consistency matters. These scripts all use low temperature for reproducible results.
+- **提示词注入**——系统提示词可能被恶意用户输入覆盖。切勿仅依靠提示词建立安全边界。这一点在[工具使用](../04-tool-use/README.md)中至关重要。
+- **Token 成本**——少样本示例会增加每次调用的输入 Token。对于高调用量的智能体，应评估准确率提升是否值得相应成本。
+- **JSON 可靠性**——基于提示词的 JSON 提取可能失败。在生产环境中，应使用供应商原生的模式强制执行（Anthropic `output_config`、OpenAI `text.format`）来保证 JSON 有效。
+- **温度**——对于重视一致性的分类和结构化输出任务，请设置 `temperature=0.0`。这些脚本都使用较低温度，以获得可复现的结果。
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-Once you've mastered prompt engineering, continue to:
-- **[Chat](../03-chat/README.md)** — Add conversation history and multi-turn interactions
-- **Experiment** — Try different role descriptions, add more few-shot examples, or combine techniques across scripts
-- **Explore** — Modify the classification categories or task schema to match your domain
+掌握提示工程后，可以继续：
+
+- **[聊天](../03-chat/README.md)**——添加对话历史和多轮交互
+- **实验**——尝试不同的角色描述、添加更多少样本示例，或组合多个脚本中的技术
+- **探索**——修改分类类别或任务模式，使其适合你的领域

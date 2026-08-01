@@ -1,14 +1,14 @@
 [project]
 name = "lesson-tool-use"
 version = "0.1.0"
-description = "Lesson 4: Tool use - enabling LLMs to call functions (Anthropic & OpenAI)"
+description = "第 4 课：工具使用——让 LLM 能够调用函数（Anthropic 和 OpenAI）"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=0.40.0",  # Anthropic API client
+    "anthropic>=0.40.0",  # Anthropic API 客户端
     "common",
-    "openai>=1.0.0",  # OpenAI API client
-    "python-dotenv>=1.0.0",  # Environment variable management
-    "rich>=13.7.0",  # Beautiful terminal output
+    "openai>=1.0.0",  # OpenAI API 客户端
+    "python-dotenv>=1.0.0",  # 环境变量管理
+    "rich>=13.7.0",  # 美观的终端输出
 ]
 
 [tool.uv.sources]

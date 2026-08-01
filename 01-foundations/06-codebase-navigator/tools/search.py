@@ -1,7 +1,7 @@
 """
-Search Tools
+搜索工具
 
-Semantic search and regex grep across indexed codebases.
+在已索引代码库中进行语义搜索和正则表达式 grep 搜索。
 """
 
 import re
@@ -16,26 +16,26 @@ from common.logging_config import setup_logging
 
 logger = setup_logging(__name__)
 
-# Where cloned repos are stored
+# 克隆仓库的存储位置
 REPOS_DIR = Path(__file__).parent.parent / "repos"
 
 SEARCH_TOOLS = [
     {
         "name": "search_code",
         "description": (
-            "Semantic search across indexed codebases. Use for conceptual questions "
-            "like 'how does routing work?' or 'where is auth handled?'"
+            "在已索引代码库中进行语义搜索。适用于概念性问题，"
+            "例如“路由是如何工作的？”或“身份验证在哪里处理？”"
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Natural language search query",
+                    "description": "自然语言搜索查询",
                 },
                 "repo": {
                     "type": "string",
-                    "description": "Limit search to specific repo (optional)",
+                    "description": "将搜索范围限定到指定仓库（可选）",
                 },
             },
             "required": ["query"],
@@ -44,19 +44,19 @@ SEARCH_TOOLS = [
     {
         "name": "grep",
         "description": (
-            "Exact regex pattern search across repository files. "
-            "Use for finding specific identifiers, TODOs, or exact strings."
+            "使用正则表达式在仓库文件中进行精确模式搜索。"
+            "适用于查找指定标识符、TODO 或精确字符串。"
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "pattern": {
                     "type": "string",
-                    "description": "Regex pattern to search for",
+                    "description": "要搜索的正则表达式模式",
                 },
                 "repo": {
                     "type": "string",
-                    "description": "Limit search to specific repo (optional)",
+                    "description": "将搜索范围限定到指定仓库（可选）",
                 },
             },
             "required": ["pattern"],
@@ -68,7 +68,7 @@ SEARCH_TOOLS = [
 def execute_search_code(
     vector_store: VectorStore, embedder: Embedder, tool_input: dict[str, Any]
 ) -> str:
-    """Semantic search across indexed codebases."""
+    """在已索引代码库中进行语义搜索。"""
     query = tool_input["query"]
     repo = tool_input.get("repo")
 
@@ -80,15 +80,15 @@ def execute_search_code(
     )
 
     if not results:
-        return f"No results found for: {query}"
+        return f"未找到与以下查询相关的结果：{query}"
 
-    parts = [f"Search results for: '{query}'\n"]
+    parts = [f"“{query}”的搜索结果：\n"]
     for i, r in enumerate(results, 1):
         meta = r["metadata"]
-        score = 1 - r["distance"]  # Convert distance to similarity
+        score = 1 - r["distance"]  # 将距离转换为相似度
         parts.append(
-            f"### Result {i} (relevance: {score:.2f})\n"
-            f"**{meta['filepath']}** lines {meta['start_line']}-{meta['end_line']} "
+            f"### 结果 {i}（相关度：{score:.2f}）\n"
+            f"**{meta['filepath']}** 第 {meta['start_line']}～{meta['end_line']} 行 "
             f"[{r['collection']}]\n"
             f"```\n{r['content'][:500]}\n```\n"
         )
@@ -97,23 +97,23 @@ def execute_search_code(
 
 
 def execute_grep(vector_store: VectorStore, _embedder: Embedder, tool_input: dict[str, Any]) -> str:
-    """Regex search across repository files."""
+    """使用正则表达式在仓库文件中搜索。"""
     pattern = tool_input["pattern"]
     repo = tool_input.get("repo")
 
     try:
         regex = re.compile(pattern, re.IGNORECASE)
     except re.error as e:
-        return f"Invalid regex pattern: {e}"
+        return f"无效的正则表达式模式：{e}"
 
-    # Determine which repos to search
+    # 确定要搜索的仓库
     if repo:
         search_dirs = [REPOS_DIR / repo]
     else:
         search_dirs = [d for d in REPOS_DIR.iterdir() if d.is_dir()] if REPOS_DIR.exists() else []
 
     if not search_dirs:
-        return "No repositories available. Use clone_and_index first."
+        return "没有可用的仓库。请先使用 clone_and_index。"
 
     matches: list[str] = []
     context_lines = 2
@@ -149,9 +149,9 @@ def execute_grep(vector_store: VectorStore, _embedder: Embedder, tool_input: dic
             break
 
     if not matches:
-        return f"No matches for pattern: {pattern}"
+        return f"未找到与以下模式匹配的结果：{pattern}"
 
-    header = f"Found {len(matches)} matches for `{pattern}`"
+    header = f"找到 {len(matches)} 个与 `{pattern}` 匹配的结果"
     if len(matches) >= 20:
-        header += " (showing first 20)"
+        header += "（显示前 20 个）"
     return header + "\n\n" + "\n\n".join(matches)

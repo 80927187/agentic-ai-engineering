@@ -1,15 +1,15 @@
 [project]
 name = "lesson-prompt-engineering"
 version = "0.1.0"
-description = "Lesson 2: Prompt engineering techniques (Anthropic & OpenAI)"
+description = "第 2 课：提示工程技术（Anthropic 与 OpenAI）"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=0.76.0",  # Anthropic API client (structured outputs via output_config)
-    "openai>=1.0.0",  # OpenAI API client
-    "pydantic>=2.0.0",  # Schema definitions for structured output
-    "python-dotenv>=1.0.0",  # Environment variable management
+    "anthropic>=0.76.0",  # Anthropic API 客户端（通过 output_config 实现结构化输出）
+    "openai>=1.0.0",  # OpenAI API 客户端
+    "pydantic>=2.0.0",  # 结构化输出的模式定义
+    "python-dotenv>=1.0.0",  # 环境变量管理
     "common",
-    "rich>=13.7.0",  # Beautiful terminal output
+    "rich>=13.7.0",  # 美观的终端输出
 ]
 
 [tool.uv.sources]

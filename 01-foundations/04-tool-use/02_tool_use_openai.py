@@ -1,8 +1,8 @@
 """
-Tool Use (OpenAI)
+工具使用（OpenAI）
 
-Demonstrates how to enable model to call functions and use tools.
-Uses practical tools: calculator, file reader, and bash command execution.
+演示如何让模型调用函数和使用工具。
+使用以下实用工具：计算器、文件读取器和 Bash 命令执行器。
 """
 
 import json
@@ -17,29 +17,29 @@ from rich.panel import Panel
 
 from common import OpenAITokenTracker, setup_logging
 
-# Load environment variables from root .env file
+# 从根目录的 .env 文件加载环境变量
 load_dotenv(find_dotenv())
 
-# Configure logging
+# 配置日志
 logger = setup_logging(__name__)
 
 
-# Define available tools in OpenAI Responses API format
+# 使用 OpenAI Responses API 格式定义可用工具
 TOOLS = [
     {
         "type": "function",
         "name": "calculator",
-        "description": "Performs basic arithmetic operations. Supports addition, subtraction, multiplication, and division.",
+        "description": "执行基本算术运算，支持加法、减法、乘法和除法。",
         "parameters": {
             "type": "object",
             "properties": {
                 "operation": {
                     "type": "string",
                     "enum": ["add", "subtract", "multiply", "divide"],
-                    "description": "The arithmetic operation to perform",
+                    "description": "要执行的算术运算",
                 },
-                "a": {"type": "number", "description": "First number"},
-                "b": {"type": "number", "description": "Second number"},
+                "a": {"type": "number", "description": "第一个数"},
+                "b": {"type": "number", "description": "第二个数"},
             },
             "required": ["operation", "a", "b"],
         },
@@ -47,17 +47,17 @@ TOOLS = [
     {
         "type": "function",
         "name": "read_file",
-        "description": "Reads the contents of a file at the specified path. Returns the file content as text.",
+        "description": "读取指定路径下的文件内容，并以文本形式返回。",
         "parameters": {
             "type": "object",
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "The path to the file to read",
+                    "description": "要读取的文件路径",
                 },
                 "max_lines": {
                     "type": "integer",
-                    "description": "Maximum number of lines to read (default: 100)",
+                    "description": "最多读取的行数（默认值：100）",
                     "default": 100,
                 },
             },
@@ -67,17 +67,17 @@ TOOLS = [
     {
         "type": "function",
         "name": "run_bash",
-        "description": "Executes a bash command and returns the output. Use for system commands like ls, pwd, echo, date, etc.",
+        "description": "执行 Bash 命令并返回输出。适用于 ls、pwd、echo、date 等系统命令。",
         "parameters": {
             "type": "object",
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": "The bash command to execute",
+                    "description": "要执行的 Bash 命令",
                 },
                 "timeout": {
                     "type": "integer",
-                    "description": "Timeout in seconds (default: 30)",
+                    "description": "超时时间（秒，默认值：30）",
                     "default": 30,
                 },
             },
@@ -88,22 +88,22 @@ TOOLS = [
 
 
 def calculator(operation: str, a: float, b: float) -> dict[str, Any]:
-    """Execute calculator tool."""
+    """执行计算器工具。"""
     operations = {
         "add": lambda x, y: x + y,
         "subtract": lambda x, y: x - y,
         "multiply": lambda x, y: x * y,
-        "divide": lambda x, y: x / y if y != 0 else "Error: Division by zero",
+        "divide": lambda x, y: x / y if y != 0 else "错误：除数不能为零",
     }
 
     result = operations[operation](a, b)
-    logger.info("Calculator: %s %s %s = %s", a, operation, b, result)
+    logger.info("计算器：%s %s %s = %s", a, operation, b, result)
 
     return {"result": result, "operation": operation, "operands": [a, b]}
 
 
 def read_file(path: str, max_lines: int = 100) -> dict[str, Any]:
-    """Read the contents of a file."""
+    """读取文件内容。"""
     try:
         with open(path, encoding="utf-8") as f:
             lines = f.readlines()
@@ -112,7 +112,7 @@ def read_file(path: str, max_lines: int = 100) -> dict[str, Any]:
         content = "".join(lines[:max_lines])
         truncated = total_lines > max_lines
 
-        logger.info("Read file: %s (%d lines)", path, total_lines)
+        logger.info("读取文件：%s（%d 行）", path, total_lines)
 
         return {
             "path": path,
@@ -121,9 +121,9 @@ def read_file(path: str, max_lines: int = 100) -> dict[str, Any]:
             "truncated": truncated,
         }
     except FileNotFoundError:
-        return {"error": f"File not found: {path}"}
+        return {"error": f"找不到文件：{path}"}
     except PermissionError:
-        return {"error": f"Permission denied: {path}"}
+        return {"error": f"没有权限访问：{path}"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -132,15 +132,15 @@ BLOCKED_COMMANDS = ["rm", "sudo", "chmod", "chown", "mkfs", "dd", "shutdown", "r
 
 
 def run_bash(command: str, timeout: int = 30) -> dict[str, Any]:
-    """Execute a bash command and return the output."""
-    # Simple guardrail: block dangerous commands
+    """执行 Bash 命令并返回输出。"""
+    # 简单的安全防护：拦截危险命令
     cmd_lower = command.lower().strip()
     for blocked in BLOCKED_COMMANDS:
         if blocked in cmd_lower:
-            logger.warning("Blocked dangerous command: %s", command)
-            return {"error": f"Command blocked for safety: contains '{blocked}'"}
+            logger.warning("已拦截危险命令：%s", command)
+            return {"error": f"出于安全考虑，命令已被拦截：包含 '{blocked}'"}
 
-    logger.info("Running bash command: %s", command)
+    logger.info("正在运行 Bash 命令：%s", command)
 
     try:
         result = subprocess.run(
@@ -158,12 +158,12 @@ def run_bash(command: str, timeout: int = 30) -> dict[str, Any]:
             "exit_code": result.returncode,
         }
     except subprocess.TimeoutExpired:
-        return {"error": f"Command timed out after {timeout} seconds"}
+        return {"error": f"命令执行超过 {timeout} 秒后超时"}
     except Exception as e:
         return {"error": str(e)}
 
 
-# Tool execution mapping
+# 工具执行映射
 TOOL_FUNCTIONS = {
     "calculator": calculator,
     "read_file": read_file,
@@ -172,20 +172,20 @@ TOOL_FUNCTIONS = {
 
 
 def execute_tool(tool_name: str, tool_input: dict[str, Any]) -> Any:
-    """Execute a tool and return its result."""
+    """执行工具并返回结果。"""
     if tool_name not in TOOL_FUNCTIONS:
-        return {"error": f"Unknown tool: {tool_name}"}
+        return {"error": f"未知工具：{tool_name}"}
 
     try:
         func = TOOL_FUNCTIONS[tool_name]
         return func(**tool_input)  # type: ignore[operator]
     except Exception as e:
-        logger.error("Tool execution error: %s", e)
+        logger.error("工具执行错误：%s", e)
         return {"error": str(e)}
 
 
 class ToolUseChat:
-    """Chat session with tool use capabilities."""
+    """具备工具使用能力的聊天会话。"""
 
     def __init__(
         self,
@@ -193,7 +193,7 @@ class ToolUseChat:
         token_tracker: OpenAITokenTracker,
         console: Console,
     ):
-        """Initialize the chat session with tools."""
+        """初始化带工具的聊天会话。"""
         self.client = OpenAI()
         self.token_tracker = token_tracker
         self.console = console
@@ -201,15 +201,15 @@ class ToolUseChat:
         self.model = model
 
     def send_message(self, user_message: str) -> str:
-        """Send a message and handle potential tool use."""
-        # Add user message
+        """发送消息并处理可能发生的工具调用。"""
+        # 添加用户消息
         self.messages.append({"role": "user", "content": user_message})
 
-        # Keep processing until we get a final text response
+        # 持续处理，直到获得最终文本回复
         while True:
-            logger.info("API call (messages: %d)", len(self.messages))
+            logger.info("API 调用（消息数：%d）", len(self.messages))
 
-            # Make API call with tools using Responses API
+            # 使用 Responses API 携带工具发起 API 调用
             response = self.client.responses.create(
                 model=self.model,
                 max_output_tokens=4096,
@@ -217,18 +217,18 @@ class ToolUseChat:
                 input=self.messages,
             )
 
-            # Track tokens
+            # 记录 token 用量
             self.token_tracker.track(response.usage)
 
-            # Check if the response contains function calls
+            # 检查回复中是否包含函数调用
             function_calls = [o for o in response.output if o.type == "function_call"]
 
             if function_calls:
-                # Add all response output items to messages (includes function calls)
+                # 将回复中的所有输出项添加到消息列表（包括函数调用）
                 self.messages.extend(response.output)
 
-                # Execute tools
-                self.console.print("\n[yellow]-> Executing tools...[/yellow]")
+                # 执行工具
+                self.console.print("\n[yellow]-> 正在执行工具...[/yellow]")
 
                 for func_call in function_calls:
                     function_name = func_call.name
@@ -238,10 +238,10 @@ class ToolUseChat:
                         f"  [dim]* {function_name}({json.dumps(function_args, indent=2)})[/dim]"
                     )
 
-                    # Execute the tool
+                    # 执行工具
                     result = execute_tool(function_name, function_args)
 
-                    # Add function call output to messages for next iteration
+                    # 将函数调用输出添加到消息列表，供下一轮迭代使用
                     self.messages.append(
                         {
                             "type": "function_call_output",
@@ -250,68 +250,68 @@ class ToolUseChat:
                         }
                     )
 
-                # Continue the loop to get final response
+                # 继续循环以获取最终回复
                 continue
 
             else:
-                # No function calls, extract and return text response
+                # 没有函数调用，提取并返回文本回复
                 return response.output_text or ""
 
     def get_message_count(self) -> int:
-        """Get the total number of messages in the conversation."""
+        """获取对话中的消息总数。"""
         return len(self.messages)
 
 
 def main() -> None:
-    """Main orchestration function that handles user interaction and coordinates the chat flow."""
+    """处理用户交互并协调聊天流程的主编排函数。"""
     console = Console()
     token_tracker = OpenAITokenTracker()
     chat = ToolUseChat("gpt-4.1", token_tracker, console)
 
-    # Welcome message
+    # 欢迎消息
     console.print(
         Panel(
-            "[bold cyan]Agent with Tools![/bold cyan]\n\n"
-            "Available tools:\n"
-            "* Calculator (add, subtract, multiply, divide)\n"
-            "* Read file (read contents of any file)\n"
-            "* Run bash (execute shell commands)\n\n"
-            "Try: 'What's 123 * 456?' or 'List files in the current directory'\n"
-            "Or: 'Read the pyproject.toml file'\n\n"
-            "Type 'quit' to exit.",
-            title="Tool Use Demo",
+            "[bold cyan]带工具的智能体！[/bold cyan]\n\n"
+            "可用工具：\n"
+            "* 计算器（加、减、乘、除）\n"
+            "* 读取文件（读取任意文件的内容）\n"
+            "* 运行 Bash（执行 Shell 命令）\n\n"
+            "试试输入：'123 * 456 等于多少？' 或 '列出当前目录中的文件'\n"
+            "也可以输入：'读取 pyproject.toml 文件'\n\n"
+            "输入 'quit' 退出。",
+            title="工具使用演示",
         )
     )
 
-    # Chat loop
+    # 聊天循环
     try:
         while True:
-            console.print("\n[bold green]You:[/bold green] ", end="")
+            console.print("\n[bold green]你：[/bold green] ", end="")
             user_input = input().strip()
 
             if user_input.lower() in ["quit", "exit", ""]:
-                console.print("\n[yellow]Ending chat session...[/yellow]")
+                console.print("\n[yellow]正在结束聊天会话...[/yellow]")
                 break
 
             try:
                 response = chat.send_message(user_input)
 
                 if response:
-                    console.print("\n[bold blue]Agent:[/bold blue]")
+                    console.print("\n[bold blue]智能体：[/bold blue]")
                     console.print(Markdown(response))
 
             except Exception as e:
-                logger.error("Error during chat: %s", e)
-                console.print(f"\n[red]Error: {e}[/red]")
+                logger.error("聊天过程中发生错误：%s", e)
+                console.print(f"\n[red]错误：{e}[/red]")
                 break
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted. Ending chat session...[/yellow]")
+        console.print("\n[yellow]操作已中断，正在结束聊天会话...[/yellow]")
 
-    # Report usage
+    # 报告用量
     console.print()
     token_tracker.report()
-    console.print(f"\n[dim]Total messages exchanged: {chat.get_message_count()}[/dim]")
+    console.print(f"\n[dim]已交换的消息总数：{chat.get_message_count()}[/dim]")
 
 
 if __name__ == "__main__":

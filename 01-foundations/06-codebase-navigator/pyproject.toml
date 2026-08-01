@@ -1,7 +1,7 @@
 [project]
 name = "lesson-codebase-navigator"
 version = "0.1.0"
-description = "Codebase Navigator — an augmented LLM with retrieval, tools, and memory"
+description = "代码库导航器——一个具备检索、工具和记忆能力的增强型 LLM"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",
@@ -10,8 +10,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "rich>=13.7.0",
     "sentence-transformers>=2.2.0",
-    "torch>=2.0.0",  # pinned to ensure x86_64 macOS resolves a compatible wheel; remove on ARM64
-    "numpy<2",  # torch 2.2.x (x86_64 macOS) was compiled against NumPy 1.x; remove on ARM64
+    "torch>=2.0.0",  # 固定版本以确保 x86_64 macOS 能解析兼容的 wheel；ARM64 上可移除
+    "numpy<2",  # torch 2.2.x（x86_64 macOS）基于 NumPy 1.x 编译；ARM64 上可移除
 ]
 
 [tool.uv]

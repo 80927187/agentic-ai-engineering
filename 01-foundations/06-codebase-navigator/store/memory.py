@@ -1,8 +1,8 @@
 """
-Memory Store
+记忆存储
 
-Persistent JSON-based memory for storing facts, insights, and preferences across sessions.
-This is the "Memory" augmentation of the Augmented LLM pattern.
+基于 JSON 的持久化记忆，用于跨会话存储事实、见解和偏好。
+这是增强型 LLM 模式中的“记忆”增强能力。
 """
 
 import json
@@ -14,12 +14,12 @@ from common.logging_config import setup_logging
 
 logger = setup_logging(__name__)
 
-# Default memory file location
+# 默认记忆文件位置
 DEFAULT_MEMORY_PATH = Path(__file__).parent.parent / "memory.json"
 
 
 class MemoryStore:
-    """Persistent memory store backed by a JSON file."""
+    """以 JSON 文件为后端的持久化记忆存储。"""
 
     def __init__(self, path: Path = DEFAULT_MEMORY_PATH) -> None:
         self.path = path
@@ -31,25 +31,25 @@ class MemoryStore:
         self._load()
 
     def _load(self) -> None:
-        """Load memories from disk."""
+        """从磁盘加载记忆。"""
         if self.path.exists():
             try:
                 self.data = json.loads(self.path.read_text(encoding="utf-8"))
                 total = sum(len(v) for v in self.data.values())
-                logger.info("Loaded %d memories from %s", total, self.path)
+                logger.info("已从 %s 加载 %d 条记忆", self.path, total)
             except (json.JSONDecodeError, KeyError) as e:
-                logger.error("Failed to load memory file: %s", e)
+                logger.error("加载记忆文件失败：%s", e)
                 self.data = {"facts": [], "insights": [], "preferences": []}
 
     def _save(self) -> None:
-        """Persist memories to disk."""
+        """将记忆持久化到磁盘。"""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
 
     def save(self, category: str, content: str, repos: list[str] | None = None) -> str:
-        """Save a memory entry."""
+        """保存一条记忆。"""
         if category not in self.data:
-            return f"Invalid category: {category}. Use: fact, insight, preference"
+            return f"无效类别：{category}。请使用 facts、insights 或 preferences"
 
         entry: dict[str, Any] = {
             "content": content,
@@ -60,11 +60,11 @@ class MemoryStore:
 
         self.data[category].append(entry)
         self._save()
-        logger.info("Saved %s: %s", category, content[:80])
-        return f"Saved {category}: {content}"
+        logger.info("已保存 %s：%s", category, content[:80])
+        return f"已保存 {category}：{content}"
 
     def recall(self, query: str | None = None) -> dict[str, list[dict[str, Any]]]:
-        """Recall memories, optionally filtered by keyword."""
+        """回忆记忆，可以选择按关键词筛选。"""
         if not query:
             return self.data
 
@@ -77,11 +77,17 @@ class MemoryStore:
         return filtered
 
     def summary(self) -> str:
-        """Return a brief summary for inclusion in system prompts."""
+        """返回一份简要摘要，以便加入系统提示词。"""
         parts = []
+        category_names = {
+            "facts": "事实",
+            "insights": "见解",
+            "preferences": "偏好",
+        }
         for category, entries in self.data.items():
             if entries:
                 parts.append(
-                    f"{category} ({len(entries)}): " + "; ".join(e["content"] for e in entries[-3:])
+                    f"{category_names.get(category, category)}（{len(entries)} 条）："
+                    + "；".join(e["content"] for e in entries[-3:])
                 )
-        return "\n".join(parts) if parts else "No memories stored yet."
+        return "\n".join(parts) if parts else "尚未保存任何记忆。"

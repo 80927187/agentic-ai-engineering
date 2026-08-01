@@ -9,7 +9,7 @@ client = anthropic.Anthropic()
 TOOLS = [
     {
         "name": "bash",
-        "description": "Run a bash command",
+        "description": "运行一条 bash 命令",
         "input_schema": {
             "type": "object",
             "properties": {"command": {"type": "string"}},
@@ -34,10 +34,10 @@ def agent(goal: str) -> str:
         tool_results = []
         for block in response.content:
             if block.type == "tool_use":
-                print(f"  -> Tool: {block.name}({block.input})")
-                # Human-in-the-loop confirmation before executing
-                if input("  Approve? (y/n): ").strip().lower() != "y":
-                    return "Cancelled by user."
+                print(f"  -> 工具：{block.name}({block.input})")
+                # 执行前进行人机协同确认
+                if input("  是否批准？(y/n)：").strip().lower() != "y":
+                    return "已由用户取消。"
                 result = subprocess.run(
                     block.input["command"], shell=True, capture_output=True, text=True, timeout=30
                 )
@@ -50,14 +50,14 @@ def agent(goal: str) -> str:
                 )
         messages.append({"role": "user", "content": tool_results})  # type: ignore[dict-item]
 
-    return "Max iterations reached"
+    return "已达到最大迭代次数"
 
 
 if __name__ == "__main__":
-    print("Minimal Agent (type 'quit' to exit)")
-    print("Try: 'Summarize content for file in the current directory' or 'What OS am I running?'")
+    print("最小智能体（输入 'quit' 退出）")
+    print("可以尝试：'总结当前目录中的文件内容' 或 '我运行的是什么操作系统？'")
     while True:
-        task = input("\nYou: ").strip()
+        task = input("\n你：").strip()
         if task.lower() in ("exit", "quit", "q", ""):
             break
-        print(f"\nAgent: {agent(task)}")
+        print(f"\n智能体：{agent(task)}")

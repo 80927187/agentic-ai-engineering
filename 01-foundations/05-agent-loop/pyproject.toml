@@ -1,7 +1,7 @@
 [project]
 name = "lesson-agent-loop"
 version = "0.1.0"
-description = "Lesson 5: Agent Loop - Autonomous agents that use tools iteratively"
+description = "第 5 课：智能体循环——反复使用工具的自主智能体"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

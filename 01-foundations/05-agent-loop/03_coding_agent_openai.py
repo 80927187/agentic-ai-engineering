@@ -1,10 +1,10 @@
 """
-Agent Loop (OpenAI)
+智能体循环（OpenAI）
 
-Demonstrates a minimal autonomous agent that:
-- Takes a task from the user
-- Decides which tools to use
-- Executes tools in a loop until complete
+演示一个最小的自主智能体，它能够：
+- 接收用户任务
+- 决定使用哪些工具
+- 在循环中执行工具，直至任务完成
 """
 
 import json
@@ -21,33 +21,33 @@ from rich.panel import Panel
 from common.logging_config import setup_logging
 from common.token_tracking import OpenAITokenTracker
 
-# Load environment variables from root .env file
+# 从根目录的 .env 文件加载环境变量
 load_dotenv(find_dotenv())
 
-# Configure logging
+# 配置日志记录
 logger = setup_logging(__name__)
 
-SYSTEM_PROMPT = """You are a coding agent. Use the provided tools to complete tasks.
+SYSTEM_PROMPT = """你是一个编程智能体。请使用提供的工具完成任务。
 
-Guidelines:
-- Read files before modifying them
-- Make changes incrementally and verify each step
-- If a command fails, analyze the error and try a different approach
-- When done, provide a brief summary of what you accomplished"""
+准则：
+- 修改文件前先读取文件
+- 逐步进行更改，并验证每一步
+- 如果命令失败，请分析错误并尝试其他方法
+- 完成后，简要总结你完成的工作"""
 
 
-# Tool definitions (OpenAI Responses API format)
+# 工具定义（OpenAI Responses API 格式）
 TOOLS = [
     {
         "type": "function",
         "name": "read_file",
-        "description": "Read the contents of a file at the given path.",
+        "description": "读取给定路径下的文件内容。",
         "parameters": {
             "type": "object",
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "The file path to read",
+                    "description": "要读取的文件路径",
                 }
             },
             "additionalProperties": False,
@@ -57,17 +57,17 @@ TOOLS = [
     {
         "type": "function",
         "name": "write_file",
-        "description": "Write content to a file at the given path.",
+        "description": "将内容写入给定路径下的文件。",
         "parameters": {
             "type": "object",
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "The file path to write to",
+                    "description": "要写入的文件路径",
                 },
                 "content": {
                     "type": "string",
-                    "description": "The content to write",
+                    "description": "要写入的内容",
                 },
             },
             "additionalProperties": False,
@@ -77,13 +77,13 @@ TOOLS = [
     {
         "type": "function",
         "name": "bash",
-        "description": "Execute a bash command and return its output.",
+        "description": "执行一条 bash 命令并返回其输出。",
         "parameters": {
             "type": "object",
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": "The bash command to execute",
+                    "description": "要执行的 bash 命令",
                 }
             },
             "additionalProperties": False,
@@ -94,19 +94,19 @@ TOOLS = [
 
 
 def execute_tool(name: str, tool_input: dict[str, Any]) -> str:
-    """Execute a tool and return the result as a string."""
+    """执行工具，并以字符串形式返回结果。"""
     if name == "read_file":
         try:
-            return Path(tool_input["path"]).read_text()
+            return Path(tool_input["path"]).read_text(encoding="utf-8")
         except Exception as e:
-            return f"Error: {e}"
+            return f"错误：{e}"
 
     elif name == "write_file":
         try:
-            Path(tool_input["path"]).write_text(tool_input["content"])
-            return f"Successfully wrote to {tool_input['path']}"
+            Path(tool_input["path"]).write_text(tool_input["content"], encoding="utf-8")
+            return f"已成功写入 {tool_input['path']}"
         except Exception as e:
-            return f"Error: {e}"
+            return f"错误：{e}"
 
     elif name == "bash":
         try:
@@ -118,20 +118,20 @@ def execute_tool(name: str, tool_input: dict[str, Any]) -> str:
                 timeout=30,
             )
             output = result.stdout + result.stderr
-            return output if output else "(no output)"
+            return output if output else "（无输出）"
         except subprocess.TimeoutExpired:
-            return "Error: Command timed out"
+            return "错误：命令执行超时"
         except Exception as e:
-            return f"Error: {e}"
+            return f"错误：{e}"
 
-    return f"Unknown tool: {name}"
+    return f"未知工具：{name}"
 
 
 class CodingAgent:
     """
-    Minimal autonomous coding agent.
+    最小自主编程智能体。
 
-    Executes tools in a loop until the task is complete.
+    在循环中执行工具，直至任务完成。
     """
 
     def __init__(self, model: str = "codex-mini-latest"):
@@ -141,16 +141,16 @@ class CodingAgent:
         self.token_tracker = OpenAITokenTracker()
 
     def run(self, task: str) -> str:
-        """Execute the agent loop for the given task."""
-        logger.info(f"Task: {task}")
+        """针对给定任务执行智能体循环。"""
+        logger.info(f"任务：{task}")
 
         input_messages: list[Any] = [{"role": "user", "content": task}]
         previous_response_id: str | None = None
 
         for iteration in range(self.max_iterations):
-            logger.info(f"--- Iteration {iteration + 1} ---")
+            logger.info(f"--- 第 {iteration + 1} 次迭代 ---")
 
-            # Call the model using responses API
+            # 使用 Responses API 调用模型
             response = self.client.responses.create(
                 model=self.model,
                 tools=TOOLS,
@@ -162,29 +162,29 @@ class CodingAgent:
             if response.usage:
                 self.token_tracker.track(response.usage)
 
-            # Log any text output
+            # 记录所有文本输出
             if response.output_text:
-                logger.info(f"🤖 Agent: {response.output_text}")
+                logger.info(f"🤖 智能体：{response.output_text}")
 
-            # Check if there are function calls
+            # 检查是否存在函数调用
             function_calls = [o for o in response.output if o.type == "function_call"]
 
-            # If no function calls, task is complete
+            # 如果没有函数调用，则任务已完成
             if not function_calls:
-                return response.output_text or "Done"
+                return response.output_text or "已完成"
 
-            # Execute tools and collect results
+            # 执行工具并收集结果
             tool_outputs: list[dict[str, str]] = []
             for call in function_calls:
                 try:
                     args = json.loads(call.arguments)
                 except json.JSONDecodeError as e:
                     args = {}
-                    logger.error(f"Invalid tool arguments: {e}")
+                    logger.error(f"无效的工具参数：{e}")
 
-                logger.info(f"🔧 Tool: {call.name}({json.dumps(args)})")
+                logger.info(f"🔧 工具：{call.name}({json.dumps(args)})")
                 result = execute_tool(call.name, args)
-                logger.info(f"📋 Result: {result[:100]}{'...' if len(result) > 100 else ''}")
+                logger.info(f"📋 结果：{result[:100]}{'...' if len(result) > 100 else ''}")
 
                 tool_outputs.append(
                     {
@@ -194,24 +194,24 @@ class CodingAgent:
                     }
                 )
 
-            # Continue conversation with tool outputs
+            # 使用工具输出继续对话
             previous_response_id = response.id
             input_messages = tool_outputs
 
-        return "Max iterations reached"
+        return "已达到最大迭代次数"
 
 
 def main() -> None:
-    """Main orchestration function."""
+    """主编排函数。"""
     console = Console()
     console.print(
         Panel(
-            "Examples:\n"
-            "  - Create a calculator following the style of existing files\n"
-            "  - List current dependencies\n"
-            "  - Explain code in the current folder\n\n"
-            "Type 'quit' to exit.",
-            title="Coding Agent (OpenAI)",
+            "示例：\n"
+            "  - 参照现有文件的风格创建一个计算器\n"
+            "  - 列出当前依赖项\n"
+            "  - 解释当前文件夹中的代码\n\n"
+            "输入 'quit' 退出。",
+            title="编程智能体（OpenAI）",
         )
     )
 
@@ -219,19 +219,19 @@ def main() -> None:
 
     try:
         while True:
-            console.print("\n[bold green]You:[/bold green] ", end="")
+            console.print("\n[bold green]你：[/bold green] ", end="")
             user_input = input().strip()
 
             if user_input.lower() in ("exit", "quit", "q", ""):
-                console.print("\n[yellow]Ending session...[/yellow]")
+                console.print("\n[yellow]正在结束会话……[/yellow]")
                 break
 
             response = agent.run(user_input)
-            console.print("\n[bold blue]Agent:[/bold blue]")
+            console.print("\n[bold blue]智能体：[/bold blue]")
             console.print(Markdown(response))
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]已中断。[/yellow]")
 
     console.print()
     agent.token_tracker.report()

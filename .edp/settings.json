@@ -1,0 +1,26 @@
+{
+  "env": {
+    "server": {
+      "address": "192.168.3.999"
+    },
+    "database": {
+      "type": "mysql"
+    },
+    "transfer": {
+      "remoteRoot": "",
+      "host": "192.168.3.888",
+      "tsftype": "http"
+    }
+  },
+  "aiService": {
+    "id": "langTransfer",
+    "key": "app-WxjwU982oy72sUjcc5WM3XRx",
+    "desc": "multilingual translation"
+  },
+  "ragService": {
+    "id": "local",
+    "type": "module",
+    "url": "eag-ui-rag/lancedb"
+  },
+  "apsTransform": []
+}
