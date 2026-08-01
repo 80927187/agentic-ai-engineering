@@ -266,7 +266,7 @@ def main() -> None:
     """处理用户交互并协调聊天流程的主编排函数。"""
     console = Console()
     token_tracker = OpenAITokenTracker()
-    chat = ToolUseChat("gpt-4.1", token_tracker, console)
+    chat = ToolUseChat("gpt-5.5", token_tracker, console)
 
     # 欢迎消息
     console.print(
