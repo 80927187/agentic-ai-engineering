@@ -1,7 +1,7 @@
 [project]
 name = "lesson-human-in-the-loop"
 version = "0.1.0"
-description = "Human-in-the-Loop — strategic checkpoints for human review and approval"
+description = "人在回路——用于人工审核和批准的关键检查点"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

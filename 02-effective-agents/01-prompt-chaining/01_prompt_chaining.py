@@ -1,8 +1,8 @@
 """
-Prompt Chaining — "The Tech Blog Assembly Line"
+提示词链——“科技博客流水线”
 
-Demonstrates decomposing a task into a sequence of fixed steps, where each LLM call
-processes the output of the previous one. A topic flows through Outliner → Writer → Editor.
+演示如何将任务拆分为一系列固定步骤，其中每次 LLM 调用都会处理上一步的输出。
+一个主题将依次经过大纲规划器 → 作者 → 编辑。
 """
 
 from collections.abc import Callable
@@ -24,50 +24,48 @@ OUTPUT_DIR = Path("output")
 MODEL = "claude-sonnet-4-6"
 LIGHT_MODEL = "claude-haiku-4-5-20251001"
 
-# Anthropic server-side web search tool — Claude decides when to search
+# Anthropic 服务端网络搜索工具——Claude 自行决定如何搜索
 WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 1}
 
 SUGGESTED_TOPICS = [
-    "Practical Async Programming in Python",
-    "AI Agents in Production",
-    "WebAssembly Beyond the Browser",
-    "Zero-Trust Security for Startups",
+    "Python 异步编程实践",
+    "生产环境中的 AI 智能体",
+    "浏览器之外的 WebAssembly",
+    "面向初创公司的零信任安全",
 ]
 
 
-# --- Prompts ---
+# --- 提示词 ---
 
 OUTLINER_SYSTEM_PROMPT = (
-    "You are a research planner. Given a topic, identify 3-5 broad research areas that "
-    "cover distinct dimensions of the subject — market landscape, technical depth, "
-    "adoption patterns, performance analysis, etc. Each area should be independently "
-    "researchable. Output the topic title on the first line, then the research areas "
-    "as bullet points. Keep area names short and high-level. No extra commentary."
+    "你是一名研究规划师。给定一个主题后，找出 3～5 个宽泛的研究方向，"
+    "涵盖该主题的不同维度，例如市场格局、技术深度、采用模式和性能分析等。"
+    "每个方向都应当可以独立研究。第一行输出主题标题，然后以项目符号列出研究方向。"
+    "方向名称应简短且具有概括性，不要添加额外说明。"
 )
-OUTLINER_USER_PROMPT = "Create a blog outline for: {topic}"
+OUTLINER_USER_PROMPT = "为以下主题创建博客大纲：{topic}"
 
 WRITER_SYSTEM_PROMPT = (
-    "You are a technical blog writer. Given an outline (title + bullet points), write a "
-    "concise blog post. Use the title as an H1 heading and each bullet point as an H2 "
-    "section. Write 1-2 short paragraphs per section — no filler, no fluff. "
-    "Use a professional but approachable tone. Aim for under 1000 words total. "
-    "Always use web search to ground your writing with current, accurate information."
+    "你是一名技术博客作者。根据给定的大纲（标题和项目符号列表），撰写一篇简洁的博客文章。"
+    "使用标题作为 H1 标题，并将每个项目符号作为一个 H2 小节。"
+    "每节写 1～2 个短段落，不要填充无关内容或空话。语气应专业但平易近人，"
+    "全文尽量控制在 1000 字以内。始终使用网络搜索，以当前且准确的信息为写作提供事实依据。"
 )
-WRITER_USER_PROMPT = "Write a full blog post from this outline:\n\n{outline}"
+WRITER_USER_PROMPT = "根据以下大纲撰写一篇完整的博客文章：\n\n{outline}"
 
 EDITOR_SYSTEM_PROMPT = (
-    "You are a professional editor. Polish the given blog post for grammar, clarity, and "
-    "flow. At the end, add a '## Key Takeaways' section with 3-5 bullet points summarizing "
-    "the main insights. Return the complete edited post."
+    "你是一名专业编辑。润色给定博客文章的语法、清晰度和行文流畅度。"
+    "在文章末尾添加“## 核心要点”一节，用 3～5 个项目符号概括主要观点。"
+    "返回经过编辑的完整文章。"
 )
-EDITOR_USER_PROMPT = "Edit and polish this blog post:\n\n{draft}"
+EDITOR_USER_PROMPT = "编辑并润色以下博客文章：\n\n{draft}"
 
-# Callback type: agent emits (event_name, event_data) — caller decides how to display
+# 回调类型：智能体发出 (event_name, event_data)，由调用方决定如何显示
 ChainCallback = Callable[[str, dict[str, Any]], None]
 
 
 class PromptChain:
-    """Sequential chain of LLM calls where each step feeds into the next."""
+    """顺序执行的 LLM 调用链，每一步的输出都会传给下一步。"""
 
     def __init__(self, model: str, light_model: str, token_tracker: AnthropicTokenTracker):
         self.client = anthropic.Anthropic()
@@ -85,13 +83,13 @@ class PromptChain:
         max_tokens: int = 4096,
         tools: list[dict[str, Any]] | None = None,
     ) -> anthropic.types.Message:
-        """Single LLM call with token tracking."""
+        """执行一次 LLM 调用并追踪 token。"""
         model = self.light_model if use_light else self.model
         kwargs: dict[str, Any] = {}
         if tools:
             kwargs["tools"] = tools
         tool_names = [t.get("name", t.get("type", "unknown")) for t in tools or []]
-        logger.info("Calling %s, tools=%s", model, tool_names)
+        logger.info("正在调用 %s，工具=%s", model, tool_names)
 
         response = self.client.messages.create(
             model=model,
@@ -104,7 +102,7 @@ class PromptChain:
         return response
 
     def _call_llm_text(self, system: str, user_message: str) -> str:
-        """Call LLM and return the text content."""
+        """调用 LLM 并返回文本内容。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
         return cast(str, self._call_llm(system, messages).content[0].text)
 
@@ -116,14 +114,14 @@ class PromptChain:
         use_light: bool = False,
         tools: list[dict[str, Any]] | None = None,
     ) -> tuple[str, list[dict[str, str]]]:
-        """Run LLM with tool use, continuing across multiple turns if needed."""
+        """运行可使用工具的 LLM，并在需要时持续进行多轮对话。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
         searches: list[dict[str, str]] = []
 
         response = self._call_llm(system, messages, use_light=use_light, tools=tools)
 
         for _ in range(4):
-            # Collect search results from this turn
+            # 收集本轮的搜索结果
             for block in response.content:
                 if block.type == "web_search_tool_result" and isinstance(block.content, list):
                     for result in block.content:
@@ -132,10 +130,10 @@ class PromptChain:
             if response.stop_reason == "end_turn":
                 break
 
-            # Continue the conversation with tool results
+            # 携带工具结果继续对话
             messages.append({"role": "assistant", "content": response.content})
             tool_results = [
-                {"type": "tool_result", "tool_use_id": b.id, "content": "Search completed."}
+                {"type": "tool_result", "tool_use_id": b.id, "content": "搜索已完成。"}
                 for b in response.content
                 if b.type == "tool_use"
             ]
@@ -149,11 +147,11 @@ class PromptChain:
         return "\n\n".join(text_parts), searches
 
     def _step_outline(self, topic: str) -> str:
-        """Step 1: Generate a structured outline with title and bullet points."""
+        """第 1 步：生成包含标题和项目符号列表的结构化大纲。"""
         return self._call_llm_text(OUTLINER_SYSTEM_PROMPT, OUTLINER_USER_PROMPT.format(topic=topic))
 
     def _step_write(self, outline: str) -> tuple[str, list[dict[str, str]]]:
-        """Step 2: Expand the outline into a full blog post, optionally using web search."""
+        """第 2 步：将大纲扩展为完整博客文章，并可使用网络搜索。"""
         return self._run_agentic_loop(
             WRITER_SYSTEM_PROMPT,
             WRITER_USER_PROMPT.format(outline=outline),
@@ -162,62 +160,62 @@ class PromptChain:
         )
 
     def _step_edit(self, draft: str) -> str:
-        """Step 3: Polish the draft and add a Key Takeaways section."""
+        """第 3 步：润色初稿并添加“核心要点”一节。"""
         return self._call_llm_text(EDITOR_SYSTEM_PROMPT, EDITOR_USER_PROMPT.format(draft=draft))
 
     def run(self, topic: str, on_event: ChainCallback | None = None) -> str:
-        """Execute the full chain: Outline → Write → Edit."""
+        """执行完整的提示词链：规划大纲 → 写作 → 编辑。"""
         self._notify = on_event or (lambda _e, _d: None)
 
-        # Step 1: Outline
-        self._notify("step_start", {"name": "Outline"})
+        # 第 1 步：规划大纲
+        self._notify("step_start", {"name": "规划大纲"})
         outline = self._step_outline(topic)
         if not outline.strip():
-            raise ValueError("Outliner produced empty output — aborting chain.")
+            raise ValueError("大纲规划器生成了空内容，正在中止提示词链。")
         self.token_tracker.report()
-        self._notify("step_complete", {"name": "Outline", "result": outline})
+        self._notify("step_complete", {"name": "规划大纲", "result": outline})
 
-        # Step 2: Write
-        self._notify("step_start", {"name": "Write"})
-        logger.info("[Write] Calling %s", self.light_model)
+        # 第 2 步：写作
+        self._notify("step_start", {"name": "写作"})
+        logger.info("[写作] 正在调用 %s", self.light_model)
         draft, searches = self._step_write(outline)
         self.token_tracker.report()
-        self._notify("step_complete", {"name": "Write", "searches": searches})
+        self._notify("step_complete", {"name": "写作", "searches": searches})
 
-        # Step 3: Edit
-        self._notify("step_start", {"name": "Edit"})
+        # 第 3 步：编辑
+        self._notify("step_start", {"name": "编辑"})
         final = self._step_edit(draft)
         self.token_tracker.report()
-        self._notify("step_complete", {"name": "Edit"})
+        self._notify("step_complete", {"name": "编辑"})
 
         self._notify("chain_complete", {})
         return final
 
 
 def main() -> None:
-    """Run the prompt chaining demo."""
+    """运行提示词链演示。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
 
     def on_chain_event(event: str, data: dict[str, Any]) -> None:
-        """Print step progress to console."""
+        """在控制台中显示步骤进度。"""
         if event == "step_start":
             console.print(f"  [cyan]{data['name']}...[/cyan]")
         elif event == "step_complete":
-            console.print("  [green]✓[/green] Done")
-            if data["name"] == "Outline" and data.get("result"):
-                console.print(Panel(data["result"], title="Outline", border_style="dim"))
-            if data["name"] == "Write" and data.get("searches"):
+            console.print("  [green]✓[/green] 完成")
+            if data["name"] == "规划大纲" and data.get("result"):
+                console.print(Panel(data["result"], title="大纲", border_style="dim"))
+            if data["name"] == "写作" and data.get("searches"):
                 lines = [
                     f"  [dim]•[/dim] [link={s['url']}]{s['title']}[/link]" for s in data["searches"]
                 ]
-                console.print(Panel("\n".join(lines), title="Sources", border_style="dim"))
+                console.print(Panel("\n".join(lines), title="信息来源", border_style="dim"))
 
     header = Panel(
-        "[bold cyan]Prompt Chaining — The Tech Blog Assembly Line[/bold cyan]\n\n"
-        "Topic → [Outliner] → [Writer] → [Editor] → Final Post\n\n"
-        "Each step feeds its output to the next.",
-        title="Prompt Chaining",
+        "[bold cyan]提示词链——科技博客流水线[/bold cyan]\n\n"
+        "主题 → [大纲规划器] → [作者] → [编辑] → 最终文章\n\n"
+        "每一步都会将输出传给下一步。",
+        title="提示词链",
     )
 
     try:
@@ -225,41 +223,41 @@ def main() -> None:
             topic = interactive_menu(
                 console,
                 SUGGESTED_TOPICS,
-                title="Select a Topic",
+                title="选择主题",
                 header=header,
                 allow_custom=True,
-                custom_prompt="Enter your topic",
+                custom_prompt="输入你的主题",
             )
             if not topic:
                 break
 
-            console.print(f"\n[bold green]Topic:[/bold green] {topic}")
+            console.print(f"\n[bold green]主题：[/bold green]{topic}")
             chain = PromptChain(MODEL, LIGHT_MODEL, token_tracker)
 
             try:
                 result = chain.run(topic, on_event=on_chain_event)
 
-                # Save article to output directory
+                # 将文章保存到输出目录
                 OUTPUT_DIR.mkdir(exist_ok=True)
                 slug = topic.lower().replace(" ", "_")[:50]
                 path = OUTPUT_DIR / f"{slug}.md"
                 path.write_text(result, encoding="utf-8")
 
-                console.print("\n[bold blue]Final Article:[/bold blue]")
+                console.print("\n[bold blue]最终文章：[/bold blue]")
                 console.print(Markdown(result))
                 abs_path = path.resolve()
-                console.print(f"\n[dim]Saved to [link=file://{abs_path}]{path}[/link][/dim]")
+                console.print(f"\n[dim]已保存至 [link=file://{abs_path}]{path}[/link][/dim]")
 
-                console.print("\n[dim]Press Enter to continue...[/dim]")
+                console.print("\n[dim]按 Enter 键继续……[/dim]")
                 input()
             except Exception as e:
-                logger.error("Chain failed: %s", e)
-                console.print(f"\n[red]Error: {e}[/red]")
+                logger.error("提示词链运行失败：%s", e)
+                console.print(f"\n[red]错误：{e}[/red]")
             finally:
                 token_tracker.reset()
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]已中断。[/yellow]")
 
 
 if __name__ == "__main__":

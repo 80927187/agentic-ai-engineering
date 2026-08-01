@@ -134,7 +134,7 @@ class CodingAgent:
     在循环中执行工具，直至任务完成。
     """
 
-    def __init__(self, model: str = "codex-mini-latest"):
+    def __init__(self, model: str = "gpt-5.5"):
         self.client = OpenAI()
         self.model = model
         self.max_iterations = 10

@@ -1,9 +1,9 @@
 """
-Human-in-the-Loop — "The Approval Gate"
+人在回路——“审批关卡”
 
-Demonstrates pausing an agentic workflow at strategic checkpoints for human review.
-The LLM drafts an email, a human approves or rejects with feedback, and the LLM
-revises — showing where human oversight adds the most value.
+演示如何在关键检查点暂停智能体工作流，以便人工审核。
+LLM 起草邮件，人工批准或拒绝并提供反馈，随后 LLM 根据反馈修改——
+这个过程展示了人工监督在何处最有价值。
 """
 
 from collections.abc import Callable
@@ -23,31 +23,30 @@ MODEL = "claude-haiku-4-5-20251001"
 MAX_REVISIONS = 2
 
 SUGGESTED_SCENARIOS = [
-    "Decline a job offer politely — grateful but chose another opportunity",
-    "Ask your team to work overtime this weekend — critical deadline, apologetic tone",
-    "Request a meeting with a VP to discuss budget — formal, data-driven",
-    "Follow up on an unanswered proposal — persistent but respectful",
+    "礼貌地拒绝工作邀请——表达感谢，但已选择另一个机会",
+    "请求团队本周末加班——截止日期紧迫，语气诚恳并带有歉意",
+    "请求与副总裁开会讨论预算——正式、以数据为依据",
+    "跟进一份尚未收到回复的提案——坚持但保持尊重",
 ]
 
-# --- Prompts ---
+# --- 提示词 ---
 
 SYSTEM_PROMPT = (
-    "You are a professional email writer. Write clear, concise emails that match "
-    "the requested tone. Output only the email — subject line, then body. "
-    "No meta-commentary. Keep it under 300 words."
+    "你是一名专业的邮件撰稿人。请根据要求的语气撰写清晰、简洁的中文邮件。"
+    "只输出邮件内容——先写主题，再写正文。不要添加元说明。全文不超过 300 字。"
 )
 
 REVISE_SYSTEM_PROMPT = (
-    "You are a professional email writer. Revise the email based on the feedback provided. "
-    "Return only the revised email — subject line, then body. No explanation of changes."
+    "你是一名专业的邮件撰稿人。请根据收到的反馈修改邮件。"
+    "只返回修改后的邮件——先写主题，再写正文。不要解释修改内容。"
 )
 
-# Checkpoint function type: (title, content, question) -> (approved, feedback)
+# 检查点函数类型：(标题, 内容, 问题) -> (是否批准, 反馈)
 CheckpointFn = Callable[[str, str, str], tuple[bool, str]]
 
 
 class EmailDrafter:
-    """Draft and revise emails with human checkpoints."""
+    """通过人工检查点起草和修改邮件。"""
 
     def __init__(self, model: str, token_tracker: AnthropicTokenTracker) -> None:
         self.client = anthropic.Anthropic()
@@ -55,8 +54,8 @@ class EmailDrafter:
         self.token_tracker = token_tracker
 
     def _call_llm(self, system: str, user_msg: str, *, max_tokens: int = 1024) -> str:
-        """Make an LLM call and return text response."""
-        logger.info("Calling %s", self.model)
+        """调用 LLM 并返回文本响应。"""
+        logger.info("正在调用 %s", self.model)
         response = self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
@@ -67,47 +66,47 @@ class EmailDrafter:
         return cast(str, response.content[0].text)
 
     def _draft(self, scenario: str) -> str:
-        """Generate an initial email draft from a scenario description."""
-        return self._call_llm(SYSTEM_PROMPT, f"Write an email for this scenario: {scenario}")
+        """根据场景描述生成邮件初稿。"""
+        return self._call_llm(SYSTEM_PROMPT, f"请为以下场景撰写一封邮件：{scenario}")
 
     def _revise(self, draft: str, feedback: str) -> str:
-        """Revise a draft based on human feedback."""
-        user_msg = f"Original email:\n{draft}\n\nFeedback to address:\n{feedback}"
+        """根据人工反馈修改草稿。"""
+        user_msg = f"原始邮件：\n{draft}\n\n需要处理的反馈：\n{feedback}"
         return self._call_llm(REVISE_SYSTEM_PROMPT, user_msg)
 
     def run(self, scenario: str, *, checkpoint_fn: CheckpointFn | None = None) -> str:
-        """Draft an email with human checkpoints for review."""
+        """起草邮件，并通过人工检查点进行审核。"""
         check = checkpoint_fn or (lambda _t, _c, _q: (True, ""))
 
-        # Step 1: Generate initial draft
-        logger.info("Generating draft for: %s", scenario)
+        # 步骤 1：生成初稿
+        logger.info("正在为以下场景生成草稿：%s", scenario)
         draft = self._draft(scenario)
         self.token_tracker.report()
 
-        # === Checkpoint 1: Draft review (high-leverage — catches wrong direction early) ===
+        # === 检查点 1：审核草稿（高杠杆——尽早发现方向错误）===
         approved, feedback = check(
-            "Draft Review",
+            "草稿审核",
             draft,
-            "Does this email look right? Approve to finalize, or reject with feedback.",
+            "这封邮件是否合适？批准即可定稿，也可以拒绝并提供反馈。",
         )
 
         if approved and not feedback:
             return draft
-        # Edit mode: human provided replacement text
+        # 编辑模式：人工提供了替换文本
         if approved and feedback:
             return feedback
 
-        # Rejected: enter revision loop
+        # 已拒绝：进入修改循环
         for revision in range(1, MAX_REVISIONS + 1):
-            logger.info("Revising draft (round %d/%d)", revision, MAX_REVISIONS)
+            logger.info("正在修改草稿（第 %d/%d 轮）", revision, MAX_REVISIONS)
             draft = self._revise(draft, feedback)
             self.token_tracker.report()
 
-            # === Checkpoint 2: Revision review ===
+            # === 检查点 2：审核修改稿 ===
             approved, feedback = check(
-                f"Revision Review ({revision}/{MAX_REVISIONS})",
+                f"修改稿审核（{revision}/{MAX_REVISIONS}）",
                 draft,
-                "Better? Approve to finalize, or reject with more feedback.",
+                "修改后是否更合适？批准即可定稿，也可以拒绝并提供更多反馈。",
             )
 
             if approved and not feedback:
@@ -115,15 +114,15 @@ class EmailDrafter:
             if approved and feedback:
                 return feedback
 
-        logger.info("Max revisions reached, returning last draft")
+        logger.info("已达到最大修改轮数，返回最后一版草稿")
         return draft
 
 
 def human_checkpoint(console: Console, title: str, content: str, question: str) -> tuple[bool, str]:
-    """Pause for human review. Returns (approved, feedback)."""
-    console.print(Panel(content, title=f"Checkpoint: {title}", border_style="bright_magenta"))
+    """暂停并等待人工审核。返回（是否批准, 反馈）。"""
+    console.print(Panel(content, title=f"检查点：{title}", border_style="bright_magenta"))
     console.print(f"\n[bold magenta]{question}[/bold magenta]")
-    console.print("[dim](y)es / (n)o with feedback / (e)dit to provide replacement[/dim]")
+    console.print("[dim](y) 批准 / (n) 拒绝并反馈 / (e) 编辑并提供替换内容[/dim]")
     console.print("[bold magenta]> [/bold magenta]", end="")
 
     response = input().strip().lower()
@@ -131,7 +130,7 @@ def human_checkpoint(console: Console, title: str, content: str, question: str) 
     if response in ("y", "yes", ""):
         return True, ""
     elif response.startswith("e"):
-        console.print("[dim]Enter replacement (Enter twice to finish):[/dim]")
+        console.print("[dim]请输入替换内容（连续按两次 Enter 结束）：[/dim]")
         lines: list[str] = []
         empty = 0
         while empty < 1:
@@ -143,13 +142,13 @@ def human_checkpoint(console: Console, title: str, content: str, question: str) 
                 lines.append(line)
         return True, "\n".join(lines)
     else:
-        console.print("[dim]Enter feedback:[/dim] ", end="")
+        console.print("[dim]请输入反馈：[/dim] ", end="")
         feedback = input().strip()
         return False, feedback
 
 
 def main() -> None:
-    """Run the human-in-the-loop email drafting demo."""
+    """运行人在回路邮件起草示例。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
 
@@ -157,13 +156,13 @@ def main() -> None:
         return human_checkpoint(console, title, content, question)
 
     header = Panel(
-        "[bold cyan]Human-in-the-Loop — The Approval Gate[/bold cyan]\n\n"
-        "LLM drafts an email → you review at checkpoints:\n"
-        "1. After draft — right tone and content?\n"
-        "2. After revision — feedback addressed?\n\n"
-        "Options: (y)es approve, (n)o + feedback, (e)dit replacement\n"
-        f"Max {MAX_REVISIONS} revisions per email.",
-        title="Human-in-the-Loop",
+        "[bold cyan]人在回路——审批关卡[/bold cyan]\n\n"
+        "LLM 起草邮件 → 你在检查点进行审核：\n"
+        "1. 草稿完成后——语气和内容是否合适？\n"
+        "2. 修改完成后——反馈是否得到落实？\n\n"
+        "选项：(y) 批准、(n) 拒绝并反馈、(e) 编辑替换内容\n"
+        f"每封邮件最多修改 {MAX_REVISIONS} 轮。",
+        title="人在回路",
     )
 
     try:
@@ -171,33 +170,33 @@ def main() -> None:
             scenario = interactive_menu(
                 console,
                 SUGGESTED_SCENARIOS,
-                title="Select an Email Scenario",
+                title="选择邮件场景",
                 header=header,
                 allow_custom=True,
-                custom_prompt="Describe your email scenario",
+                custom_prompt="请描述你的邮件场景",
             )
             if not scenario:
                 break
 
-            console.print(f"\n[bold green]Scenario:[/bold green] {scenario}")
+            console.print(f"\n[bold green]场景：[/bold green] {scenario}")
             drafter = EmailDrafter(MODEL, token_tracker)
 
             try:
                 result = drafter.run(scenario, checkpoint_fn=checkpoint_fn)
 
-                console.print("\n[bold blue]Final Email:[/bold blue]")
+                console.print("\n[bold blue]最终邮件：[/bold blue]")
                 console.print(Panel(result, border_style="green"))
 
-                console.print("\n[dim]Press Enter to continue...[/dim]")
+                console.print("\n[dim]按 Enter 继续……[/dim]")
                 input()
             except Exception as e:
-                logger.error("Email drafting failed: %s", e)
-                console.print(f"\n[red]Error: {e}[/red]")
+                logger.error("邮件起草失败：%s", e)
+                console.print(f"\n[red]错误：{e}[/red]")
             finally:
                 token_tracker.reset()
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]操作已中断。[/yellow]")
 
 
 if __name__ == "__main__":

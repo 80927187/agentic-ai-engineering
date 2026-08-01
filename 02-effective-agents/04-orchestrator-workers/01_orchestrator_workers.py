@@ -1,8 +1,8 @@
 """
-Orchestrator-Workers — "The Deep Dive Researcher"
+编排器—工作器：“深度研究员”
 
-Demonstrates a central LLM dynamically breaking down a task, delegating subtasks
-to worker LLMs, and synthesizing their results into a final article.
+演示中央大语言模型如何动态拆解任务、将子任务委派给工作器大语言模型，
+并将它们的结果综合成最终文章。
 """
 
 from collections.abc import Callable
@@ -25,42 +25,38 @@ OUTPUT_DIR = Path("output")
 MODEL = "claude-sonnet-4-6"
 LIGHT_MODEL = "claude-haiku-4-5-20251001"
 
-# Anthropic server-side web search tool — Claude decides when to search
+# Anthropic 服务端网络搜索工具——由 Claude 决定何时搜索
 WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 1}
 
 SUGGESTED_TOPICS = [
-    "Compare Bun vs Node.js for Backend Development",
-    "Python 3.13 New Features and Performance",
-    "WebAssembly in Production: State of the Art",
-    "AI Code Review Tools Landscape 2025",
+    "比较 Bun 与 Node.js 在后端开发中的表现",
+    "Python 3.13 的新功能与性能",
+    "WebAssembly 生产应用现状",
+    "2025 年 AI 代码审查工具全景",
 ]
 
-# --- Prompts ---
+# --- 提示词 ---
 
 ORCHESTRATOR_SYSTEM_PROMPT = (
-    "You are a research orchestrator. Given a topic, break it down into 2-4 specific "
-    "research subtopics that can be investigated independently. Each subtopic should "
-    "cover a distinct dimension of the topic. Think like a journalist who would "
-    "research each angle separately before writing."
+    "你是一名研究编排器。请将给定主题拆解为 2～4 个可独立调查的具体研究子主题。"
+    "每个子主题应涵盖该主题的不同维度。请像记者一样思考，在动笔前分别研究每个角度。"
 )
 
 WORKER_SYSTEM_PROMPT = (
-    "You are a thorough technical researcher. Research the given topic in depth. "
-    "Provide specific details, examples, comparisons, and data points where possible. "
-    "Write 3-4 paragraphs of substantive analysis. "
-    "Use web search if the topic would benefit from current information."
+    "你是一名严谨的技术研究员。请深入研究给定主题，并尽可能提供具体细节、示例、"
+    "比较和数据。撰写 3～4 段内容充实的分析。如果最新信息有助于该主题，请使用网络搜索。"
 )
 
 SYNTHESIZER_SYSTEM_PROMPT = (
-    "You are a senior technical writer. Given research from multiple sources on different "
-    "subtopics, synthesize them into a cohesive, well-structured article."
+    "你是一名资深技术作者。请将来自多个来源、针对不同子主题的研究，"
+    "综合成一篇连贯且结构清晰的文章。"
 )
 
-# Tool for the orchestrator to decompose tasks
+# 供编排器拆解任务的工具
 PLANNING_TOOLS = [
     {
         "name": "create_research_plan",
-        "description": "Break down a topic into specific research subtopics for workers.",
+        "description": "将主题拆解为供工作器研究的具体子主题。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -71,20 +67,20 @@ PLANNING_TOOLS = [
                         "properties": {
                             "title": {
                                 "type": "string",
-                                "description": "Subtopic title",
+                                "description": "子主题标题",
                             },
                             "research_prompt": {
                                 "type": "string",
-                                "description": "Specific research question for the worker",
+                                "description": "交给工作器的具体研究问题",
                             },
                         },
                         "required": ["title", "research_prompt"],
                     },
-                    "description": "List of subtopics to research in parallel",
+                    "description": "需要并行研究的子主题列表",
                 },
                 "synthesis_instructions": {
                     "type": "string",
-                    "description": "Instructions for how to combine the research into a final article",
+                    "description": "说明如何将研究内容整合成最终文章",
                 },
             },
             "required": ["subtopics", "synthesis_instructions"],
@@ -92,12 +88,12 @@ PLANNING_TOOLS = [
     }
 ]
 
-# Callback type: agent emits (event_name, event_data) — caller decides how to display
+# 回调类型：智能体发出（事件名称、事件数据），由调用方决定如何展示
 OrchestratorCallback = Callable[[str, dict[str, Any]], None]
 
 
 class OrchestratorWorkers:
-    """Orchestrator decomposes tasks dynamically, workers execute in parallel."""
+    """编排器动态拆解任务，工作器并行执行。"""
 
     def __init__(self, model: str, light_model: str, token_tracker: AnthropicTokenTracker):
         self.client = anthropic.Anthropic()
@@ -116,7 +112,7 @@ class OrchestratorWorkers:
         tools: list[dict[str, Any]] | None = None,
         tool_choice: dict[str, str] | None = None,
     ) -> anthropic.types.Message:
-        """Single LLM call with token tracking."""
+        """执行一次大语言模型调用并跟踪 token 用量。"""
         model = self.light_model if use_light else self.model
         kwargs: dict[str, Any] = {}
         if tools:
@@ -137,15 +133,15 @@ class OrchestratorWorkers:
         return response
 
     def _call_llm_text(self, system: str, user_message: str, **kwargs: Any) -> str:
-        """Call LLM and return the text content."""
+        """调用大语言模型并返回文本内容。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
         return cast(str, self._call_llm(system, messages, **kwargs).content[0].text)
 
     def _plan(self, topic: str) -> dict[str, Any]:
-        """Orchestrator: dynamically decompose the topic into subtopics."""
-        logger.info("Orchestrator planning: %s", topic)
+        """编排器：将主题动态拆解为多个子主题。"""
+        logger.info("编排器正在规划：%s", topic)
         messages: list[dict[str, Any]] = [
-            {"role": "user", "content": f"Plan research for: {topic}"}
+            {"role": "user", "content": f"请为以下主题制定研究计划：{topic}"}
         ]
         response = self._call_llm(
             ORCHESTRATOR_SYSTEM_PROMPT,
@@ -159,12 +155,12 @@ class OrchestratorWorkers:
             if block.type == "tool_use":
                 return cast(dict[str, Any], block.input)
 
-        raise ValueError("Orchestrator did not produce a research plan")
+        raise ValueError("编排器未生成研究计划")
 
     def _research_subtopic(self, subtopic: dict[str, str]) -> dict[str, str]:
-        """Worker: research a single subtopic in depth, optionally using web search."""
+        """工作器：深入研究一个子主题，并可按需使用网络搜索。"""
         title = subtopic["title"]
-        logger.info("Worker researching: %s", title)
+        logger.info("工作器正在研究：%s", title)
 
         messages: list[dict[str, Any]] = [{"role": "user", "content": subtopic["research_prompt"]}]
         response = self._call_llm(
@@ -174,21 +170,21 @@ class OrchestratorWorkers:
         return {"title": title, "content": "\n\n".join(text_parts)}
 
     def _synthesize(self, topic: str, research: list[dict[str, str]], instructions: str) -> str:
-        """Synthesizer: combine all worker research into a coherent final article."""
-        logger.info("Synthesizing %d research sections", len(research))
+        """综合器：将所有工作器的研究整合成连贯的最终文章。"""
+        logger.info("正在综合 %d 个研究章节", len(research))
         sections = "\n\n---\n\n".join(f"## {r['title']}\n\n{r['content']}" for r in research)
-        system = f"{SYNTHESIZER_SYSTEM_PROMPT} Synthesis instructions: {instructions}"
+        system = f"{SYNTHESIZER_SYSTEM_PROMPT} 综合要求：{instructions}"
         user_msg = (
-            f"# {topic}\n\nResearch sections:\n\n{sections}\n\n"
-            "Synthesize into a complete, coherent article."
+            f"# {topic}\n\n研究章节：\n\n{sections}\n\n"
+            "请综合成一篇完整、连贯的文章。"
         )
         return self._call_llm_text(system, user_msg)
 
     def run(self, topic: str, on_event: OrchestratorCallback | None = None) -> str:
-        """Execute the full orchestrator-workers pipeline."""
+        """执行完整的编排器—工作器流程。"""
         self._notify = on_event or (lambda _e, _d: None)
 
-        # Step 1: Orchestrator plans
+        # 第 1 步：编排器规划
         self._notify("plan_start", {})
         plan = self._plan(topic)
         subtopics = plan["subtopics"]
@@ -196,7 +192,7 @@ class OrchestratorWorkers:
         self.token_tracker.report()
         self._notify("plan_complete", {"subtopics": subtopics})
 
-        # Step 2: Workers research in parallel
+        # 第 2 步：工作器并行研究
         self._notify("workers_start", {"count": len(subtopics)})
         research_results: list[dict[str, str]] = []
 
@@ -211,11 +207,11 @@ class OrchestratorWorkers:
                     research_results.append(result)
                     self._notify("worker_complete", {"title": title})
                 except Exception as e:
-                    logger.error("Worker failed on %s: %s", title, e)
+                    logger.error("工作器研究 %s 时失败：%s", title, e)
 
         self.token_tracker.report()
 
-        # Step 3: Synthesize
+        # 第 3 步：综合
         self._notify("synthesize_start", {})
         final = self._synthesize(topic, research_results, instructions)
         self.token_tracker.report()
@@ -225,42 +221,42 @@ class OrchestratorWorkers:
 
 
 def main() -> None:
-    """Run the orchestrator-workers demo."""
+    """运行编排器—工作器演示。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
 
     def on_event(event: str, data: dict[str, Any]) -> None:
-        """Handle pipeline events for console display."""
+        """处理流程事件并在控制台展示。"""
         if event == "plan_start":
-            console.print("\n[bold yellow]Orchestrator:[/bold yellow] Planning research...")
+            console.print("\n[bold yellow]编排器：[/bold yellow]正在规划研究……")
         elif event == "plan_complete":
             subtopics = data["subtopics"]
             console.print(
                 Panel(
                     "\n".join(f"• {s['title']}" for s in subtopics),
-                    title=f"Research Plan ({len(subtopics)} subtopics)",
+                    title=f"研究计划（{len(subtopics)} 个子主题）",
                     border_style="cyan",
                 )
             )
         elif event == "workers_start":
             console.print(
-                f"\n[bold yellow]Workers:[/bold yellow] "
-                f"Researching {data['count']} subtopics in parallel..."
+                f"\n[bold yellow]工作器：[/bold yellow]"
+                f"正在并行研究 {data['count']} 个子主题……"
             )
         elif event == "worker_complete":
             console.print(f"  [green]✓[/green] {data['title']}")
         elif event == "synthesize_start":
-            console.print("\n[bold yellow]Synthesizer:[/bold yellow] Combining research...")
+            console.print("\n[bold yellow]综合器：[/bold yellow]正在整合研究……")
         elif event == "synthesize_complete":
-            console.print("  [green]✓[/green] Done")
+            console.print("  [green]✓[/green] 完成")
 
     header = Panel(
-        "[bold cyan]Orchestrator-Workers — The Deep Dive Researcher[/bold cyan]\n\n"
-        "Topic → [Orchestrator] → Dynamic subtopic list\n"
-        "      → [Worker 1] + [Worker 2] + [Worker N] (parallel)\n"
-        "      → [Synthesizer] → Final Article\n\n"
-        "The LLM decides what to research — you define worker capabilities, not tasks.",
-        title="Orchestrator-Workers",
+        "[bold cyan]编排器—工作器：深度研究员[/bold cyan]\n\n"
+        "主题 → [编排器] → 动态子主题列表\n"
+        "     → [工作器 1] + [工作器 2] + [工作器 N]（并行）\n"
+        "     → [综合器] → 最终文章\n\n"
+        "由大语言模型决定研究内容——你定义的是工作器能力，而不是任务。",
+        title="编排器—工作器",
     )
 
     try:
@@ -268,15 +264,15 @@ def main() -> None:
             topic = interactive_menu(
                 console,
                 SUGGESTED_TOPICS,
-                title="Select a Topic",
+                title="选择主题",
                 header=header,
                 allow_custom=True,
-                custom_prompt="Enter your topic",
+                custom_prompt="输入你的主题",
             )
             if not topic:
                 break
 
-            console.print(f"\n[bold green]Topic:[/bold green] {topic}")
+            console.print(f"\n[bold green]主题：[/bold green]{topic}")
             orch = OrchestratorWorkers(MODEL, LIGHT_MODEL, token_tracker)
 
             try:
@@ -287,21 +283,21 @@ def main() -> None:
                 path = OUTPUT_DIR / f"{slug}.md"
                 path.write_text(result, encoding="utf-8")
 
-                console.print("\n[bold blue]Final Article:[/bold blue]")
+                console.print("\n[bold blue]最终文章：[/bold blue]")
                 console.print(Markdown(result))
                 abs_path = path.resolve()
-                console.print(f"\n[dim]Saved to [link=file://{abs_path}]{path}[/link][/dim]")
+                console.print(f"\n[dim]已保存至 [link=file://{abs_path}]{path}[/link][/dim]")
 
-                console.print("\n[dim]Press Enter to continue...[/dim]")
+                console.print("\n[dim]按 Enter 键继续……[/dim]")
                 input()
             except Exception as e:
-                logger.error("Orchestration failed: %s", e)
-                console.print(f"\n[red]Error: {e}[/red]")
+                logger.error("编排失败：%s", e)
+                console.print(f"\n[red]错误：{e}[/red]")
             finally:
                 token_tracker.reset()
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]已中断。[/yellow]")
 
 
 if __name__ == "__main__":

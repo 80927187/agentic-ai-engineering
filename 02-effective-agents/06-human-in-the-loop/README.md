@@ -1,40 +1,40 @@
 <!-- ---
-title: "Human in the Loop"
-description: "Pause agentic workflows at strategic checkpoints for human review, approval, or editing"
+title: "人在回路"
+description: "在关键检查点暂停智能体工作流，以便人工审核、批准或编辑"
 icon: "user-check"
 --- -->
 
-# Human-in-the-Loop — The Approval Gate
+# 人在回路——审批关卡
 
-Pause the workflow at strategic checkpoints for human review. The LLM drafts an email, a human approves or rejects with feedback, and the LLM revises — showing where human oversight adds the most value.
+在关键检查点暂停工作流，以便人工审核。LLM 起草邮件，人工批准或拒绝并提供反馈，随后 LLM 根据反馈修改——这个示例展示了人工监督在何处最有价值。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Place checkpoints where errors compound most — early in the pipeline
-- Implement three response modes: approve, reject with feedback, edit directly
-- Inject a checkpoint function into the agent class to keep logic testable
-- Cap revision loops to prevent infinite human-agent ping-pong
+- 将检查点放在错误影响最容易扩大的位置——流程前期
+- 实现三种响应模式：批准、拒绝并提供反馈、直接编辑
+- 将检查点函数注入智能体类，使逻辑易于测试
+- 限制修改轮数，防止人与智能体之间无限往返
 
-## 📦 Available Examples
+## 📦 可用示例
 
-| Provider | File | Description |
-|----------|------|-------------|
-| ![Anthropic](../../common/badges/anthropic.svg) | [01_human_in_the_loop.py](01_human_in_the_loop.py) | Email drafting with 2 strategic checkpoints |
+| 提供商 | 文件 | 说明 |
+|--------|------|------|
+| ![Anthropic](../../common/badges/anthropic.svg) | [01_human_in_the_loop.py](01_human_in_the_loop.py) | 带有 2 个关键检查点的邮件起草示例 |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+, API keys, and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+、API 密钥和 uv。完整配置说明请参阅 [SETUP.md](../../SETUP.md)。
 
 ```bash
 uv run --directory 02-effective-agents/06-human-in-the-loop python {script_name}
 
-# Example
+# 示例
 uv run --directory 02-effective-agents/06-human-in-the-loop python 01_human_in_the_loop.py
 ```
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，一键运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
 ```mermaid
 ---
@@ -43,59 +43,59 @@ config:
   theme: neutral
 ---
 flowchart TD
-    A["🗣️ Request     "] -->|request| B["🧠 Draft     "]
-    B -->|draft| C["👤 Checkpoint 1     "]
-    C -->|approve| D["📄 Final Email     "]
-    C -->|"reject + feedback"| E["🧠 Revise     "]
-    C -->|edit| D
-    E -->|revised| F["👤 Checkpoint 2     "]
-    F -->|approve| D
-    F -->|"reject + feedback"| E
-    F -->|edit| D
+    A["🗣️ 请求     "] -->|提交请求| B["🧠 起草     "]
+    B -->|草稿| C["👤 检查点 1     "]
+    C -->|批准| D["📄 最终邮件     "]
+    C -->|"拒绝并反馈"| E["🧠 修改     "]
+    C -->|编辑| D
+    E -->|修改稿| F["👤 检查点 2     "]
+    F -->|批准| D
+    F -->|"拒绝并反馈"| E
+    F -->|编辑| D
 ```
 
-### Checkpoint Placement
+### 检查点的设置位置
 
-Two checkpoints, each at a different leverage level:
+两个检查点分别位于影响程度不同的位置：
 
-1. **After draft** — high leverage. Catches wrong tone, missing points, or misunderstood intent before any revision work happens.
-2. **After revision** — confirms the feedback was incorporated. If not, the human can provide more feedback (up to `MAX_REVISIONS`).
+1. **草稿完成后**——影响大。在进行任何修改工作前，发现语气不当、要点缺失或意图理解错误等问题。
+2. **修改完成后**——确认反馈是否得到落实。如果没有，人工可以继续提供反馈（最多修改 `MAX_REVISIONS` 轮）。
 
-### Three Response Modes
+### 三种响应模式
 
-Each checkpoint offers three options:
+每个检查点都提供三个选项：
 
-- **(y) Approve** — continue with the current output
-- **(n) Reject + feedback** — agent revises based on your feedback
-- **(e) Edit** — replace the output with your own text directly
+- **(y) 批准**——使用当前输出继续
+- **(n) 拒绝并反馈**——智能体根据你的反馈修改
+- **(e) 编辑**——直接用你自己的文本替换输出
 
-This gives the human full control: light-touch (approve), directed (feedback), or hands-on (edit).
+这让人工拥有完整的控制权：轻度介入（批准）、定向指导（反馈）或亲自处理（编辑）。
 
-### Injectable Checkpoint Function
+### 可注入的检查点函数
 
-The `CheckpointFn` type makes the agent testable and adaptable:
+`CheckpointFn` 类型让智能体易于测试和适配：
 
 ```python
 CheckpointFn = Callable[[str, str, str], tuple[bool, str]]
 ```
 
-- In the terminal: `human_checkpoint()` prompts via Rich UI
-- In tests: pass a lambda that auto-approves
-- In production: replace with a Slack message, webhook, or UI modal
+- 在终端中：`human_checkpoint()` 通过 Rich 界面请求输入
+- 在测试中：传入自动批准的 lambda
+- 在生产环境中：替换为 Slack 消息、Webhook 或界面模态框
 
-### The Leverage Principle
+### 杠杆原则
 
-Early checkpoints have the highest leverage. Catching a wrong tone at checkpoint 1 saves all revision work. Catching a typo at checkpoint 2 saves nothing. Design checkpoints for maximum error prevention, not maximum coverage.
+越早设置检查点，杠杆效应越大。在检查点 1 发现语气错误，可以省去后续所有无效修改；在检查点 2 才发现错别字，则无法节省任何前期工作。设计检查点时应追求最大程度地预防错误，而不是覆盖尽可能多的环节。
 
-## ⚠️ Important Considerations
+## ⚠️ 重要注意事项
 
-- Too many checkpoints = human does all the work (defeats the purpose)
-- Too few checkpoints = agent makes uncorrectable mistakes
-- In production, checkpoints are async — Slack messages, UI approvals, webhooks — not terminal input
-- Cap revision loops (`MAX_REVISIONS`) to prevent unbounded costs
+- 检查点过多 = 所有工作都由人工完成（违背使用智能体的初衷）
+- 检查点过少 = 智能体可能犯下无法挽回的错误
+- 在生产环境中，检查点通常是异步的——例如 Slack 消息、界面审批或 Webhook——而不是终端输入
+- 限制修改轮数（`MAX_REVISIONS`），避免成本无限增长
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-- [07 - Content Writer](../07-content-writer/) — combine all patterns into a production content creation agent
-- Experiment: add a confidence score to auto-approve high-confidence drafts
-- Try replacing `human_checkpoint` with a function that logs to a file (simulating async review)
+- [07 - 内容写作智能体](../07-content-writer/)——将所有模式组合成一个生产级内容创作智能体
+- 实验：增加置信度评分，自动批准高置信度草稿
+- 尝试将 `human_checkpoint` 替换为记录到文件的函数（模拟异步审核）

@@ -1,7 +1,7 @@
 [project]
 name = "lesson-evaluator-optimizer"
 version = "0.1.0"
-description = "Evaluator-Optimizer — generate-evaluate refinement loop"
+description = "评估器—优化器：生成、评估与改进循环"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

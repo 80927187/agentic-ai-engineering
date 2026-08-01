@@ -1,7 +1,7 @@
 [project]
 name = "lesson-routing"
 version = "0.1.0"
-description = "Routing — classify inputs and dispatch to specialized handlers"
+description = "路由——对输入进行分类并分派给专门的处理器"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

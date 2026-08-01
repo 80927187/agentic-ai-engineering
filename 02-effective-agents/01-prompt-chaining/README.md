@@ -1,42 +1,42 @@
 <!-- ---
-title: "Prompt Chaining"
-description: "Decompose tasks into sequential LLM calls where each step builds on the previous"
+title: "提示词链"
+description: "将任务拆分为连续的 LLM 调用，每一步都建立在前一步的基础上"
 icon: "link"
 --- -->
 
-# Prompt Chaining — The Blog Assembly Line
+# 提示词链——博客流水线
 
-Decompose a task into a sequence of fixed steps, where each LLM call processes the output of the previous one. Simple, linear, and predictable — though individual steps can use tools like web search for grounded output.
+将任务拆分为一系列固定步骤，每次 LLM 调用都处理上一步的输出。这种方式简单、线性且可预测，不过各个步骤也可以使用网络搜索等工具，以生成有事实依据的内容。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Design multi-step LLM pipelines with clear handoffs between stages
-- Pass context and results between sequential calls using focused prompts
-- Debug and trace execution through the chain with per-step callbacks and token tracking
-- Know when chaining beats a single complex prompt
+- 设计多步骤 LLM 流水线，在各阶段之间清晰地传递结果
+- 使用聚焦的提示词，在连续调用之间传递上下文和结果
+- 借助逐步骤回调和 token 追踪，对提示词链的执行过程进行调试与追踪
+- 判断何时提示词链优于单个复杂提示词
 
-## 📦 Available Examples
+## 📦 可用示例
 
-| Provider | File | Description |
-|----------|------|-------------|
-| ![Anthropic](../../common/badges/anthropic.svg) | [01_prompt_chaining.py](01_prompt_chaining.py) | Blog post assembly line with 3-step chain |
+| 提供商 | 文件 | 说明 |
+|--------|------|------|
+| ![Anthropic](../../common/badges/anthropic.svg) | [01_prompt_chaining.py](01_prompt_chaining.py) | 由 3 步提示词链组成的博客文章流水线 |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+, API keys, and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+、API 密钥和 uv。完整的配置说明请参阅 [SETUP.md](../../SETUP.md)。
 
 ```bash
 uv run --directory 02-effective-agents/01-prompt-chaining python {script_name}
 
-# Example
+# 示例
 uv run --directory 02-effective-agents/01-prompt-chaining python 01_prompt_chaining.py
 ```
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，单击一次即可运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
-### Sequential Pipeline
+### 顺序流水线
 
 ```mermaid
 ---
@@ -45,62 +45,62 @@ config:
   theme: neutral
 ---
 flowchart LR
-    A["🗣️ Topic     "] -->|request| B["🧠 Outliner / Sonnet     "]
-    B -->|outline| C["🧠 Writer / Haiku + 🔍     "]
-    C -->|draft| D["🧠 Editor / Sonnet     "]
-    D -->|polished| E["📄 Final Post     "]
+    A["🗣️ 主题     "] -->|请求| B["🧠 大纲规划器 / Sonnet     "]
+    B -->|大纲| C["🧠 作者 / Haiku + 🔍     "]
+    C -->|初稿| D["🧠 编辑 / Sonnet     "]
+    D -->|润色稿| E["📄 最终文章     "]
 ```
 
-Each step has a focused system prompt and a single responsibility. The output of one step becomes the input of the next.
+每个步骤都有聚焦的系统提示词，并且只承担一项职责。一个步骤的输出会成为下一个步骤的输入。
 
-### Quality Gates
+### 质量关卡
 
-Between steps, validate that the previous step produced usable output. If the outliner returns empty text, abort early rather than sending garbage downstream.
+在步骤之间验证上一步是否生成了可用的输出。如果大纲规划器返回空文本，就应尽早中止，而不是把无效内容继续传给下游。
 
-### Dual Model Strategy
+### 双模型策略
 
-The chain uses different models for different steps based on task complexity:
+提示词链会根据任务复杂度，为不同步骤使用不同模型：
 
-- **Sonnet** (steps 1 & 3): Outlining and editing require nuance and judgment
-- **Haiku** (step 2): Writing from a structured outline is more straightforward — a faster, cheaper model works well
+- **Sonnet**（第 1、3 步）：规划大纲和编辑需要细致理解与判断
+- **Haiku**（第 2 步）：根据结构化大纲写作更直接，因此速度更快、成本更低的模型就能胜任
 
-This is a practical cost optimization: use the most capable model only where it matters.
+这是一种实用的成本优化方式：仅在真正需要的环节使用能力最强的模型。
 
-### Web Search in the Chain
+### 提示词链中的网络搜索
 
-Step 2 (Writer) has access to Anthropic's built-in web search tool, limited to 3 uses per run:
+第 2 步（作者）可以使用 Anthropic 内置的网络搜索工具，每次运行最多使用 1 次：
 
 ```python
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 1}
 ```
 
-The model decides autonomously whether to search — the system prompt says "use web search if the topic would benefit from current information." This keeps the chain simple (no explicit search logic) while enabling grounded, up-to-date content.
+模型会自主决定如何搜索——系统提示词要求“始终使用网络搜索，以当前且准确的信息为写作提供事实依据”。这种方式既能保持提示词链简洁（无需显式编写搜索逻辑），又能生成有依据的最新内容。
 
-### Step Design
+### 步骤设计
 
-- **Outliner** (Sonnet): Generate structure (title + 5 bullet points)
-- **Writer** (Haiku + web search): Expand outline into full blog post, 2-3 paragraphs per section
-- **Editor** (Sonnet): Polish grammar, clarity, and flow; add a Key Takeaways section
+- **大纲规划器**（Sonnet）：生成结构（标题和 3～5 个研究方向）
+- **作者**（Haiku + 网络搜索）：将大纲扩展为完整博客文章，每节包含 1～2 个短段落
+- **编辑**（Sonnet）：润色语法、清晰度和行文；添加“核心要点”部分
 
-Each prompt is optimized for its specific task — not a single "do everything" prompt.
+每个提示词都针对各自的具体任务进行了优化，而不是用一个提示词“包办一切”。
 
-### When to Chain vs. Single Prompt
+### 何时使用提示词链，何时使用单个提示词
 
-Chaining adds complexity — use it when the benefits outweigh the cost:
+提示词链会增加复杂度，因此只有收益大于成本时才应使用：
 
-- **Chain when** steps have different requirements (models, tools, temperature), when intermediate output needs validation, or when debugging requires visibility into each stage
-- **Single prompt when** the task is straightforward enough that one well-crafted prompt handles it reliably — adding steps just adds latency and failure points
+- **使用提示词链：** 各步骤有不同要求（模型、工具、温度参数等）、需要验证中间输出，或者调试时需要观察每个阶段
+- **使用单个提示词：** 任务足够直接，一个精心设计的提示词便能可靠完成；增加步骤只会带来额外延迟和故障点
 
-In this tutorial, chaining wins because each step genuinely benefits from a different setup: the outliner needs precision (Sonnet), the writer needs web access (Haiku + search), and the editor needs judgment (Sonnet).
+在本教程中，提示词链更合适，因为每一步确实需要不同的配置：大纲规划器需要精确性（Sonnet），作者需要网络访问能力（Haiku + 搜索），编辑则需要判断力（Sonnet）。
 
-## ⚠️ Important Considerations
+## ⚠️ 重要注意事项
 
-- Chain length matters — each step adds latency and token cost
-- Errors compound: a bad outline produces a bad article no matter how good the writer prompt is
-- Web search adds latency and non-determinism — the same topic may produce different articles based on search results
-- Consider adding validation/gates between steps for production use
+- 提示词链的长度很重要——每一步都会增加延迟和 token 成本
+- 错误会逐步累积：无论作者提示词多么出色，糟糕的大纲都会产出糟糕的文章
+- 网络搜索会增加延迟和不确定性——同一主题可能因搜索结果不同而生成不同文章
+- 在生产环境中，应考虑在各步骤之间增加验证或质量关卡
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-- [02 - Routing](../02-routing/) — add input classification to route to specialized chains
-- Experiment: add a 4th step (e.g., SEO optimizer or fact-checker)
+- [02 - 路由](../02-routing/)——增加输入分类，将请求分派到专门的提示词链
+- 动手实验：增加第 4 步（例如 SEO 优化或事实核查）

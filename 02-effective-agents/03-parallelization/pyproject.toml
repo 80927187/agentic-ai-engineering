@@ -1,7 +1,7 @@
 [project]
 name = "lesson-parallelization"
 version = "0.1.0"
-description = "Parallelization — fan-out independent work, fan-in to combine"
+description = "并行化——扇出独立工作，再通过扇入进行合并"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

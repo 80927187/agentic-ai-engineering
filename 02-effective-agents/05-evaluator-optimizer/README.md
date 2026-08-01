@@ -1,40 +1,40 @@
 <!-- ---
-title: "Evaluator-Optimizer"
-description: "One LLM generates, another critiques, and the cycle repeats until quality thresholds are met"
+title: "评估器—优化器"
+description: "一个大语言模型负责生成，另一个负责评审，循环往复，直到达到质量阈值"
 icon: "refresh"
 --- -->
 
-# Evaluator-Optimizer — The Editor's Desk
+# 评估器—优化器：编辑工作台
 
-One LLM generates a response while another evaluates it in a loop, refining until a quality threshold is met. Generator and Evaluator are different prompts with different goals.
+一个大语言模型生成回答，另一个大语言模型在循环中对其进行评估和改进，直到达到质量阈值。生成器和评估器使用目标不同的提示词。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Use an LLM as a judge to score generated content on defined dimensions
-- Define evaluation criteria and enforce them via structured tool output
-- Build an evaluate → refine loop that converges on a quality threshold
-- Separate the generator and evaluator roles to avoid conflicting incentives
+- 使用大语言模型充当评委，按照预先定义的维度为生成内容评分
+- 定义评估标准，并通过结构化工具输出强制执行这些标准
+- 构建“评估 → 改进”循环，使结果逐步达到质量阈值
+- 分离生成器与评估器的角色，避免目标冲突
 
-## 📦 Available Examples
+## 📦 可用示例
 
-| Provider | File | Description |
-|----------|------|-------------|
-| ![Anthropic](../../common/badges/anthropic.svg) | [01_evaluator_optimizer.py](01_evaluator_optimizer.py) | Blog post refinement with 5-dimension evaluation loop |
+| 提供商 | 文件 | 说明 |
+|--------|------|------|
+| ![Anthropic](../../common/badges/anthropic.svg) | [01_evaluator_optimizer.py](01_evaluator_optimizer.py) | 通过五维评估循环改进博客文章 |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+, API keys, and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+、API 密钥和 uv。完整配置说明请参阅 [SETUP.md](../../SETUP.md)。
 
 ```bash
 uv run --directory 02-effective-agents/05-evaluator-optimizer python {script_name}
 
-# Example
+# 示例
 uv run --directory 02-effective-agents/05-evaluator-optimizer python 01_evaluator_optimizer.py
 ```
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，单击一次即可运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
 ```mermaid
 ---
@@ -43,71 +43,72 @@ config:
   theme: neutral
 ---
 flowchart TD
-    A["🗣️ Topic     "] -->|request| B["🔧 Research / Haiku + 🔍     "]
-    B -->|data| C["🧠 Write / Haiku     "]
-    C -->|draft| D["⚙️ Evaluate / Haiku     "]
-    D -->|"avg < 7.0"| E["🧠 Refine / Sonnet     "]
-    E -->|revised| D
-    D -->|"avg >= 7.0"| F["📄 Final Post     "]
+    A["🗣️ 主题     "] -->|请求| B["🔧 调研 / Haiku + 🔍     "]
+    B -->|数据| C["🧠 写作 / Haiku     "]
+    C -->|草稿| D["⚙️ 评估 / Haiku     "]
+    D -->|"平均分 < 7.0"| E["🧠 改进 / Sonnet     "]
+    E -->|修订稿| D
+    D -->|"平均分 >= 7.0"| F["📄 最终文章     "]
 ```
 
-### Pipeline: Research → Write → Evaluate → Refine
+### 流水线：调研 → 写作 → 评估 → 改进
 
-The pipeline separates web search from writing to control token costs:
+该流水线将网页搜索与写作分离，以控制令牌成本：
 
-1. **Research** — web search gathers current data (Haiku + `web_search` tool)
-2. **Write** — synthesizes from research data, no tools (Haiku, text only)
-3. **Evaluate** — 5-dimension scoring via structured output (Haiku, `tool_choice`)
-4. **Refine** — rewrites from feedback + full draft, no tools (Sonnet)
+1. **调研**——通过网页搜索收集最新资料（Haiku + `web_search` 工具）
+2. **写作**——根据调研资料进行整合，不使用工具（Haiku，仅文本）
+3. **评估**——通过结构化输出进行五维评分（Haiku，`tool_choice`）
+4. **改进**——结合反馈和完整草稿进行重写，不使用工具（Sonnet）
 
-Web search injects ~25-35k input tokens per search. By isolating it to the research phase, the write and refine steps stay lean.
+每次网页搜索会增加约 2.5 万至 3.5 万个输入令牌。将搜索限制在调研阶段，可以让写作和改进步骤保持精简。
 
-### Separation of Concerns
+### 关注点分离
 
-The writer, evaluator, and refiner have fundamentally different goals:
-- **Writer**: produce creative, engaging content from research data
-- **Evaluator**: critically assess quality against objective criteria
-- **Refiner**: address specific feedback while maintaining voice
+作者、评估器和改进器的目标有本质区别：
 
-Combining these into one prompt creates conflicting incentives. Separating them enables targeted improvement.
+- **作者**：根据调研资料创作有吸引力的内容
+- **评估器**：依据客观标准严格评判内容质量
+- **改进器**：在保持原有表达风格的同时处理具体反馈
 
-### Structured Evaluation
+将这些角色合并到一个提示词中会造成目标冲突。把它们分开，才能有针对性地改进内容。
 
-Scores on five dimensions (1-10):
+### 结构化评估
 
-- **Clarity** — can engineers follow without re-reading?
-- **Technical Accuracy** — is info correct and current?
-- **Structure** — logical flow, easy to navigate?
-- **Engagement** — would engineers want to read this?
-- **Human Voice** — does it sound like a real person?
+从五个维度进行评分（1～10 分）：
 
-Plus: specific issues and actionable suggestions — fed back to the refiner as structured feedback.
+- **清晰度**——工程师能否无需反复阅读就理解内容？
+- **技术准确性**——信息是否正确且符合现状？
+- **结构**——逻辑是否流畅，内容是否易于浏览？
+- **吸引力**——工程师是否愿意阅读？
+- **自然表达**——读起来是否像真人所写？
 
-### Convergence
+此外，评估器还会给出具体问题和可执行的建议，并将这些结构化反馈传给改进器。
 
-The loop terminates when average score >= threshold (default 7.0) or after max refinements (default 2). Most improvement happens in the first refinement — diminishing returns are real:
+### 收敛
+
+平均分达到阈值（默认 7.0）或完成最大改进次数（默认 2 次）时，循环终止。大多数提升发生在第一次改进中，边际收益递减确实存在：
 
 ```python
 SCORE_THRESHOLD = 7.0
 MAX_REFINEMENTS = 2
 ```
 
-### Token Cost Control
+### 令牌成本控制
 
-Each phase uses only the context it needs — no accumulated chat history:
+每个阶段只使用自身所需的上下文，不累积聊天历史：
 
-- **Isolate expensive tools** — web search runs once in research; all other phases are text-only
-- **Right-size models** — Haiku handles research, writing, and evaluation; Sonnet is reserved for refinement where writing quality matters most
-- **Cap output** — structured evaluation returns compact JSON, not prose
+- **隔离高成本工具**——网页搜索只在调研阶段运行一次，其他阶段均仅处理文本
+- **按需选择模型**——Haiku 负责调研、写作和评估；仅在写作质量最重要的改进阶段使用 Sonnet
+- **限制输出**——结构化评估返回紧凑的 JSON，而不是大段文字
 
-## ⚠️ Important Considerations
+## ⚠️ 重要注意事项
 
-- Evaluators can be overly generous or harsh — calibrate your threshold
-- The evaluator uses Haiku (fast, cheap) for scoring; the refiner uses Sonnet for higher writing quality
-- Diminishing returns: most improvement happens in the first refinement
+- 评估器可能过于宽松或严苛，请合理校准阈值
+- 评估器使用快速、低成本的 Haiku 评分；改进器使用 Sonnet 以获得更高的写作质量
+- 边际收益递减：大多数提升发生在第一次改进中
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-- [06 - Human-in-the-Loop](../06-human-in-the-loop/) — add human checkpoints to the workflow
-- Experiment: adjust `SCORE_THRESHOLD` and `MAX_REFINEMENTS` to find the quality/cost balance
-- Compare output quality with and without the research phase
+- [06 - 人机协同](../06-human-in-the-loop/)——在工作流中加入人工检查点
+- 尝试调整 `SCORE_THRESHOLD` 和 `MAX_REFINEMENTS`，寻找质量与成本之间的平衡
+- 比较包含和不包含调研阶段时的输出质量

@@ -1,7 +1,7 @@
 [project]
 name = "lesson-orchestrator-workers"
 version = "0.1.0"
-description = "Orchestrator-Workers — dynamic task decomposition and delegation"
+description = "编排器—工作器：动态拆解与委派任务"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

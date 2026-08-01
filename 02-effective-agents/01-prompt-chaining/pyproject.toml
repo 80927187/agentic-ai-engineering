@@ -1,7 +1,7 @@
 [project]
 name = "lesson-prompt-chaining"
 version = "0.1.0"
-description = "Prompt Chaining — decompose tasks into sequential LLM calls"
+description = "提示词链——将任务拆分为连续的 LLM 调用"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",
