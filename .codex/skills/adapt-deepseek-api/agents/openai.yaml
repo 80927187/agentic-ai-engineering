@@ -1,0 +1,4 @@
+interface:
+  display_name: "DeepSeek API 适配"
+  short_description: "按本项目经验适配 DeepSeek 提示词链响应与搜索"
+  default_prompt: "使用 $adapt-deepseek-api 按本项目实际改造经验适配当前 DeepSeek 提示词链。"

@@ -7,7 +7,7 @@
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import anthropic
 from dotenv import find_dotenv, load_dotenv
@@ -21,11 +21,11 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 OUTPUT_DIR = Path("output")
-MODEL = "claude-sonnet-4-6"
-LIGHT_MODEL = "claude-haiku-4-5-20251001"
+MODEL = "deepseek-v4-flash"
+LIGHT_MODEL = "deepseek-v4-flash"
 
 # Anthropic 服务端网络搜索工具——Claude 自行决定如何搜索
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 1}
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 10}
 
 SUGGESTED_TOPICS = [
     "Python 异步编程实践",
@@ -104,7 +104,11 @@ class PromptChain:
     def _call_llm_text(self, system: str, user_message: str) -> str:
         """调用 LLM 并返回文本内容。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
-        return cast(str, self._call_llm(system, messages).content[0].text)
+        response = self._call_llm(system, messages)
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            raise ValueError("模型响应中没有文本内容。")
+        return "\n\n".join(text_parts)
 
     def _run_agentic_loop(
         self,
@@ -180,7 +184,10 @@ class PromptChain:
         logger.info("[写作] 正在调用 %s", self.light_model)
         draft, searches = self._step_write(outline)
         self.token_tracker.report()
-        self._notify("step_complete", {"name": "写作", "searches": searches})
+        self._notify(
+            "step_complete",
+            {"name": "写作", "result": draft, "searches": searches},
+        )
 
         # 第 3 步：编辑
         self._notify("step_start", {"name": "编辑"})
@@ -205,6 +212,10 @@ def main() -> None:
             console.print("  [green]✓[/green] 完成")
             if data["name"] == "规划大纲" and data.get("result"):
                 console.print(Panel(data["result"], title="大纲", border_style="dim"))
+            if data["name"] == "写作" and data.get("result"):
+                console.print(
+                    Panel(Markdown(data["result"]), title="写作初稿", border_style="dim")
+                )
             if data["name"] == "写作" and data.get("searches"):
                 lines = [
                     f"  [dim]•[/dim] [link={s['url']}]{s['title']}[/link]" for s in data["searches"]
