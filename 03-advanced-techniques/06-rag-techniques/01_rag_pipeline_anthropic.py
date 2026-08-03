@@ -1,12 +1,10 @@
-"""
-RAG Pipeline (Anthropic)
+"""RAG 流水线（Anthropic）。
 
-Demonstrates a complete Retrieval-Augmented Generation pipeline: ingest
-documents, chunk, embed with a local sentence-transformer model, index in
-ChromaDB + BM25, retrieve with hybrid search and reranking, then generate
-answers with Claude.
+演示完整的检索增强生成流水线：摄取文档、分块、使用本地 sentence-transformer
+模型生成嵌入向量、写入 ChromaDB 和 BM25 索引、通过混合搜索与重排序检索，
+最后使用 Claude 生成答案。
 
-Requires ANTHROPIC_API_KEY environment variable.
+需要设置 ANTHROPIC_API_KEY 环境变量。
 """
 
 from pathlib import Path
@@ -22,82 +20,82 @@ from common import AnthropicTokenTracker, setup_logging
 from common.menu import interactive_menu
 from rag import HybridRetriever, LocalEmbedder, Reranker, VectorStore, recursive_split
 
-# Load environment variables from root .env file
+# 从根目录的 .env 文件加载环境变量
 load_dotenv(find_dotenv())
 
-# Configure logging
+# 配置日志
 logger = setup_logging(__name__)
 
-# Model configuration
+# 模型配置
 MODEL = "claude-sonnet-4-6"
 SAMPLE_DOCS_DIR = Path(__file__).parent / "sample_docs"
 CHROMA_PERSIST_DIR = str(Path(__file__).parent / ".chroma_db")
 
 SYSTEM_PROMPT = (
-    "You are a technical support assistant for TechFlow Solutions. "
-    "Answer questions using ONLY the provided context. "
-    "Cite the source document for each fact (e.g., [api_reference.md]). "
-    "If the context doesn't contain the answer, say so clearly — do not make things up."
+    "你是 TechFlow Solutions 的技术支持助手。"
+    "只能根据提供的上下文回答问题。"
+    "每项事实都要引用来源文档（例如 [api_reference.md]）。"
+    "如果上下文中没有答案，请明确说明，不要编造信息。"
 )
 
-# Pre-defined demo questions covering different documents and retrieval modes
+# 预设的演示问题，覆盖不同文档和检索模式
 DEMO_QUESTIONS = [
-    "How do I authenticate with the TechFlow API?",
-    "What database does TechFlow use for caching?",
-    "How do I roll back a failed deployment?",
-    "Why are my webhooks not firing?",
-    "What is the rate limit for the Pro plan?",
-    "Explain how services communicate with each other in the TechFlow architecture.",
+    "如何通过 TechFlow API 进行身份验证？",
+    "TechFlow 使用什么数据库进行缓存？",
+    "如何回滚失败的部署？",
+    "为什么我的 Webhook 没有触发？",
+    "专业版套餐的速率限制是多少？",
+    "请说明 TechFlow 架构中的服务如何相互通信。",
 ]
 
 
 class RAGPipeline:
-    """Full RAG pipeline: ingest → retrieve → generate."""
+    """完整的 RAG 流水线：摄取 → 检索 → 生成。"""
 
     def __init__(self, model: str, token_tracker: AnthropicTokenTracker):
         self.client = anthropic.Anthropic()
         self.model = model
         self.token_tracker = token_tracker
 
-        # Build the retrieval stack
+        # 构建检索技术栈
         self.embedder = LocalEmbedder()
         self.store = VectorStore(self.embedder, persist_dir=CHROMA_PERSIST_DIR)
         self.reranker = Reranker()
         self.retriever = HybridRetriever(self.store, self.reranker)
 
     def ingest(self, docs_dir: Path) -> int:
-        """Load markdown files, chunk, embed, and index. Return chunk count."""
+        """加载 Markdown 文件，执行分块、嵌入和索引，并返回文本块数量。"""
         all_chunks = []
 
         for doc_path in sorted(docs_dir.glob("*.md")):
             text = doc_path.read_text(encoding="utf-8")
             chunks = recursive_split(text, source=doc_path.name)
             all_chunks.extend(chunks)
-            logger.info("Chunked %s → %d chunks", doc_path.name, len(chunks))
+            logger.info("已将 %s 切分为 %d 个文本块", doc_path.name, len(chunks))
 
         self.store.add_chunks(all_chunks)
         return len(all_chunks)
 
     def query(self, question: str, top_k: int = 5) -> tuple[str, list]:
-        """Retrieve relevant chunks and generate an answer with citations."""
+        """检索相关文本块，并生成带有引用的答案。"""
         chunks = self.retriever.retrieve(question, top_k=top_k)
         context = self._build_context(chunks)
         answer = self._generate(question, context)
         return answer, chunks
 
     def _build_context(self, chunks: list) -> str:
-        """Format retrieved chunks as numbered context blocks."""
+        """将检索到的文本块格式化为带编号的上下文块。"""
         if not chunks:
-            return "No relevant context found."
+            return "未找到相关上下文。"
 
         blocks = []
         for i, chunk in enumerate(chunks, 1):
-            blocks.append(f"[{i}] Source: {chunk.source}\n{chunk.content}")
+            blocks.append(f"[{i}] 来源：{chunk.source}\n{chunk.content}")
         return "\n\n---\n\n".join(blocks)
 
     def _generate(self, question: str, context: str) -> str:
-        """Send question + context to Claude, return answer."""
-        user_message = f"Context:\n{context}\n\nQuestion: {question}"
+        """将问题和上下文发送给 Claude，并返回答案。"""
+        user_message = f"上下文：\n{context}\n\n问题：{question}"
 
         response = self.client.messages.create(
             model=self.model,
@@ -111,27 +109,27 @@ class RAGPipeline:
 
 
 def _render_chunks(console: Console, chunks: list) -> None:
-    """Display retrieved chunks with source and preview."""
+    """显示检索到的文本块、来源和内容预览。"""
     table = Table(show_header=True, box=None, padding=(0, 1))
     table.add_column("#", style="dim", width=3)
-    table.add_column("Source", style="cyan", min_width=20)
-    table.add_column("Preview", ratio=1)
+    table.add_column("来源", style="cyan", min_width=20)
+    table.add_column("预览", ratio=1)
 
     for i, chunk in enumerate(chunks, 1):
         preview = chunk.content[:120].replace("\n", " ") + "..."
         table.add_row(str(i), chunk.source, f"[dim]{preview}[/dim]")
 
-    console.print(Panel(table, title="Retrieved Chunks", border_style="dim", padding=(0, 1)))
+    console.print(Panel(table, title="检索到的文本块", border_style="dim", padding=(0, 1)))
 
 
 def _run_demo(console: Console, pipeline: RAGPipeline) -> None:
-    """Run pre-defined demo questions one at a time, waiting for user input."""
-    console.print(f"\n[bold]Running {len(DEMO_QUESTIONS)} demo questions.[/bold]")
-    console.print("[dim]Press Enter to run each question, or 'q' to stop.[/dim]\n")
+    """逐个运行预设的演示问题，每次等待用户输入。"""
+    console.print(f"\n[bold]即将运行 {len(DEMO_QUESTIONS)} 个演示问题。[/bold]")
+    console.print("[dim]按 Enter 运行下一个问题，输入 'q' 停止。[/dim]\n")
 
     for i, question in enumerate(DEMO_QUESTIONS, 1):
-        console.print(f"[bold green]Question {i}/{len(DEMO_QUESTIONS)}:[/bold green] {question}")
-        console.print("[dim]Press Enter to run...[/dim] ", end="")
+        console.print(f"[bold green]问题 {i}/{len(DEMO_QUESTIONS)}：[/bold green] {question}")
+        console.print("[dim]按 Enter 运行...[/dim] ", end="")
         try:
             if input().strip().lower() == "q":
                 break
@@ -143,24 +141,24 @@ def _run_demo(console: Console, pipeline: RAGPipeline) -> None:
 
             _render_chunks(console, chunks)
 
-            console.print("\n[bold blue]Answer:[/bold blue]")
+            console.print("\n[bold blue]回答：[/bold blue]")
             console.print(Markdown(answer))
             console.print("\n" + "─" * 60 + "\n")
 
         except Exception as e:
-            logger.error("Error processing question %d: %s", i, e)
-            console.print(f"[red]Error: {e}[/red]\n")
+            logger.error("处理第 %d 个问题时出错：%s", i, e)
+            console.print(f"[red]错误：{e}[/red]\n")
 
 
 def _run_interactive(console: Console, pipeline: RAGPipeline) -> None:
-    """Interactive mode — user asks questions."""
+    """交互模式：由用户提问。"""
     console.print(
-        "\n[bold]Interactive mode[/bold] — ask questions about TechFlow.\n"
-        "Type [bold]'quit'[/bold] or [bold]'exit'[/bold] to end.\n"
+        "\n[bold]交互模式[/bold]：可以询问有关 TechFlow 的问题。\n"
+        "输入 [bold]'quit'[/bold] 或 [bold]'exit'[/bold] 结束。\n"
     )
 
     while True:
-        console.print("[bold green]Question:[/bold green] ", end="")
+        console.print("[bold green]问题：[/bold green] ", end="")
         user_input = input().strip()
 
         if user_input.lower() in ["quit", "exit", ""]:
@@ -171,70 +169,70 @@ def _run_interactive(console: Console, pipeline: RAGPipeline) -> None:
 
             _render_chunks(console, chunks)
 
-            console.print("\n[bold blue]Answer:[/bold blue]")
+            console.print("\n[bold blue]回答：[/bold blue]")
             console.print(Markdown(answer))
             console.print()
 
         except Exception as e:
-            logger.error("Error processing question: %s", e)
-            console.print(f"\n[red]Error: {e}[/red]")
+            logger.error("处理问题时出错：%s", e)
+            console.print(f"\n[red]错误：{e}[/red]")
 
 
 def main() -> None:
-    """Main orchestration function for the RAG pipeline demo."""
+    """RAG 流水线演示的主编排函数。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
 
-    with console.status("[bold]Loading embedding model (first run downloads ~80MB)...[/bold]"):
+    with console.status("[bold]正在加载嵌入模型（首次运行会下载约 80MB）...[/bold]"):
         pipeline = RAGPipeline(MODEL, token_tracker)
 
     header = Panel(
-        "[bold cyan]RAG Pipeline Demo[/bold cyan]\n\n"
-        "This demo ingests TechFlow documentation, builds a hybrid index\n"
-        "(vector + BM25), and answers questions with source citations.\n\n"
-        "[bold]Pipeline:[/bold] Chunk → Embed (local) → Index (ChromaDB + BM25)\n"
-        "         → Hybrid Retrieve → Rerank (FlashRank) → Generate (Claude)\n\n"
-        "[bold]Try these sample questions:[/bold]\n"
-        "  1. How do I authenticate with the TechFlow API?\n"
-        "  2. What database does TechFlow use for caching?\n"
-        "  3. How do I roll back a failed deployment?\n"
-        "  4. Why are my webhooks not firing?\n"
-        "  5. What is the rate limit for the Pro plan?",
-        title="RAG Pipeline",
+        "[bold cyan]RAG 流水线演示[/bold cyan]\n\n"
+        "本演示会摄取 TechFlow 文档、构建混合索引（向量 + BM25），\n"
+        "并在回答问题时引用信息来源。\n\n"
+        "[bold]流水线：[/bold]分块 → 嵌入（本地）→ 索引（ChromaDB + BM25）\n"
+        "         → 混合检索 → 重排序（FlashRank）→ 生成（Claude）\n\n"
+        "[bold]可以尝试以下问题：[/bold]\n"
+        "  1. 如何通过 TechFlow API 进行身份验证？\n"
+        "  2. TechFlow 使用什么数据库进行缓存？\n"
+        "  3. 如何回滚失败的部署？\n"
+        "  4. 为什么我的 Webhook 没有触发？\n"
+        "  5. 专业版套餐的速率限制是多少？",
+        title="RAG 流水线",
     )
     console.print(header)
 
-    # Ingest documents
-    console.print("\n[bold]Ingesting documents...[/bold]")
+    # 摄取文档
+    console.print("\n[bold]正在摄取文档...[/bold]")
     try:
         chunk_count = pipeline.ingest(SAMPLE_DOCS_DIR)
         console.print(
-            f"[green]Indexed {chunk_count} chunks from "
-            f"{len(list(SAMPLE_DOCS_DIR.glob('*.md')))} documents[/green]\n"
+            f"[green]已从 {len(list(SAMPLE_DOCS_DIR.glob('*.md')))} 份文档中"
+            f"索引 {chunk_count} 个文本块[/green]\n"
         )
     except Exception as e:
-        logger.error("Ingestion failed: %s", e)
-        console.print(f"[red]Ingestion failed: {e}[/red]")
+        logger.error("文档摄取失败：%s", e)
+        console.print(f"[red]文档摄取失败：{e}[/red]")
         return
 
     mode = interactive_menu(
         console,
         items=[
-            "Demo — run sample questions with full pipeline",
-            "Interactive — ask your own questions",
+            "演示——使用完整流水线运行示例问题",
+            "交互——提出自己的问题",
         ],
-        title="Select Mode",
+        title="选择模式",
     )
 
     if mode is None:
         return
 
-    if mode.startswith("Demo"):
+    if mode.startswith("演示"):
         _run_demo(console, pipeline)
     else:
         _run_interactive(console, pipeline)
 
-    # Final token report
+    # 最终 Token 用量报告
     console.print()
     token_tracker.report()
 

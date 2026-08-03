@@ -1,12 +1,11 @@
 """
-Prompt Caching (Anthropic)
+提示词缓存（Anthropic）
 
-Demonstrates prompt caching with a customer support agent that has a large
-company policy document as the system prompt. The policy exceeds Anthropic's
-1024-token minimum for caching, so repeated calls read from cache at 90% savings.
+通过一个以大型公司政策文档作为系统提示词的客户支持智能体，演示提示词缓存。
+该政策超过 Anthropic 的 1024 词元缓存下限，因此重复调用可从缓存读取，节省 90% 的费用。
 
-First call: cache MISS (cache_creation_input_tokens > 0)
-Subsequent calls: cache HIT (cache_read_input_tokens > 0)
+第一次调用：缓存未命中（cache_creation_input_tokens > 0）
+后续调用：缓存命中（cache_read_input_tokens > 0）
 """
 
 from dataclasses import dataclass, field
@@ -20,164 +19,138 @@ from rich.table import Table
 
 from common import AnthropicTokenTracker, setup_logging
 
-# Load environment variables from root .env file
+# 从根目录的 .env 文件加载环境变量
 load_dotenv(find_dotenv())
 
-# Configure logging
+# 配置日志记录
 logger = setup_logging(__name__)
 
-# Model configuration
+# 模型配置
 MODEL = "claude-sonnet-4-6"
 
-# Anthropic pricing ($ per million tokens) — as of 2025
+# Anthropic 定价（美元/百万词元）——截至 2025 年
 PRICING = {
     "input": 3.00,
     "output": 15.00,
-    "cache_write": 3.75,  # 1.25x input
-    "cache_read": 0.30,  # 0.1x input — the big win
+    "cache_write": 3.75,  # 输入费率的 1.25 倍
+    "cache_read": 0.30,  # 输入费率的 0.1 倍——主要节省来源
 }
 
-# Large company policy document (~1200-1500 tokens) to ensure we exceed the
-# 1024-token minimum required for prompt caching on Sonnet.
+# 使用大型公司政策文档（约 1200～1500 个词元），确保超过 Sonnet
+# 提示词缓存所要求的 1024 词元下限。
 COMPANY_POLICY = """
-# TechFlow Solutions — Customer Support Policy & FAQ
+# TechFlow Solutions——客户支持政策与常见问题
 
-## Company Overview
-TechFlow Solutions is a B2B SaaS company providing cloud-based project management,
-team collaboration, and workflow automation tools. Founded in 2019, we serve over
-15,000 business customers across 40 countries. Our product suite includes TechFlow
-Pro (project management), TechFlow Connect (team messaging), and TechFlow Automate
-(workflow builder).
+## 公司概况
+TechFlow Solutions 是一家 B2B SaaS 公司，提供基于云的项目管理、团队协作和工作流
+自动化工具。公司成立于 2019 年，为 40 个国家和地区的 15,000 多家企业客户提供服务。
+产品套件包括 TechFlow Pro（项目管理）、TechFlow Connect（团队消息）和 TechFlow
+Automate（工作流构建器）。
 
-## Return & Refund Policy
+## 退货与退款政策
 
-### Software Subscriptions
-- All subscription plans include a 14-day free trial period with full feature access.
-- Monthly subscriptions can be cancelled at any time; service continues until the
-  end of the current billing cycle. No partial refunds for unused days.
-- Annual subscriptions may be refunded within 30 days of purchase. After 30 days,
-  the remaining balance is converted to account credit valid for 12 months.
-- Enterprise contracts (50+ seats) follow custom terms outlined in the service
-  agreement. Contact the enterprise team for modifications.
+### 软件订阅
+- 所有订阅方案均包含 14 天免费试用期，试用期间可使用全部功能。
+- 月度订阅可随时取消；服务将持续至当前计费周期结束。未使用的天数不予部分退款。
+- 年度订阅可在购买后 30 天内退款。超过 30 天后，剩余金额将转换为有效期 12 个月的账户余额。
+- 企业合同（50 个以上席位）遵循服务协议中列明的定制条款。如需修改，请联系企业服务团队。
 
-### Hardware & Accessories
-- Physical products (TechFlow Hub devices, accessories) may be returned within
-  30 days of delivery in original packaging for a full refund.
-- Defective hardware is covered under warranty and replaced at no cost.
-- Shipping costs for returns are covered by TechFlow for defective items only.
+### 硬件与配件
+- 实体产品（TechFlow Hub 设备及配件）可在送达后 30 天内以原包装退回，并获得全额退款。
+- 有缺陷的硬件在保修范围内，可免费更换。
+- 只有产品存在缺陷时，退货运费才由 TechFlow 承担。
 
-## Shipping & Delivery
+## 配送与交付
 
-### Digital Products
-- Software licenses and subscription activations are delivered instantly via email.
-- Enterprise deployments include a dedicated onboarding specialist and typically
-  take 5-10 business days for full setup.
+### 数字产品
+- 软件许可证和订阅激活信息会立即通过电子邮件发送。
+- 企业部署包含一名专属实施专员，完整设置通常需要 5～10 个工作日。
 
-### Physical Products
-- Standard Shipping (5-7 business days): Free for orders over $50, otherwise $7.99.
-- Express Shipping (2-3 business days): $14.99.
-- Next-Day Shipping (1 business day): $24.99 — available for US addresses only.
-- International Shipping (7-14 business days): $19.99-$39.99 depending on region.
-- All shipments include tracking. Signature required for orders over $200.
+### 实体产品
+- 标准配送（5～7 个工作日）：订单满 50 美元免运费，否则收取 7.99 美元。
+- 加急配送（2～3 个工作日）：14.99 美元。
+- 次日达（1 个工作日）：24.99 美元——仅适用于美国地址。
+- 国际配送（7～14 个工作日）：根据地区收取 19.99～39.99 美元。
+- 所有货件均提供物流跟踪。订单金额超过 200 美元时需要签收。
 
-## Warranty Terms
-- TechFlow Hub devices: 2-year manufacturer warranty covering defects in materials
-  and workmanship. Does not cover physical damage, water damage, or unauthorized
-  modifications.
-- Software: Guaranteed 99.9% uptime SLA for Pro and Enterprise tiers. Basic tier
-  does not include an SLA. Downtime credits are calculated at 10x the hourly cost
-  for each hour below the SLA threshold.
+## 保修条款
+- TechFlow Hub 设备：制造商提供 2 年保修，涵盖材料和工艺缺陷。物理损坏、进水或未经授权的
+  改装不在保修范围内。
+- 软件：Pro 和 Enterprise 方案保证 99.9% 的正常运行时间 SLA。Basic 方案不包含 SLA。
+  每低于 SLA 阈值一小时，停机补偿按该小时费用的 10 倍计算。
 
-## Account Management
+## 账户管理
 
-### Plan Tiers
-- **Basic** ($12/user/month): Core project management, 5GB storage, email support.
-- **Pro** ($29/user/month): Advanced analytics, 50GB storage, priority support,
-  API access, custom integrations.
-- **Enterprise** ($49/user/month): Unlimited storage, dedicated account manager,
-  SSO/SAML, audit logs, custom SLA, phone support.
+### 方案等级
+- **Basic**（12 美元/用户/月）：核心项目管理、5GB 存储空间、电子邮件支持。
+- **Pro**（29 美元/用户/月）：高级分析、50GB 存储空间、优先支持、API 访问和自定义集成。
+- **Enterprise**（49 美元/用户/月）：无限存储空间、专属客户经理、SSO/SAML、审计日志、
+  自定义 SLA 和电话支持。
 
-### Upgrades & Downgrades
-- Upgrades take effect immediately. The prorated difference is charged right away.
-- Downgrades take effect at the next billing cycle. Features exclusive to the
-  higher tier remain accessible until then.
-- Data exceeding the lower tier's storage limit must be exported or deleted before
-  the downgrade processes. Automated warnings are sent 7 days before.
+### 升级与降级
+- 升级立即生效，并立即按比例收取差额。
+- 降级在下一个计费周期生效。在此之前，较高等级的专属功能仍可使用。
+- 降级处理前，必须导出或删除超出较低等级存储上限的数据。系统会提前 7 天自动发出警告。
 
-### Billing
-- Accepted payment methods: Visa, Mastercard, Amex, wire transfer (Enterprise only).
-- Invoices are generated on the 1st of each month for annual plans, or on the
-  subscription anniversary date for monthly plans.
-- Failed payments are retried 3 times over 9 days. After the third failure, the
-  account is suspended. Data is retained for 30 days after suspension.
+### 账单
+- 接受的付款方式：Visa、Mastercard、Amex 和电汇（仅限 Enterprise）。
+- 年度方案的发票在每月 1 日生成；月度方案的发票在订阅周年日生成。
+- 付款失败后，系统会在 9 天内重试 3 次。第三次失败后，账户将被暂停。暂停后数据保留 30 天。
 
-## Frequently Asked Questions
+## 常见问题
 
-1. **How do I reset my password?**
-   Go to Settings > Security > Change Password, or use the "Forgot Password" link
-   on the login page. A reset link is sent to your registered email.
+1. **如何重置密码？**
+   前往“设置 > 安全 > 更改密码”，或使用登录页面上的“忘记密码”链接。重置链接将发送到注册邮箱。
 
-2. **Can I transfer my license to another user?**
-   Yes. Admins can reassign seats from the Team Management dashboard at no cost.
-   The previous user loses access immediately upon reassignment.
+2. **可以将许可证转让给其他用户吗？**
+   可以。管理员可在团队管理控制台中免费重新分配席位。重新分配后，原用户会立即失去访问权限。
 
-3. **What integrations are available?**
-   Pro and Enterprise plans support integrations with Slack, Jira, GitHub, GitLab,
-   Salesforce, HubSpot, Zapier, and 200+ other tools via our API and Zapier
-   connector.
+3. **支持哪些集成？**
+   Pro 和 Enterprise 方案支持 Slack、Jira、GitHub、GitLab、Salesforce、HubSpot、Zapier，
+   还可通过我们的 API 和 Zapier 连接器与其他 200 多种工具集成。
 
-4. **Is my data encrypted?**
-   Yes. All data is encrypted at rest (AES-256) and in transit (TLS 1.3). Enterprise
-   plans offer customer-managed encryption keys (BYOK).
+4. **我的数据是否经过加密？**
+   是。所有静态数据均采用 AES-256 加密，传输中的数据采用 TLS 1.3 加密。Enterprise 方案支持
+   客户管理的加密密钥（BYOK）。
 
-5. **What happens to my data if I cancel?**
-   Data is retained for 30 days after cancellation. You can export all data via
-   Settings > Data Export at any time during this window. After 30 days, data is
-   permanently deleted per our data retention policy.
+5. **取消订阅后，我的数据会怎样？**
+   取消后数据保留 30 天。在此期间，您可以随时通过“设置 > 数据导出”导出全部数据。30 天后，
+   数据将按照我们的数据保留政策永久删除。
 
-6. **Do you offer educational or nonprofit discounts?**
-   Yes. Verified educational institutions and registered nonprofits receive 40% off
-   all plans. Apply through our website with valid documentation.
+6. **是否提供教育机构或非营利组织折扣？**
+   是。通过验证的教育机构和注册非营利组织可享受所有方案六折优惠。请在网站上提交有效文件申请。
 
-7. **How do I contact support?**
-   - Basic: Email support (24-48 hour response time)
-   - Pro: Priority email support (4-8 hour response time) + live chat
-   - Enterprise: Dedicated account manager + phone support (1-hour response SLA)
+7. **如何联系支持团队？**
+   - Basic：电子邮件支持（24～48 小时内响应）
+   - Pro：优先电子邮件支持（4～8 小时内响应）+ 在线聊天
+   - Enterprise：专属客户经理 + 电话支持（1 小时响应 SLA）
 
-8. **Can I get a demo before purchasing?**
-   Yes. Book a personalized demo at techflow.com/demo or start a 14-day free trial
-   instantly — no credit card required.
+8. **购买前可以查看演示吗？**
+   可以。请访问 techflow.com/demo 预约个性化演示，也可以立即开始 14 天免费试用，无需信用卡。
 
-9. **What is your uptime guarantee?**
-   Pro and Enterprise tiers include a 99.9% uptime SLA. Check real-time status at
-   status.techflow.com.
+9. **正常运行时间如何保证？**
+   Pro 和 Enterprise 方案包含 99.9% 的正常运行时间 SLA。可在 status.techflow.com 查看实时状态。
 
-10. **How do bulk licenses work?**
-    Orders of 50+ seats qualify for Enterprise pricing with volume discounts.
-    Contact sales@techflow.com for a custom quote.
+10. **批量许可证如何计费？**
+    购买 50 个以上席位可采用带批量折扣的 Enterprise 定价。请联系 sales@techflow.com 获取报价。
 
-## Escalation Procedures
-- **Tier 1** (frontline agent): Handle general inquiries, password resets, billing
-  questions, and standard troubleshooting.
-- **Tier 2** (senior agent): Handle refund requests over $500, account suspensions,
-  data recovery, and complex technical issues.
-- **Tier 3** (engineering): Handle service outages, security incidents, API bugs,
-  and infrastructure issues.
-- Always attempt resolution at the current tier before escalating. Document all
-  steps taken and customer communication before passing to the next tier.
+## 升级处理流程
+- **第 1 级**（一线客服）：处理一般咨询、密码重置、账单问题和标准故障排除。
+- **第 2 级**（高级客服）：处理超过 500 美元的退款请求、账户暂停、数据恢复和复杂技术问题。
+- **第 3 级**（工程团队）：处理服务中断、安全事件、API 缺陷和基础设施问题。
+- 升级前始终先尝试在当前级别解决问题。转交到下一级别前，记录所有已采取的步骤和客户沟通内容。
 """.strip()
 
 SYSTEM_INSTRUCTIONS = (
-    "You are a customer support agent for TechFlow Solutions. Use the company policy "
-    "below to answer customer questions accurately. Be friendly, professional, and concise. "
-    "If a question falls outside the policy, say so and suggest contacting the appropriate team. "
-    "Always cite the relevant policy section when applicable."
+    "你是 TechFlow Solutions 的客户支持智能体。请根据下方的公司政策准确回答客户问题。"
+    "回答应友好、专业且简洁。如果问题超出政策范围，请明确说明，并建议客户联系相应团队。"
+    "适用时，请始终引用相关政策章节。"
 )
 
 
 @dataclass
 class CacheMetrics:
-    """Tracks cache performance across API calls."""
+    """跟踪多次 API 调用的缓存性能。"""
 
     call_count: int = 0
     total_input_tokens: int = 0
@@ -193,7 +166,7 @@ class CacheMetrics:
         cache_write_tokens: int,
         cache_read_tokens: int,
     ) -> None:
-        """Record metrics from a single API call."""
+        """记录单次 API 调用的指标。"""
         self.call_count += 1
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
@@ -210,7 +183,7 @@ class CacheMetrics:
         )
 
     def cost_with_caching(self) -> float:
-        """Calculate actual cost using cache pricing."""
+        """使用缓存费率计算实际成本。"""
         uncached_input = (
             self.total_input_tokens - self.total_cache_write_tokens - (self.total_cache_read_tokens)
         )
@@ -222,18 +195,18 @@ class CacheMetrics:
         ) / 1_000_000
 
     def cost_without_caching(self) -> float:
-        """Calculate hypothetical cost if all tokens were charged at base input rate."""
+        """计算所有词元均按基础输入费率收费时的假设成本。"""
         return (
             self.total_input_tokens * PRICING["input"]
             + self.total_output_tokens * PRICING["output"]
         ) / 1_000_000
 
     def savings(self) -> float:
-        """Dollar savings from caching."""
+        """计算缓存节省的美元金额。"""
         return self.cost_without_caching() - self.cost_with_caching()
 
     def cache_hit_rate(self) -> float:
-        """Percentage of cacheable tokens served from cache."""
+        """计算从缓存提供的可缓存词元百分比。"""
         total_cache = self.total_cache_write_tokens + self.total_cache_read_tokens
         if total_cache == 0:
             return 0.0
@@ -241,7 +214,7 @@ class CacheMetrics:
 
 
 class CachedSupportAgent:
-    """Customer support agent demonstrating prompt caching."""
+    """演示提示词缓存的客户支持智能体。"""
 
     def __init__(
         self,
@@ -257,27 +230,26 @@ class CachedSupportAgent:
         self.metrics = CacheMetrics()
 
     def _build_system(self) -> str | list[dict]:
-        """Build system prompt — with cache_control blocks or plain string."""
+        """构建系统提示词——使用 cache_control 块或纯字符串。"""
         if not self.use_cache:
             return f"{SYSTEM_INSTRUCTIONS}\n\n{COMPANY_POLICY}"
 
-        # Explicit cache breakpoints: mark the large policy block for caching.
-        # The instructions are short and change rarely, but the policy is the
-        # bulk of the prompt — caching it saves ~90% on repeated calls.
+        # 明确设置缓存断点：标记要缓存的大型政策块。
+        # 指令很短且很少变化，但政策占提示词的大部分——缓存后可在重复调用时节省约 90%。
         return [
             {"type": "text", "text": SYSTEM_INSTRUCTIONS},
             {
                 "type": "text",
                 "text": COMPANY_POLICY,
-                "cache_control": {"type": "ephemeral"},  # cached for 5 minutes
+                "cache_control": {"type": "ephemeral"},  # 缓存 5 分钟
             },
         ]
-        # Alternative: automatic caching via client.messages.create(...) with no
-        # explicit cache_control — Anthropic auto-caches prefixes > 1024 tokens.
-        # Explicit breakpoints give you precise control over what gets cached.
+        # 另一种方案：调用 client.messages.create(...) 时不显式指定 cache_control，
+        # 让 Anthropic 自动缓存超过 1024 个词元的前缀。
+        # 明确的断点可以精确控制缓存哪些内容。
 
     def chat(self, user_input: str) -> tuple[str, dict]:
-        """Send message, track cache metrics, return (response, usage_dict)."""
+        """发送消息、跟踪缓存指标并返回（响应, 用量字典）。"""
         self.messages.append({"role": "user", "content": user_input})
 
         try:
@@ -293,7 +265,7 @@ class CachedSupportAgent:
 
         self.token_tracker.track(response.usage)
 
-        # Extract cache metrics from usage
+        # 从用量信息中提取缓存指标
         input_tokens = response.usage.input_tokens
         output_tokens = response.usage.output_tokens
         cache_write = getattr(response.usage, "cache_creation_input_tokens", 0) or 0
@@ -309,7 +281,7 @@ class CachedSupportAgent:
         }
 
         logger.info(
-            "Call %d — input: %d, output: %d, cache_write: %d, cache_read: %d",
+            "调用 %d——输入：%d，输出：%d，缓存写入：%d，缓存读取：%d",
             self.metrics.call_count,
             input_tokens,
             output_tokens,
@@ -324,52 +296,52 @@ class CachedSupportAgent:
 
 
 def _render_call_metrics(console: Console, call_num: int, usage: dict) -> None:
-    """Render per-call cache metrics."""
+    """呈现单次调用的缓存指标。"""
     table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column("Metric", style="dim")
-    table.add_column("Value", justify="right")
+    table.add_column("指标", style="dim")
+    table.add_column("值", justify="right")
 
-    table.add_row("Input tokens", f"[cyan]{usage['input']:,}[/cyan]")
-    table.add_row("Output tokens", f"[cyan]{usage['output']:,}[/cyan]")
+    table.add_row("输入词元", f"[cyan]{usage['input']:,}[/cyan]")
+    table.add_row("输出词元", f"[cyan]{usage['output']:,}[/cyan]")
 
-    # Highlight cache behavior
+    # 突出显示缓存行为
     if usage["cache_write"] > 0:
         table.add_row(
-            "Cache write",
-            f"[yellow]{usage['cache_write']:,}[/yellow] [dim](1.25x — first call populates cache)[/dim]",
+            "缓存写入",
+            f"[yellow]{usage['cache_write']:,}[/yellow] [dim]（1.25 倍——首次调用填充缓存）[/dim]",
         )
     if usage["cache_read"] > 0:
         table.add_row(
-            "Cache read",
-            f"[green]{usage['cache_read']:,}[/green] [dim](0.1x — 90% savings!)[/dim]",
+            "缓存读取",
+            f"[green]{usage['cache_read']:,}[/green] [dim]（0.1 倍——节省 90%！）[/dim]",
         )
     if usage["cache_write"] == 0 and usage["cache_read"] == 0:
-        table.add_row("Cache", "[dim]no cacheable content[/dim]")
+        table.add_row("缓存", "[dim]没有可缓存的内容[/dim]")
 
-    console.print(Panel(table, title=f"Call {call_num}", border_style="dim", padding=(0, 1)))
+    console.print(Panel(table, title=f"调用 {call_num}", border_style="dim", padding=(0, 1)))
 
 
 def _render_savings_summary(console: Console, metrics: CacheMetrics) -> None:
-    """Render cumulative cost comparison."""
+    """呈现累计成本对比。"""
     cost_cached = metrics.cost_with_caching()
     cost_baseline = metrics.cost_without_caching()
     savings = metrics.savings()
     savings_pct = (savings / cost_baseline * 100) if cost_baseline > 0 else 0
 
     table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column("Metric", style="dim", min_width=20)
-    table.add_column("Value", justify="right")
+    table.add_column("指标", style="dim", min_width=20)
+    table.add_column("值", justify="right")
 
-    table.add_row("Cost without caching", f"[red]${cost_baseline:.6f}[/red]")
-    table.add_row("Cost with caching", f"[green]${cost_cached:.6f}[/green]")
-    table.add_row("Savings", f"[bold green]${savings:.6f} ({savings_pct:.1f}%)[/bold green]")
-    table.add_row("Cache hit rate", f"[cyan]{metrics.cache_hit_rate():.1f}%[/cyan]")
-    table.add_row("Total calls", f"[cyan]{metrics.call_count}[/cyan]")
+    table.add_row("未使用缓存的成本", f"[red]${cost_baseline:.6f}[/red]")
+    table.add_row("使用缓存的成本", f"[green]${cost_cached:.6f}[/green]")
+    table.add_row("节省", f"[bold green]${savings:.6f} ({savings_pct:.1f}%)[/bold green]")
+    table.add_row("缓存命中率", f"[cyan]{metrics.cache_hit_rate():.1f}%[/cyan]")
+    table.add_row("调用总数", f"[cyan]{metrics.call_count}[/cyan]")
 
     console.print(
         Panel(
             table,
-            title="Cumulative Savings",
+            title="累计节省",
             border_style="green" if savings > 0 else "dim",
             padding=(0, 1),
         )
@@ -377,60 +349,60 @@ def _render_savings_summary(console: Console, metrics: CacheMetrics) -> None:
 
 
 def main() -> None:
-    """Main orchestration function for the prompt caching demo."""
+    """提示词缓存演示的主编排函数。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
     agent = CachedSupportAgent(MODEL, token_tracker)
 
     console.print(
         Panel(
-            "[bold cyan]Prompt Caching Demo[/bold cyan]\n\n"
-            "This customer support agent has a large company policy document (~1500 tokens)\n"
-            "as its system prompt, cached using Anthropic's prompt caching.\n\n"
-            "[bold]How it works:[/bold]\n"
-            "  1. First call: cache MISS — the policy is written to cache (1.25x cost)\n"
-            "  2. Subsequent calls: cache HIT — policy is read from cache (0.1x cost)\n"
-            "  3. Cache TTL is 5 minutes — each hit refreshes it\n\n"
-            "Ask support questions about TechFlow Solutions and watch the savings grow.\n"
-            "Type [bold]'quit'[/bold] or [bold]'exit'[/bold] to end.\n\n"
-            "[bold]Try these sample questions:[/bold]\n"
-            "  1. What is TechFlow Solutions?\n"
-            "  2. What is your return policy for annual subscriptions?\n"
-            "  3. How long does shipping take?\n"
-            "  4. What plan tiers do you offer and what do they cost?\n"
-            "  5. Do you offer nonprofit discounts?",
-            title="TechFlow Support",
+            "[bold cyan]提示词缓存演示[/bold cyan]\n\n"
+            "此客户支持智能体使用一份大型公司政策文档（约 1500 个词元）作为系统提示词，\n"
+            "并通过 Anthropic 的提示词缓存对其进行缓存。\n\n"
+            "[bold]工作原理：[/bold]\n"
+            "  1. 首次调用：缓存未命中——政策被写入缓存（1.25 倍成本）\n"
+            "  2. 后续调用：缓存命中——从缓存读取政策（0.1 倍成本）\n"
+            "  3. 缓存 TTL 为 5 分钟——每次命中都会刷新\n\n"
+            "请就 TechFlow Solutions 提出支持问题，并观察节省金额的增长。\n"
+            "输入 [bold]'quit'[/bold] 或 [bold]'exit'[/bold] 结束。\n\n"
+            "[bold]可以尝试以下示例问题：[/bold]\n"
+            "  1. TechFlow Solutions 是什么公司？\n"
+            "  2. 年度订阅的退款政策是什么？\n"
+            "  3. 配送需要多长时间？\n"
+            "  4. 提供哪些方案等级，价格分别是多少？\n"
+            "  5. 是否为非营利组织提供折扣？",
+            title="TechFlow 客户支持",
         )
     )
 
     while True:
-        console.print("\n[bold green]You:[/bold green] ", end="")
+        console.print("\n[bold green]你：[/bold green] ", end="")
         user_input = input().strip()
 
         if user_input.lower() in ["quit", "exit", ""]:
-            console.print("\n[yellow]Ending session...[/yellow]")
+            console.print("\n[yellow]正在结束会话……[/yellow]")
             break
 
         try:
             response, usage = agent.chat(user_input)
 
-            console.print("\n[bold blue]Support Agent:[/bold blue]")
+            console.print("\n[bold blue]支持智能体：[/bold blue]")
             console.print(Markdown(response))
 
-            # Per-call cache breakdown
+            # 单次调用的缓存明细
             console.print()
             _render_call_metrics(console, agent.metrics.call_count, usage)
 
-            # Cumulative savings (meaningful after 2+ calls)
+            # 累计节省（至少调用 2 次后才有意义）
             if agent.metrics.call_count >= 2:
                 _render_savings_summary(console, agent.metrics)
 
         except Exception as e:
-            logger.error("Error during chat: %s", e)
-            console.print(f"\n[red]Error: {e}[/red]")
+            logger.error("聊天期间发生错误：%s", e)
+            console.print(f"\n[red]错误：{e}[/red]")
             break
 
-    # Final report
+    # 最终报告
     console.print()
     token_tracker.report()
 

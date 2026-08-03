@@ -1,11 +1,11 @@
-"""Text chunking with recursive splitting and overlap."""
+"""采用递归切分和重叠策略进行文本分块。"""
 
 from dataclasses import dataclass, field
 
 
 @dataclass
 class Chunk:
-    """A chunk of text with source metadata."""
+    """带有来源元数据的文本块。"""
 
     content: str
     source: str
@@ -16,11 +16,11 @@ class Chunk:
 
     @property
     def id(self) -> str:
-        """Unique identifier for this chunk."""
+        """该文本块的唯一标识符。"""
         return f"{self.source}:{self.chunk_index}"
 
 
-# Separators tried in order — split on the most meaningful boundary first
+# 按顺序尝试分隔符，优先在语义最完整的边界处切分
 DEFAULT_SEPARATORS = ["\n\n", "\n", ". ", " "]
 
 
@@ -31,10 +31,9 @@ def recursive_split(
     chunk_overlap: int = 64,
     separators: list[str] | None = None,
 ) -> list[Chunk]:
-    """Split text recursively on natural boundaries with overlap.
+    """沿自然边界递归切分文本，并保留重叠内容。
 
-    Tries separators in order: double newline, single newline, sentence end,
-    space. Falls back to character split as last resort.
+    依次尝试双换行、单换行、句末和空格；若均不可用，最后按字符硬切分。
     """
     if not text.strip():
         return []
@@ -42,10 +41,10 @@ def recursive_split(
     seps = separators or DEFAULT_SEPARATORS
     raw_chunks = _split_recursive(text, chunk_size, seps)
 
-    # Add overlap between consecutive chunks
+    # 在相邻文本块之间添加重叠内容
     chunks = []
     for i, raw in enumerate(raw_chunks):
-        # Prepend tail of previous chunk as overlap
+        # 将上一个文本块的末尾作为重叠内容添加到当前块开头
         if i > 0 and chunk_overlap > 0:
             prev = raw_chunks[i - 1]
             overlap_text = prev[-chunk_overlap:]
@@ -68,11 +67,11 @@ def recursive_split(
 
 
 def _split_recursive(text: str, chunk_size: int, separators: list[str]) -> list[str]:
-    """Recursively split text using progressively finer separators."""
+    """使用粒度逐渐变细的分隔符递归切分文本。"""
     if len(text) <= chunk_size:
         return [text]
 
-    # Try each separator in order
+    # 依次尝试每个分隔符
     for sep in separators:
         if sep in text:
             parts = text.split(sep)
@@ -86,13 +85,13 @@ def _split_recursive(text: str, chunk_size: int, separators: list[str]) -> list[
                 else:
                     if current:
                         result.append(current)
-                    # If a single part exceeds chunk_size, split it with finer separators
+                    # 如果单个片段超过 chunk_size，则使用粒度更细的分隔符继续切分
                     if len(part) > chunk_size:
                         remaining_seps = separators[separators.index(sep) + 1 :]
                         if remaining_seps:
                             result.extend(_split_recursive(part, chunk_size, remaining_seps))
                         else:
-                            # Last resort: hard split by characters
+                            # 最后的备选方案：按字符硬切分
                             for j in range(0, len(part), chunk_size):
                                 result.append(part[j : j + chunk_size])
                     else:
@@ -103,5 +102,5 @@ def _split_recursive(text: str, chunk_size: int, separators: list[str]) -> list[
 
             return result
 
-    # No separator found — hard split
+    # 找不到分隔符时进行硬切分
     return [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]

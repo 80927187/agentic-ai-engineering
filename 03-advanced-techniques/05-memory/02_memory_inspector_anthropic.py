@@ -1,8 +1,7 @@
-"""Memory Inspector — browse, search, and manage persisted memories without LLM calls.
+"""记忆检查器——无需调用 LLM 即可浏览、搜索和管理持久记忆。
 
-A utility tool for inspecting the episodic (JSON) and semantic (ChromaDB) memory stores
-created by the memory agent. Useful for debugging, auditing, and understanding what
-your agent remembers.
+用于检查记忆智能体创建的情景（JSON）和语义（ChromaDB）记忆库的实用工具。
+可用于调试、审计以及了解智能体记住了什么。
 """
 
 from datetime import timezone
@@ -19,25 +18,25 @@ from memory import EpisodicMemory, SemanticMemory
 logger = setup_logging(__name__)
 
 MENU_OPTIONS = [
-    "Browse episodic memories",
-    "Search semantic memories",
-    "Memory statistics",
-    "Clear memories",
+    "浏览情景记忆",
+    "搜索语义记忆",
+    "记忆统计",
+    "清除记忆",
 ]
 
 
 def browse_episodic(console: Console, episodic: EpisodicMemory) -> None:
-    """Display all episodic memories in a Rich table."""
+    """在 Rich 表格中显示所有情景记忆。"""
     entries = episodic.list_all()
     if not entries:
-        console.print("[dim]No episodic memories found.[/dim]")
+        console.print("[dim]未找到情景记忆。[/dim]")
         return
 
     table = Table(show_header=True, box=None, padding=(0, 1))
     table.add_column("ID", style="dim", width=14)
-    table.add_column("Date", style="cyan", width=19)
-    table.add_column("Content", ratio=1)
-    table.add_column("Imp.", style="yellow", width=5, justify="right")
+    table.add_column("日期", style="cyan", width=19)
+    table.add_column("内容", ratio=1)
+    table.add_column("重要性", style="yellow", width=7, justify="right")
 
     for entry in entries:
         date_str = entry.timestamp.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M")
@@ -46,16 +45,16 @@ def browse_episodic(console: Console, episodic: EpisodicMemory) -> None:
             content_preview += "..."
         table.add_row(entry.id, date_str, content_preview, f"{entry.importance:.1f}")
 
-    console.print(Panel(table, title=f"Episodic Memories ({len(entries)})", border_style="cyan"))
+    console.print(Panel(table, title=f"情景记忆（{len(entries)} 条）", border_style="cyan"))
 
 
 def search_semantic(console: Console, semantic: SemanticMemory) -> None:
-    """Search semantic memories and display results with similarity scores."""
+    """搜索语义记忆，并显示带相似度分数的结果。"""
     if semantic.collection.count() == 0:
-        console.print("[dim]No semantic memories found.[/dim]")
+        console.print("[dim]未找到语义记忆。[/dim]")
         return
 
-    console.print("[bold]Enter search query:[/bold] ", end="")
+    console.print("[bold]请输入搜索查询：[/bold] ", end="")
     try:
         query = input().strip()
     except EOFError:
@@ -66,14 +65,14 @@ def search_semantic(console: Console, semantic: SemanticMemory) -> None:
 
     results = semantic.search(query, limit=10)
     if not results:
-        console.print("[dim]No results found.[/dim]")
+        console.print("[dim]未找到结果。[/dim]")
         return
 
     table = Table(show_header=True, box=None, padding=(0, 1))
     table.add_column("#", style="dim", width=3)
-    table.add_column("Similarity", style="green", width=12, justify="right")
-    table.add_column("Content", ratio=1)
-    table.add_column("Imp.", style="yellow", width=5, justify="right")
+    table.add_column("相似度", style="green", width=10, justify="right")
+    table.add_column("内容", ratio=1)
+    table.add_column("重要性", style="yellow", width=7, justify="right")
 
     for i, (entry, similarity) in enumerate(results, 1):
         content_preview = entry.content[:100].replace("\n", " ")
@@ -84,50 +83,50 @@ def search_semantic(console: Console, semantic: SemanticMemory) -> None:
     console.print(
         Panel(
             table,
-            title=f'Semantic Search: "{query}" ({len(results)} results)',
+            title=f'语义搜索：“{query}”（{len(results)} 条结果）',
             border_style="green",
         )
     )
 
 
 def show_statistics(console: Console, episodic: EpisodicMemory, semantic: SemanticMemory) -> None:
-    """Display memory statistics across tiers."""
+    """显示各层记忆的统计信息。"""
     ep_stats = episodic.stats()
     sem_stats = semantic.stats()
 
     lines = [
-        "[bold cyan]Episodic Memory[/bold cyan]",
-        f"  Entries: {ep_stats['count']}",
-        f"  File: {ep_stats['file']}",
+        "[bold cyan]情景记忆[/bold cyan]",
+        f"  条目数：{ep_stats['count']}",
+        f"  文件：{ep_stats['file']}",
     ]
     if ep_stats["oldest"]:
-        lines.append(f"  Oldest: {ep_stats['oldest']}")
-        lines.append(f"  Newest: {ep_stats['newest']}")
+        lines.append(f"  最早：{ep_stats['oldest']}")
+        lines.append(f"  最新：{ep_stats['newest']}")
 
     lines.extend(
         [
             "",
-            "[bold green]Semantic Memory[/bold green]",
-            f"  Entries: {sem_stats['count']}",
-            f"  Collection: {sem_stats['collection']}",
+            "[bold green]语义记忆[/bold green]",
+            f"  条目数：{sem_stats['count']}",
+            f"  集合：{sem_stats['collection']}",
         ]
     )
 
     total = ep_stats["count"] + sem_stats["count"]
-    lines.extend(["", f"[bold]Total persisted memories: {total}[/bold]"])
+    lines.extend(["", f"[bold]持久记忆总数：{total}[/bold]"])
 
-    console.print(Panel("\n".join(lines), title="Memory Statistics", border_style="blue"))
+    console.print(Panel("\n".join(lines), title="记忆统计", border_style="blue"))
 
 
 def clear_memories(console: Console, episodic: EpisodicMemory, semantic: SemanticMemory) -> None:
-    """Clear memories with tier selection and confirmation."""
-    clear_options = ["Episodic memories", "Semantic memories", "All memories"]
-    choice = interactive_menu(console, clear_options, title="Select memories to clear")
+    """选择记忆层并确认后清除记忆。"""
+    clear_options = ["情景记忆", "语义记忆", "所有记忆"]
+    choice = interactive_menu(console, clear_options, title="选择要清除的记忆")
     if not choice:
         return
 
     console.print(
-        f"[yellow]Are you sure you want to clear {choice.lower()}? (y/N)[/yellow] ", end=""
+        f"[yellow]确定要清除{choice}吗？(y/N)[/yellow] ", end=""
     )
     try:
         confirm = input().strip().lower()
@@ -135,19 +134,19 @@ def clear_memories(console: Console, episodic: EpisodicMemory, semantic: Semanti
         return
 
     if confirm != "y":
-        console.print("[dim]Cancelled.[/dim]")
+        console.print("[dim]已取消。[/dim]")
         return
 
-    if choice in ("Episodic memories", "All memories"):
+    if choice in ("情景记忆", "所有记忆"):
         episodic.clear()
-        console.print("[green]Episodic memories cleared.[/green]")
-    if choice in ("Semantic memories", "All memories"):
+        console.print("[green]已清除情景记忆。[/green]")
+    if choice in ("语义记忆", "所有记忆"):
         semantic.clear()
-        console.print("[green]Semantic memories cleared.[/green]")
+        console.print("[green]已清除语义记忆。[/green]")
 
 
 def main() -> None:
-    """Run the memory inspector."""
+    """运行记忆检查器。"""
     console = Console()
 
     episodic = EpisodicMemory()
@@ -157,15 +156,15 @@ def main() -> None:
     sem_count = semantic.stats()["count"]
 
     header = Panel(
-        "[bold cyan]Memory Inspector[/bold cyan]\n\n"
-        "Browse and manage persisted memories — no LLM calls required.\n\n"
-        f"  Episodic: [cyan]{ep_count}[/cyan] entries\n"
-        f"  Semantic: [green]{sem_count}[/green] entries",
-        title="Tutorial 05 — Memory Inspector",
+        "[bold cyan]记忆检查器[/bold cyan]\n\n"
+        "浏览和管理持久记忆——无需调用 LLM。\n\n"
+        f"  情景记忆：[cyan]{ep_count}[/cyan] 条\n"
+        f"  语义记忆：[green]{sem_count}[/green] 条",
+        title="教程 05——记忆检查器",
     )
 
     while True:
-        choice = interactive_menu(console, MENU_OPTIONS, title="Memory Inspector", header=header)
+        choice = interactive_menu(console, MENU_OPTIONS, title="记忆检查器", header=header)
         if not choice:
             break
 
@@ -180,7 +179,7 @@ def main() -> None:
         elif choice == MENU_OPTIONS[3]:
             clear_memories(console, episodic, semantic)
 
-        console.print("\n[dim]Press any key to continue...[/dim]")
+        console.print("\n[dim]按任意键继续……[/dim]")
         readchar.readkey()
 
 

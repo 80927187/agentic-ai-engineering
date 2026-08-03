@@ -1,4 +1,4 @@
-"""ChromaDB vector store with BM25 keyword index."""
+"""带有 BM25 关键词索引的 ChromaDB 向量存储。"""
 
 import logging
 
@@ -12,14 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 class VectorStore:
-    """Dual-index store: ChromaDB for vector search, BM25 for keyword search."""
+    """双索引存储：ChromaDB 用于向量搜索，BM25 用于关键词搜索。"""
 
     def __init__(self, embedder: LocalEmbedder, persist_dir: str | None = None):
         self.embedder = embedder
         self.chunks: list[Chunk] = []
         self._chunk_lookup: dict[str, Chunk] = {}
 
-        # ChromaDB — persistent or in-memory
+        # ChromaDB：持久化存储或内存存储
         if persist_dir:
             self.chroma_client = chromadb.PersistentClient(path=persist_dir)
         else:
@@ -30,11 +30,11 @@ class VectorStore:
             metadata={"hnsw:space": "cosine"},
         )
 
-        # BM25 — built after ingestion
+        # BM25：摄取文档后构建
         self.bm25: bm25s.BM25 | None = None
 
     def add_chunks(self, chunks: list[Chunk]) -> None:
-        """Embed and index chunks in both vector store and BM25."""
+        """生成文本块的嵌入向量，并同时写入向量存储和 BM25 索引。"""
         if not chunks:
             return
 
@@ -45,7 +45,7 @@ class VectorStore:
         ids = [c.id for c in chunks]
         metadatas = [{"source": c.source, "chunk_index": c.chunk_index} for c in chunks]
 
-        # Embed and add to ChromaDB
+        # 生成嵌入向量并添加到 ChromaDB
         embeddings = self.embedder.embed_documents(texts)
         self.collection.upsert(
             ids=ids,
@@ -53,16 +53,16 @@ class VectorStore:
             documents=texts,
             metadatas=metadatas,
         )
-        logger.info("Indexed %d chunks in ChromaDB", len(chunks))
+        logger.info("已在 ChromaDB 中索引 %d 个文本块", len(chunks))
 
-        # Build BM25 index
+        # 构建 BM25 索引
         tokenized = bm25s.tokenize(texts, stopwords="en", show_progress=False)
         self.bm25 = bm25s.BM25()
         self.bm25.index(tokenized, show_progress=False)
-        logger.info("Built BM25 index over %d chunks", len(chunks))
+        logger.info("已为 %d 个文本块构建 BM25 索引", len(chunks))
 
     def vector_search(self, query: str, top_k: int = 20) -> list[tuple[Chunk, float]]:
-        """Dense vector similarity search via ChromaDB."""
+        """通过 ChromaDB 执行稠密向量相似度搜索。"""
         query_embedding = self.embedder.embed_query(query)
 
         results = self.collection.query(
@@ -75,14 +75,14 @@ class VectorStore:
             for chunk_id, distance in zip(results["ids"][0], results["distances"][0]):
                 chunk = self._chunk_lookup.get(chunk_id)
                 if chunk:
-                    # ChromaDB returns cosine distance; convert to similarity
+                    # ChromaDB 返回余弦距离，此处将其转换为相似度
                     similarity = 1.0 - distance
                     scored.append((chunk, similarity))
 
         return scored
 
     def keyword_search(self, query: str, top_k: int = 20) -> list[tuple[Chunk, float]]:
-        """BM25 keyword search."""
+        """执行 BM25 关键词搜索。"""
         if self.bm25 is None or not self.chunks:
             return []
 
@@ -98,5 +98,5 @@ class VectorStore:
 
     @property
     def chunk_count(self) -> int:
-        """Number of indexed chunks."""
+        """已索引的文本块数量。"""
         return len(self.chunks)

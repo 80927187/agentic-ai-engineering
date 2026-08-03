@@ -1,7 +1,7 @@
 [project]
 name = "lesson-memory-systems"
 version = "0.1.0"
-description = "Three-tier agent memory — working, episodic, and semantic persistence"
+description = "三层智能体记忆——工作记忆、情景记忆和语义记忆的持久化"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.76.0",

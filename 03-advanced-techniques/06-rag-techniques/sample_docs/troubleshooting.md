@@ -1,117 +1,117 @@
-# TechFlow Troubleshooting Guide
+# TechFlow 故障排查指南
 
-## API Returns 429 (Rate Limited)
+## API 返回 429（超出速率限制）
 
-### Symptoms
-API requests return HTTP 429 with a message like "Rate limit exceeded. Retry after 30 seconds." This occurs when your application exceeds the allowed request rate for your plan tier.
+### 症状
+API 请求返回 HTTP 429，并显示类似“超出速率限制，请在 30 秒后重试”的消息。当应用超过当前套餐允许的请求速率时，就会出现此问题。
 
-### Diagnosis
-1. Check the `X-RateLimit-Remaining` header in your API responses. If it's consistently at 0, you're hitting the limit.
-2. Review your request patterns — are you making unnecessary polling calls? Are you retrying failed requests too aggressively?
-3. Check if multiple services or applications share the same API key.
+### 诊断
+1. 检查 API 响应中的 `X-RateLimit-Remaining` 响应头。如果它一直为 0，说明已经达到限制。
+2. 检查请求模式：是否进行了不必要的轮询？是否过于频繁地重试失败请求？
+3. 检查多个服务或应用程序是否共享相同的 API 密钥。
 
-### Solutions
-- **Implement exponential backoff**: When you receive a 429, wait the number of seconds in the `Retry-After` header, then double the wait time on each subsequent retry (max 5 retries).
-- **Cache API responses**: If you're fetching the same data repeatedly, cache responses locally for 30-60 seconds.
-- **Use webhooks instead of polling**: Instead of polling `GET /v3/tasks` every 10 seconds, register a webhook for `task.updated` events.
-- **Request a rate limit increase**: Pro and Enterprise plans can request custom rate limits by contacting support@techflow.com.
-- **Use bulk endpoints**: Instead of fetching tasks one by one, use `GET /v3/projects/{id}/tasks?limit=100` to batch requests.
+### 解决方案
+- **实现指数退避**：收到 429 后，先等待 `Retry-After` 响应头指定的秒数，之后每次重试都将等待时间加倍（最多重试 5 次）。
+- **缓存 API 响应**：如果反复获取相同数据，请在本地缓存响应 30～60 秒。
+- **使用 Webhook 代替轮询**：不要每 10 秒轮询一次 `GET /v3/tasks`，而应为 `task.updated` 事件注册 Webhook。
+- **申请提高速率限制**：专业版和企业版可以联系 support@techflow.com，申请自定义速率限制。
+- **使用批量端点**：不要逐项获取任务，应使用 `GET /v3/projects/{id}/tasks?limit=100` 批量请求。
 
-## Webhooks Not Firing
+## Webhooks 未触发
 
-### Symptoms
-Registered webhooks are not delivering events to your endpoint. The webhook dashboard shows no recent deliveries, or deliveries are showing as failed.
+### 症状
+已注册的 Webhook 未将事件投递到端点。Webhook 仪表板中没有最近的投递记录，或投递状态显示为失败。
 
-### Diagnosis
-1. Check the webhook dashboard at Settings > Webhooks. Click on a specific webhook to see delivery history and failure reasons.
-2. Verify your endpoint is accessible from the public internet (webhooks cannot be delivered to `localhost` or private IPs).
-3. Check that your endpoint returns a 2xx status code within 10 seconds. Timeouts and non-2xx responses are treated as failures.
-4. Verify the webhook is registered for the correct events. Common mistake: registering for `task.created` but expecting `task.updated` events.
+### 诊断
+1. 在“设置 > Webhook”中检查 Webhook 仪表板。单击某个 Webhook，查看投递历史和失败原因。
+2. 确认端点可通过公共互联网访问（Webhook 无法投递到 `localhost` 或私有 IP）。
+3. 检查端点是否在 10 秒内返回 2xx 状态码。超时和非 2xx 响应都视为失败。
+4. 验证 Webhook 是否已注册正确的事件。常见错误：注册 `task.created` 但期待 `task.updated` 事件。
 
-### Solutions
-- **Verify HTTPS**: Webhooks require HTTPS endpoints with valid SSL certificates. Self-signed certificates are rejected.
-- **Check firewall rules**: Whitelist TechFlow's webhook IPs: `52.20.118.0/24` and `52.45.205.0/24`.
-- **Validate signature verification**: If your endpoint rejects requests, check that you're using the correct webhook secret for HMAC-SHA256 verification. The secret is shown once during webhook registration.
-- **Check retry status**: Failed deliveries are retried 3 times (at 1 min, 5 min, and 30 min). After 3 failures, the webhook is marked as "failing" and delivery pauses. Re-enable it from the dashboard after fixing your endpoint.
-- **Test with the webhook tester**: Use Settings > Webhooks > Test to send a sample event to your endpoint and see the response in real-time.
+### 解决方案
+- **验证 HTTPS**：Webhook 需要具有有效 SSL 证书的 HTTPS 端点。自签名证书将被拒绝。
+- **检查防火墙规则**：将 TechFlow 的 webhook IP 列入白名单：`52.20.118.0/24` 和 `52.45.205.0/24`。
+- **检查签名验证**：如果端点拒绝请求，请确认使用了正确的 Webhook 密钥进行 HMAC-SHA256 验证。该密钥只在注册 Webhook 时显示一次。
+- **检查重试状态**：投递失败后会重试 3 次（分别在 1 分钟、5 分钟和 30 分钟后）。连续失败 3 次后，Webhook 会被标记为“故障”，投递随即暂停。修复端点后，请在仪表板中重新启用。
+- **使用 Webhook 测试器进行测试**：使用“设置”>“Webhook”>“测试”将示例事件发送到您的端点并实时查看响应。
 
-## Slow Query Performance
+## 查询性能低下
 
-### Symptoms
-API responses are slow (>500ms) for list endpoints like `GET /v3/projects/{id}/tasks` or search queries. The slowness may be intermittent, worsening during peak hours.
+### 症状
+`GET /v3/projects/{id}/tasks` 等列表端点或搜索查询的 API 响应较慢（超过 500ms）。问题可能间歇出现，并在高峰时段加剧。
 
-### Diagnosis
-1. Check if the slowness is on specific endpoints or system-wide. System-wide slowness suggests a database issue; endpoint-specific slowness suggests a missing index.
-2. Review query parameters — are you fetching large result sets without pagination? Default limit is 25, but setting `limit=1000` can cause timeouts.
-3. Check if you're using filters. Unfiltered list requests on large projects (10,000+ tasks) are inherently slower.
+### 诊断
+1. 确认性能问题只发生在特定端点还是整个系统。系统整体变慢通常说明数据库存在问题；只有个别端点变慢则可能缺少索引。
+2. 检查查询参数：是否未分页就获取大量结果？默认上限为 25，但将 `limit` 设为 1000 可能导致超时。
+3. 检查是否使用了筛选条件。对于包含 10,000 个以上任务的大型项目，不加筛选的列表请求本身就会较慢。
 
-### Solutions
-- **Use pagination**: Always set a reasonable `limit` (25-100) and use cursor-based pagination to iterate through results.
-- **Add filters**: Use `status`, `assignee_id`, or `due_before`/`due_after` filters to narrow results. Filtered queries use database indexes and are 10-50x faster than unfiltered scans.
-- **Avoid deep pagination**: Fetching page 500 of results is slow because the database must skip 12,500 rows. If you need to process all tasks, use the `GET /v3/projects/{id}/tasks/export` endpoint for bulk data access.
-- **Use the search endpoint**: For text-based lookups, `GET /v3/search?q=keyword` uses Elasticsearch and is faster than scanning with `GET /v3/tasks?title=keyword`.
-- **Cache frequently accessed data**: If you display a project dashboard, cache the task counts and summaries for 30-60 seconds instead of fetching live data on every page load.
-- **Contact support for indexing**: If specific queries are consistently slow, contact support with the request ID. Our team can add database indexes for common query patterns.
+### 解决方案
+- **使用分页**：始终设置合理的 `limit`（25～100），并使用基于游标的分页遍历结果。
+- **添加筛选条件**：使用 `status`、`assignee_id` 或 `due_before`/`due_after` 缩小结果范围。筛选查询会使用数据库索引，比无筛选的扫描快 10～50 倍。
+- **避免深度分页**：获取第 500 页的结果很慢，因为数据库必须跳过 12,500 行。如果您需要处理所有任务，请使用 `GET /v3/projects/{id}/tasks/export` 端点进行批量数据访问。
+- **使用搜索端点**：对于基于文本的查找，`GET /v3/search?q=keyword` 使用 Elasticsearch，并且比使用 `GET /v3/tasks?title=keyword` 扫描速度更快。
+- **缓存经常访问的数据**：如果您显示项目仪表板，请将任务计数和摘要缓存 30-60 秒，而不是在每次页面加载时获取实时数据。
+- **联系支持人员添加索引**：如果特定查询持续缓慢，请联系支持人员并提供请求 ID。团队可以为常见查询模式添加数据库索引。
 
-## Authentication Failures
+## 身份验证失败
 
-### Symptoms
-API requests return 401 Unauthorized or 403 Forbidden errors. Users report being logged out unexpectedly or unable to access resources they should have permission for.
+### 症状
+API 请求返回 401 Unauthorized 或 403 Forbidden。用户意外退出登录，或无法访问原本有权访问的资源。
 
-### Diagnosis
-1. **401 errors**: The API key is missing, malformed, or expired. Check the `X-TechFlow-Key` header format.
-2. **403 errors**: The API key is valid but lacks the required scope. Check key scopes in Admin Dashboard > API Keys.
-3. For OAuth2 tokens: check if the access token has expired (1-hour TTL). Decode the JWT at jwt.io to verify the `exp` claim.
-4. Check if the user's role has changed recently. Permission changes take effect immediately but cached sessions may retain old permissions for up to 5 minutes.
+### 诊断
+1. **401 错误**：API 密钥丢失、格式错误或过期。检查 `X-TechFlow-Key` 标头格式。
+2. **403 错误**：API 密钥有效，但缺少所需的权限范围。请在“管理控制台 > API 密钥”中检查密钥权限范围。
+3. 对于 OAuth2 令牌，请检查访问令牌是否过期（TTL 为 1 小时）。可在 jwt.io 解码 JWT，验证 `exp` 声明。
+4. 检查用户的角色最近是否发生变化。权限更改会立即生效，但缓存的会话可能会保留旧权限最多 5 分钟。
 
-### Solutions
-- **Refresh expired tokens**: Implement automatic token refresh in your client. When you receive a 401, use the refresh token to obtain a new access token before retrying.
+### 解决方案
+- **刷新过期的令牌**：在客户端中实现自动令牌刷新。当您收到 401 时，请在重试之前使用刷新令牌获取新的访问令牌。
   ```
   POST /oauth2/token
   grant_type=refresh_token
   refresh_token=<your_refresh_token>
   client_id=<your_client_id>
   ```
-- **Check API key scopes**: Each key has specific scopes. A key with only `read` scope cannot create or update resources. Generate a new key with the required scopes.
-- **Verify key is active**: Keys can be deactivated by workspace admins. Check Settings > API Keys for status.
-- **Handle role changes**: If a user's role changes from admin to member, some endpoints become inaccessible. Your application should handle 403 errors gracefully and inform the user.
-- **Check account suspension**: If the workspace's billing has failed, all API access is suspended. Check billing status at Settings > Billing.
+- **检查 API 密钥范围**：每个密钥都有特定的范围。仅具有 `read` 范围的密钥无法创建或更新资源。生成具有所需范围的新密钥。
+- **确认 API 密钥处于启用状态**：工作区管理员可以停用密钥。请在“设置 > API 密钥”中检查状态。
+- **处理角色变更**：如果用户角色从管理员变为成员，部分端点将无法访问。应用应妥善处理 403 错误并告知用户。
+- **检查账户是否暂停**：如果工作区付款失败，所有 API 访问都会暂停。请在“设置 > 账单”中检查账单状态。
 
-## Data Sync Delays
+## 数据同步延迟
 
-### Symptoms
-Changes made via the API or UI don't appear immediately in search results, reports, or webhook deliveries. For example, a task is created but doesn't show up in search for 5-10 seconds.
+### 症状
+通过 API 或 UI 进行的更改不会立即出现在搜索结果、报表或 Webhook 投递中。例如，任务已经创建，但 5～10 秒后仍未出现在搜索结果中。
 
-### Diagnosis
-This is usually expected behavior due to TechFlow's eventual consistency model. Different data paths have different latency:
+### 诊断
+由于 TechFlow 的最终一致性模型，这通常是预期行为。不同的数据路径有不同的延迟：
 
-| Operation | Expected Delay | Reason |
-|-----------|---------------|--------|
-| API response reflects change | Immediate | Direct database read |
-| Search index updated | 1-3 seconds | Kafka event → Elasticsearch |
-| Analytics dashboard updated | 5-10 minutes | Batch aggregation job |
-| Webhook delivered | 1-30 seconds | Queue processing + delivery |
-| Cross-service data (e.g., user name in task) | Up to 5 minutes | Cache TTL in consuming service |
+| 操作 | 预期延迟 | 原因 |
+| --- | --- | --- |
+| API 响应反映变更 | 立即 | 直接读取数据库 |
+| 搜索索引更新 | 1～3 秒 | Kafka 事件 → Elasticsearch |
+| 分析仪表板更新 | 5～10 分钟 | 批量聚合作业 |
+| Webhook 投递 | 1～30 秒 | 队列处理 + 投递 |
+| 跨服务数据（例如任务中的用户名） | 最多 5 分钟 | 消费方服务中的缓存 TTL |
 
-### Solutions
-- **Understand consistency boundaries**: API reads are strongly consistent (you always see your own writes). Search and analytics are eventually consistent.
-- **Use the API for real-time reads**: If you need the latest state immediately after an update, read from the API directly rather than relying on search or cached data.
-- **Check Kafka consumer lag**: If search delays exceed 10 seconds consistently, there may be consumer lag. Check the Search Service health dashboard or contact support.
-- **Webhook ordering**: Webhooks are delivered in order per resource, but may arrive out of order across different resources. Use the `event_id` and `timestamp` fields to reconcile ordering in your system.
-- **Force cache refresh**: For the Auth Service specifically, you can force a permission cache refresh by calling `POST /v3/auth/refresh-cache` with admin credentials. This is useful after bulk role changes.
+### 解决方案
+- **理解一致性边界**：API 读取为强一致性（始终可以读到自己刚刚写入的内容）；搜索和分析则为最终一致性。
+- **使用 API 实时读取**：如果更新后需要立即获取最新状态，请直接读取 API，不要依赖搜索或缓存数据。
+- **检查 Kafka 消费延迟**：如果搜索延迟持续超过 10 秒，可能存在消费者积压。请检查搜索服务健康仪表板或联系支持人员。
+- **Webhook 顺序**：同一资源的 Webhook 会按顺序投递，但不同资源之间可能乱序。请使用 `event_id` 和 `timestamp` 字段在系统中协调事件顺序。
+- **强制缓存刷新**：特别是对于身份验证服务，您可以通过使用管理员凭据调用 `POST /v3/auth/refresh-cache` 来强制权限缓存刷新。这在批量角色更改后很有用。
 
-## File Upload Failures
+## 文件上传失败
 
-### Symptoms
-File uploads fail with various error messages, or uploaded files are not accessible after upload completes.
+### 症状
+文件上传失败并显示各种错误消息，或者上传完成后无法访问已上传的文件。
 
-### Diagnosis
-1. Check file size — maximum is 100MB per file.
-2. Check file type — executable files (.exe, .bat, .sh, .ps1) are blocked for security.
-3. If the upload succeeds but the file is not accessible, the virus scan may have quarantined it. Check the file status via `GET /v3/files/{id}` — status will be `quarantined` if flagged.
+### 诊断
+1. 检查文件大小 — 每个文件最大为 100MB。
+2. 检查文件类型 — 出于安全考虑，可执行文件（`.exe`、`.bat`、`.sh`、`.ps1`）会被阻止。
+3. 如果上传成功但文件无法访问，则病毒扫描可能已将其隔离。通过 `GET /v3/files/{id}` 检查文件状态 - 如果标记，状态将为 `quarantined`。
 
-### Solutions
-- **Compress large files**: If your file exceeds 100MB, compress it (ZIP, GZIP) before uploading.
-- **Use multipart upload**: For files over 10MB, use the multipart upload endpoint `POST /v3/files/multipart` which uploads in 5MB chunks and supports resume on failure.
-- **Check storage quota**: Verify workspace storage hasn't exceeded plan limits (5GB Basic, 50GB Pro, unlimited Enterprise). Check usage at Settings > Storage.
-- **Wait for virus scan**: After upload, files transition through states: `uploading` → `scanning` → `available` (or `quarantined`). The scan typically takes 5-15 seconds. Poll `GET /v3/files/{id}` or listen for the `file.scanned` webhook event.
+### 解决方案
+- **压缩大文件**：如果您的文件超过 100MB，请在上传之前对其进行压缩（ZIP、GZIP）。
+- **使用分段上传**：对于超过 10MB 的文件，请使用分段上传端点 `POST /v3/files/multipart`。该端点以 5MB 为一块上传，并支持失败后续传。
+- **检查存储配额**：确认工作区未超出套餐存储限制（基础版 5GB、专业版 50GB、企业版不限容量）。可在“设置 > 存储”中检查用量。
+- **等待病毒扫描**：上传后，文件会依次进入 `uploading` → `scanning` → `available`（或 `quarantined`）状态。扫描通常需要 5～15 秒。可以轮询 `GET /v3/files/{id}`，或监听 `file.scanned` Webhook 事件。

@@ -1,9 +1,8 @@
 """
-Context Engineering (Anthropic)
+上下文工程（Anthropic）
 
-Demonstrates context window management with token counting, budget allocation,
-and automatic compression via summarization. Uses an artificially low context
-budget so compression triggers after just a few exchanges.
+演示如何通过令牌计数、预算分配和摘要自动压缩来管理上下文窗口。
+程序会人为设置一个较低的上下文预算，以便只进行几轮对话就能触发压缩。
 """
 
 from dataclasses import dataclass
@@ -17,22 +16,21 @@ from rich.table import Table
 
 from common import AnthropicTokenTracker, setup_logging
 
-# Load environment variables from root .env file
+# 从根目录的 .env 文件加载环境变量
 load_dotenv(find_dotenv())
 
-# Configure logging
+# 配置日志
 logger = setup_logging(__name__)
 
-# Model configuration
+# 模型配置
 MODEL = "claude-sonnet-4-6"
 
 SYSTEM_PROMPT = (
-    "You are a knowledgeable research assistant. You help users explore topics in depth, "
-    "building on previous discussion points. When referencing earlier parts of the conversation, "
-    "mention specific details to demonstrate continuity."
+    "你是一名知识渊博的研究助理。你会承接之前的讨论要点，帮助用户深入探索主题。"
+    "引用对话中的较早内容时，请提及具体细节，以体现对话的连贯性。"
 )
 
-# Artificially low budget so compression triggers quickly in the demo
+# 人为降低预算，让演示能够快速触发压缩
 MAX_CONTEXT_TOKENS = 4096
 RESPONSE_RESERVE = 2048
 RECENT_MESSAGES_TO_KEEP = 4
@@ -40,7 +38,7 @@ RECENT_MESSAGES_TO_KEEP = 4
 
 @dataclass
 class ContextBudget:
-    """Token budget allocation across context components."""
+    """上下文各组成部分的令牌预算分配。"""
 
     max_context: int
     system_tokens: int = 0
@@ -48,13 +46,13 @@ class ContextBudget:
 
     @property
     def history_budget(self) -> int:
-        """Available tokens for conversation history."""
+        """可供对话历史使用的令牌数。"""
         return self.max_context - self.system_tokens - self.response_reserve
 
 
 @dataclass
 class TokenSnapshot:
-    """Snapshot of token usage for budget display."""
+    """用于预算面板的令牌用量快照。"""
 
     system: int = 0
     history: int = 0
@@ -65,7 +63,7 @@ class TokenSnapshot:
 
 
 class ContextManager:
-    """Manages context window allocation and conversation compression."""
+    """管理上下文窗口分配和对话压缩。"""
 
     def __init__(self, model: str, max_context: int, token_tracker: AnthropicTokenTracker):
         self.client = anthropic.Anthropic()
@@ -75,24 +73,24 @@ class ContextManager:
         self.budget = ContextBudget(max_context=max_context)
         self.compression_count = 0
 
-        # Measure system prompt tokens once at init
+        # 初始化时只测量一次系统提示词的令牌数
         self.budget.system_tokens = self._count_tokens([])
         logger.info(
-            "Context budget — system: %d, history: %d, reserve: %d",
+            "上下文预算——系统：%d，历史记录：%d，预留：%d",
             self.budget.system_tokens,
             self.budget.history_budget,
             self.budget.response_reserve,
         )
 
     def chat(self, user_input: str) -> str:
-        """Send message, compress if needed, return response."""
+        """发送消息，按需压缩，然后返回响应。"""
         self.messages.append({"role": "user", "content": user_input})
 
-        # Compress before sending if history exceeds budget
+        # 如果历史记录超出预算，则在发送前压缩
         self._compress_if_needed()
 
         logger.info(
-            "Sending request (messages: %d, history tokens: ~%d/%d)",
+            "正在发送请求（消息数：%d，历史记录令牌数：约 %d/%d）",
             len(self.messages),
             self._count_tokens(self.messages) - self.budget.system_tokens,
             self.budget.history_budget,
@@ -113,8 +111,8 @@ class ContextManager:
         return assistant_message
 
     def _count_tokens(self, messages: list[dict]) -> int:
-        """Count tokens using the token counting API."""
-        # API requires at least one message — use a minimal placeholder to measure system overhead
+        """使用令牌计数 API 计算令牌数。"""
+        # API 要求至少有一条消息，因此使用最小占位消息来测量系统开销
         msgs = messages if messages else [{"role": "user", "content": "."}]
         result = self.client.messages.count_tokens(
             model=self.model,
@@ -125,47 +123,47 @@ class ContextManager:
         return token_count
 
     def _compress_if_needed(self) -> None:
-        """If history exceeds budget, summarize oldest messages."""
+        """如果历史记录超出预算，则总结最早的消息。"""
         history_tokens = self._count_tokens(self.messages) - self.budget.system_tokens
 
         if history_tokens <= self.budget.history_budget:
             return
 
         logger.info(
-            "History (%d tokens) exceeds budget (%d tokens) — compressing",
+            "历史记录（%d 个令牌）超出预算（%d 个令牌）——正在压缩",
             history_tokens,
             self.budget.history_budget,
         )
 
-        # Split: keep recent messages verbatim, summarize the rest
+        # 拆分消息：近期消息保留原文，其余消息生成摘要
         keep_count = min(RECENT_MESSAGES_TO_KEEP, len(self.messages))
         old_messages = self.messages[:-keep_count] if keep_count > 0 else self.messages
         recent_messages = self.messages[-keep_count:] if keep_count > 0 else []
 
         if not old_messages:
-            logger.warning("No messages to compress — budget may be too small")
+            logger.warning("没有可压缩的消息——预算可能过小")
             return
 
         old_tokens = self._count_tokens(old_messages) - self.budget.system_tokens
 
-        # Summarize old messages
+        # 总结较早的消息
         summary = self._summarize_messages(old_messages)
 
-        # Replace old messages with summary
+        # 用摘要替换较早的消息
         summary_message = {
             "role": "user",
             "content": (
-                f"[Previous conversation summary]\n{summary}\n"
-                "[End of summary — continue the conversation from here]"
+                f"[先前对话摘要]\n{summary}\n"
+                "[摘要结束——请从这里继续对话]"
             ),
         }
 
-        # Ensure alternating roles: summary (user) then recent messages
-        # If recent_messages starts with a user message, we need an assistant ack
+        # 确保角色交替：摘要（用户消息）之后接近期消息
+        # 如果近期消息以用户消息开头，则需要插入一条助手确认消息
         if recent_messages and recent_messages[0]["role"] == "user":
             self.messages = [
                 summary_message,
-                {"role": "assistant", "content": "Understood, I have the conversation context."},
+                {"role": "assistant", "content": "明白，我已经掌握了对话上下文。"},
                 *recent_messages,
             ]
         else:
@@ -175,7 +173,7 @@ class ContextManager:
         self.compression_count += 1
 
         logger.info(
-            "Compressed %d messages: %d → %d tokens (saved %d tokens)",
+            "已压缩 %d 条消息：%d → %d 个令牌（节省 %d 个令牌）",
             len(old_messages),
             old_tokens,
             new_tokens,
@@ -183,19 +181,19 @@ class ContextManager:
         )
 
     def _summarize_messages(self, messages: list[dict]) -> str:
-        """Use LLM to summarize a block of messages."""
-        # Build a readable transcript for the summarizer
+        """使用 LLM 总结一组消息。"""
+        # 为摘要模型构建易读的对话记录
         transcript = "\n".join(
-            f"{'User' if m['role'] == 'user' else 'Assistant'}: {m['content']}" for m in messages
+            f"{'用户' if m['role'] == 'user' else '助手'}：{m['content']}" for m in messages
         )
 
         response = self.client.messages.create(
             model=self.model,
             max_tokens=1024,
             system=(
-                "Summarize the following conversation concisely. "
-                "Preserve key facts, decisions, and specific details the user mentioned. "
-                "Write in third person past tense. Be brief but thorough."
+                "简洁地总结以下对话。"
+                "保留关键事实、决策以及用户提到的具体细节。"
+                "使用第三人称和过去时态。文字应简短但全面。"
             ),
             messages=[{"role": "user", "content": transcript}],
         )
@@ -204,7 +202,7 @@ class ContextManager:
         return str(response.content[0].text)
 
     def get_token_snapshot(self) -> TokenSnapshot:
-        """Return current token counts for budget display."""
+        """返回当前令牌计数，用于预算面板。"""
         history_tokens = 0
         if self.messages:
             history_tokens = self._count_tokens(self.messages) - self.budget.system_tokens
@@ -220,66 +218,66 @@ class ContextManager:
 
 
 def _render_budget_display(console: Console, snapshot: TokenSnapshot) -> None:
-    """Render the context budget visualization."""
+    """渲染上下文预算可视化面板。"""
     table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column("Component", style="dim")
-    table.add_column("Tokens", justify="right")
-    table.add_column("Bar", min_width=30)
+    table.add_column("组成部分", style="dim")
+    table.add_column("令牌数", justify="right")
+    table.add_column("用量", min_width=30)
 
-    # History usage bar
+    # 历史记录用量条
     usage_ratio = snapshot.history / snapshot.history_budget if snapshot.history_budget > 0 else 0
     bar_width = 25
     filled = int(usage_ratio * bar_width)
     bar_color = "green" if usage_ratio < 0.7 else "yellow" if usage_ratio < 0.9 else "red"
     bar = f"[{bar_color}]{'█' * filled}[/{bar_color}][dim]{'░' * (bar_width - filled)}[/dim]"
 
-    table.add_row("System", f"[cyan]{snapshot.system:,}[/cyan]", "[dim]fixed[/dim]")
+    table.add_row("系统", f"[cyan]{snapshot.system:,}[/cyan]", "[dim]固定[/dim]")
     table.add_row(
-        "History",
+        "历史记录",
         f"[{bar_color}]{snapshot.history:,}[/{bar_color}] / {snapshot.history_budget:,}",
         bar,
     )
-    table.add_row("Response Reserve", f"[cyan]{snapshot.reserve:,}[/cyan]", "[dim]max_tokens[/dim]")
-    table.add_row("Messages", f"[cyan]{snapshot.message_count}[/cyan]", "")
+    table.add_row("响应预留", f"[cyan]{snapshot.reserve:,}[/cyan]", "[dim]max_tokens[/dim]")
+    table.add_row("消息数", f"[cyan]{snapshot.message_count}[/cyan]", "")
 
-    footer = f"Messages: {snapshot.message_count}"
+    footer = f"消息数：{snapshot.message_count}"
     if snapshot.compression_count > 0:
-        footer += f" │ Compressions: {snapshot.compression_count}"
+        footer += f" │ 压缩次数：{snapshot.compression_count}"
 
     console.print(
-        Panel(table, title="Context Budget", subtitle=footer, border_style="dim", padding=(0, 1))
+        Panel(table, title="上下文预算", subtitle=footer, border_style="dim", padding=(0, 1))
     )
 
 
 def main() -> None:
-    """Main orchestration function for the context engineering demo."""
+    """上下文工程演示的主编排函数。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
     manager = ContextManager(MODEL, MAX_CONTEXT_TOKENS, token_tracker)
 
     console.print(
         Panel(
-            "[bold cyan]Context Engineering Demo[/bold cyan]\n\n"
-            "This chat uses an artificially low context budget "
-            f"({MAX_CONTEXT_TOKENS:,} tokens total, "
-            f"~{manager.budget.history_budget:,} for history).\n"
-            "After a few exchanges, you'll see automatic compression kick in —\n"
-            "older messages get summarized to stay within budget.\n\n"
-            "Try discussing a topic in depth and watch the budget display.\n"
-            "Type [bold]'quit'[/bold] or [bold]'exit'[/bold] to end.",
-            title="Research Assistant",
+            "[bold cyan]上下文工程演示[/bold cyan]\n\n"
+            "此聊天使用人为设置的较低上下文预算"
+            f"（总计 {MAX_CONTEXT_TOKENS:,} 个令牌，"
+            f"约 {manager.budget.history_budget:,} 个用于历史记录）。\n"
+            "几轮对话后，你会看到自动压缩开始生效——\n"
+            "较早的消息会被总结，以确保用量保持在预算内。\n\n"
+            "请尝试深入讨论一个话题，并观察预算面板。\n"
+            "输入 [bold]'quit'[/bold] 或 [bold]'exit'[/bold] 结束程序。",
+            title="研究助理",
         )
     )
 
-    # Show initial budget
+    # 显示初始预算
     _render_budget_display(console, manager.get_token_snapshot())
 
     while True:
-        console.print("\n[bold green]You:[/bold green] ", end="")
+        console.print("\n[bold green]你：[/bold green] ", end="")
         user_input = input().strip()
 
         if user_input.lower() in ["quit", "exit", ""]:
-            console.print("\n[yellow]Ending session...[/yellow]")
+            console.print("\n[yellow]正在结束会话……[/yellow]")
             break
 
         try:
@@ -288,21 +286,21 @@ def main() -> None:
             console.print("\n[bold blue]Claude:[/bold blue]")
             console.print(Markdown(response))
 
-            # Show budget after each turn
+            # 每轮对话后显示预算
             console.print()
             _render_budget_display(console, manager.get_token_snapshot())
 
         except Exception as e:
-            logger.error("Error during chat: %s", e)
-            console.print(f"\n[red]Error: {e}[/red]")
+            logger.error("聊天期间发生错误：%s", e)
+            console.print(f"\n[red]错误：{e}[/red]")
             break
 
-    # Final report
+    # 最终报告
     console.print()
     token_tracker.report()
     console.print(
-        f"\n[dim]Messages: {len(manager.messages)} │ "
-        f"Compressions: {manager.compression_count}[/dim]"
+        f"\n[dim]消息数：{len(manager.messages)} │ "
+        f"压缩次数：{manager.compression_count}[/dim]"
     )
 
 

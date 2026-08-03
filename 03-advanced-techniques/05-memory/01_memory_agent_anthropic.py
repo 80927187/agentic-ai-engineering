@@ -1,8 +1,7 @@
-"""Memory Systems — Personal assistant with three-tier memory persistence.
+"""记忆系统——具备三层持久化记忆的个人助手。
 
-Demonstrates working memory (session buffer), episodic memory (JSON-persisted events),
-and semantic memory (ChromaDB vector store) in an agentic chat loop. The agent uses
-tools to remember, recall, and forget information across sessions.
+演示智能体对话循环中的工作记忆（会话缓冲区）、情景记忆（持久化到 JSON 的事件）
+和语义记忆（ChromaDB 向量存储）。智能体使用工具跨会话记住、回忆和遗忘信息。
 """
 
 import json
@@ -26,48 +25,46 @@ logger = setup_logging(__name__)
 MODEL = "claude-sonnet-4-6"
 
 SYSTEM_PROMPT = """\
-You are a personal assistant with persistent memory. You remember information about the user \
-across sessions using a three-tier memory system:
+你是一名具备持久记忆的个人助手。你通过三层记忆系统跨会话记住用户信息：
 
-1. **Working memory** — temporary session notes (auto-cleared)
-2. **Episodic memory** — timestamped events and interactions (persisted to JSON)
-3. **Semantic memory** — facts, preferences, and knowledge (persisted to vector database)
+1. **工作记忆**——临时会话笔记（自动清除）
+2. **情景记忆**——带时间戳的事件和互动（持久化到 JSON）
+3. **语义记忆**——事实、偏好和知识（持久化到向量数据库）
 
-## Memory Guidelines
+## 记忆准则
 
-- When the user shares personal information (name, preferences, facts), store it in \
-**semantic** memory with appropriate importance
-- When notable events or interactions happen, store them in **episodic** memory
-- Use **recall** proactively to check if you already know something before asking
-- Adjust importance scores: routine info = 0.3-0.5, personal details = 0.6-0.8, \
-critical info = 0.9-1.0
-- Be transparent about what you remember — tell the user when you recall something
+- 当用户分享个人信息（姓名、偏好、事实）时，将其以合适的重要性存入 \
+**语义**记忆
+- 当值得注意的事件或互动发生时，将其存入**情景**记忆
+- 在向用户提问前，主动使用 **recall** 检查自己是否已知道相关信息
+- 调整重要性分数：常规信息 = 0.3-0.5，个人详情 = 0.6-0.8，关键信息 = 0.9-1.0
+- 对你记得的内容保持透明——回忆起某事时要告知用户
 
 {memory_context}"""
 
-# Three tools the agent uses to manage memory
+# 智能体用来管理记忆的三个工具
 MEMORY_TOOLS = [
     {
         "name": "remember",
         "description": (
-            "Store information in memory. Use 'semantic' for facts, preferences, and knowledge. "
-            "Use 'episodic' for events and interactions. Use 'working' for temporary session notes."
+            "将信息存入记忆。事实、偏好和知识使用 'semantic'；"
+            "事件和互动使用 'episodic'；临时会话笔记使用 'working'。"
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "content": {
                     "type": "string",
-                    "description": "The information to remember",
+                    "description": "要记住的信息",
                 },
                 "memory_type": {
                     "type": "string",
                     "enum": ["working", "episodic", "semantic"],
-                    "description": "Which memory tier to store in",
+                    "description": "要存入的记忆层",
                 },
                 "importance": {
                     "type": "number",
-                    "description": "Importance score from 0.0 to 1.0",
+                    "description": "0.0 到 1.0 之间的重要性分数",
                     "default": 0.5,
                 },
             },
@@ -77,19 +74,19 @@ MEMORY_TOOLS = [
     {
         "name": "recall",
         "description": (
-            "Search across all memory tiers for relevant information. "
-            "Use this to check what you know before asking the user."
+            "在所有记忆层中搜索相关信息。"
+            "在向用户提问前，使用此工具检查你已经知道的内容。"
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "What to search for in memory",
+                    "description": "要在记忆中搜索的内容",
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Maximum number of results (default 5)",
+                    "description": "最大结果数（默认为 5）",
                     "default": 5,
                 },
             },
@@ -98,18 +95,18 @@ MEMORY_TOOLS = [
     },
     {
         "name": "forget",
-        "description": "Remove a specific memory by its ID and type.",
+        "description": "根据 ID 和类型删除指定记忆。",
         "input_schema": {
             "type": "object",
             "properties": {
                 "memory_id": {
                     "type": "string",
-                    "description": "The ID of the memory to delete",
+                    "description": "要删除的记忆 ID",
                 },
                 "memory_type": {
                     "type": "string",
                     "enum": ["episodic", "semantic"],
-                    "description": "Which memory tier to delete from",
+                    "description": "要从哪个记忆层删除",
                 },
             },
             "required": ["memory_id", "memory_type"],
@@ -119,7 +116,7 @@ MEMORY_TOOLS = [
 
 
 class MemoryAgent:
-    """Personal assistant with three-tier memory and tool-use loop."""
+    """具备三层记忆和工具调用循环的个人助手。"""
 
     def __init__(self) -> None:
         self.client = anthropic.Anthropic()
@@ -129,12 +126,12 @@ class MemoryAgent:
         self.max_iterations = 10
 
     def _build_system_prompt(self) -> str:
-        """Inject recalled memories into the system prompt."""
+        """将回忆起的记忆注入系统提示词。"""
         memory_context = self.memory.build_memory_context()
         return SYSTEM_PROMPT.format(memory_context=memory_context)
 
     def _execute_tool(self, name: str, tool_input: dict[str, Any]) -> str:
-        """Dispatch a tool call to the appropriate MemoryManager method."""
+        """将工具调用分派到相应的 MemoryManager 方法。"""
         try:
             if name == "remember":
                 return self.memory.remember(
@@ -153,13 +150,13 @@ class MemoryAgent:
                     memory_type=tool_input["memory_type"],
                 )
             else:
-                return f"Unknown tool: {name}"
+                return f"未知工具：{name}"
         except Exception as e:
-            logger.error("Tool '%s' failed: %s", name, e)
-            return f"Error executing {name}: {e}"
+            logger.error("工具 '%s' 执行失败：%s", name, e)
+            return f"执行 {name} 时出错：{e}"
 
     def chat(self, user_message: str, console: Console) -> str:
-        """Send a message and handle the agentic tool-use loop."""
+        """发送消息并处理智能体工具调用循环。"""
         self.messages.append({"role": "user", "content": user_message})
 
         for _iteration in range(self.max_iterations):
@@ -172,16 +169,16 @@ class MemoryAgent:
                     messages=self.messages,
                 )
             except anthropic.RateLimitError:
-                logger.warning("Rate limited — waiting 30s before retry...")
+                logger.warning("触发速率限制——30 秒后重试……")
                 time.sleep(30)
                 continue
             except anthropic.APIError as e:
-                logger.error("API error: %s", e)
-                return f"API error: {e}"
+                logger.error("API 错误：%s", e)
+                return f"API 错误：{e}"
 
             self.token_tracker.track(response.usage)
 
-            # Collect response content
+            # 收集响应内容
             assistant_content: list[dict[str, Any]] = []
             text_parts: list[str] = []
             tool_uses: list[ToolUseBlock] = []
@@ -202,22 +199,22 @@ class MemoryAgent:
                     )
 
             if not assistant_content:
-                assistant_content = [{"type": "text", "text": "Done."}]
-                text_parts = ["Done."]
+                assistant_content = [{"type": "text", "text": "已完成。"}]
+                text_parts = ["已完成。"]
 
             self.messages.append({"role": "assistant", "content": assistant_content})
 
-            # If no tool use, return the text response
+            # 如果没有工具调用，则返回文本响应
             if response.stop_reason == "end_turn":
-                return "\n".join(text_parts) if text_parts else "Done."
+                return "\n".join(text_parts) if text_parts else "已完成。"
 
-            # Execute each tool and show progress
+            # 执行每个工具并显示进度
             tool_results: list[dict[str, Any]] = []
             for tool_use in tool_uses:
                 input_summary = json.dumps(tool_use.input, separators=(",", ":"))
                 if len(input_summary) > 80:
                     input_summary = input_summary[:77] + "..."
-                console.print(f"  [dim][tool: {tool_use.name}] {input_summary}[/dim]")
+                console.print(f"  [dim][工具：{tool_use.name}] {input_summary}[/dim]")
 
                 result = self._execute_tool(tool_use.name, tool_use.input)
 
@@ -234,48 +231,48 @@ class MemoryAgent:
 
             self.messages.append({"role": "user", "content": tool_results})
 
-        return "Reached maximum iterations."
+        return "已达到最大迭代次数。"
 
     def loaded_memory_count(self) -> int:
-        """Count of persisted memories loaded from previous sessions."""
+        """从之前会话中加载的持久记忆数量。"""
         stats = self.memory.get_stats()
         total: int = stats["episodic"]["count"] + stats["semantic"]["count"]
         return total
 
 
 def main() -> None:
-    """Run the memory-augmented personal assistant."""
+    """运行记忆增强的个人助手。"""
     console = Console()
 
     agent = MemoryAgent()
     loaded = agent.loaded_memory_count()
 
-    # Welcome panel
+    # 欢迎面板
     status_line = (
-        f"[green]Loaded {loaded} memories from previous sessions[/green]"
+        f"[green]已从之前的会话中加载 {loaded} 条记忆[/green]"
         if loaded
-        else ("[dim]No previous memories — this is a fresh start[/dim]")
+        else ("[dim]没有之前的记忆——这是一次全新的开始[/dim]")
     )
 
     header = Panel(
-        "[bold cyan]Memory Systems — Personal Assistant[/bold cyan]\n\n"
-        "A personal assistant that remembers across sessions using three memory tiers:\n"
-        "  [bold]Working[/bold]  — temporary session buffer (auto-cleared)\n"
-        "  [bold]Episodic[/bold] — timestamped events (persisted to JSON)\n"
-        "  [bold]Semantic[/bold] — facts and knowledge (persisted to ChromaDB)\n\n"
+        "[bold cyan]记忆系统——个人助手[/bold cyan]\n\n"
+        "一个使用三层记忆跨会话保持记忆的个人助手：\n"
+        "  [bold]工作记忆[/bold]——临时会话缓冲区（自动清除）\n"
+        "  [bold]情景记忆[/bold]——带时间戳的事件（持久化到 JSON）\n"
+        "  [bold]语义记忆[/bold]——事实和知识（持久化到 ChromaDB）\n\n"
         f"{status_line}\n\n"
-        "[bold]Try these:[/bold]\n"
-        '  • "Hi, I\'m Alex and I work at Acme Corp"\n'
-        '  • "I prefer Python over JavaScript"\n'
-        '  • "What do you remember about me?" (after restart)\n\n'
-        '[dim]Type "exit" or "quit" to end the session[/dim]',
-        title="Tutorial 05 — Memory Systems",
+        "[bold]试试这些：[/bold]\n"
+        '  • “你好，我叫小明，在示例公司工作”\n'
+        '  • “比起 JavaScript，我更喜欢 Python”\n'
+        '  • “你还记得我的哪些事？”（重启后）\n\n'
+        '[dim]输入 "exit" 或 "quit" 结束会话[/dim]',
+        title="教程 05——记忆系统",
     )
     console.print(header)
 
     try:
         while True:
-            console.print("\n[bold green]You:[/bold green] ", end="")
+            console.print("\n[bold green]你：[/bold green] ", end="")
             try:
                 user_input = input().strip()
             except EOFError:
@@ -286,21 +283,21 @@ def main() -> None:
 
             response = agent.chat(user_input, console)
             if response:
-                console.print("\n[bold blue]Assistant:[/bold blue]")
+                console.print("\n[bold blue]助手：[/bold blue]")
                 console.print(Markdown(response))
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]已中断。[/yellow]")
 
-    # Consolidate session into long-term memory
-    console.print("\n[dim]Consolidating session memories...[/dim]")
+    # 将会话整合到长期记忆中
+    console.print("\n[dim]正在整合会话记忆……[/dim]")
     saved = agent.memory.consolidate(agent.messages, agent.client, MODEL)
     if saved:
-        console.print(f"[green]Saved {len(saved)} memories for next session:[/green]")
+        console.print(f"[green]已为下次会话保存 {len(saved)} 条记忆：[/green]")
         for item in saved:
             console.print(f"  [dim]{item}[/dim]")
     else:
-        console.print("[dim]No new memories to consolidate.[/dim]")
+        console.print("[dim]没有需要整合的新记忆。[/dim]")
 
     console.print()
     agent.token_tracker.report()

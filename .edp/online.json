@@ -3,15 +3,15 @@
     "protocol": "http",
     "type": "pillar",
     "label": "用于在线的IDE业务开发调试",
-    "address": "http://localhost:12039",
-    "startTime": 1785568863753
+    "address": "http://localhost:8296",
+    "startTime": 1785763174287
   },
   {
     "protocol": "websocket",
     "type": "pillar",
     "name": "c:/Users/wzc80/.vscode/extensions/eft.edp-ui-plugin-vscode-3.1.0-beta.5/media/vscode-app:websocket",
     "label": "用于在线的IDE业务开发调试",
-    "address": "http://localhost:12039/socketjs",
-    "startTime": 1785568863753
+    "address": "http://localhost:8296/socketjs",
+    "startTime": 1785763174287
   }
 ]

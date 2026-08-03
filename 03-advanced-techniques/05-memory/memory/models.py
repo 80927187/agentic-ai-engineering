@@ -1,4 +1,4 @@
-"""Shared types for the three-tier memory system."""
+"""三层记忆系统的共享类型。"""
 
 import uuid
 from dataclasses import dataclass, field
@@ -7,7 +7,7 @@ from enum import Enum
 
 
 class MemoryType(Enum):
-    """The three tiers of agent memory."""
+    """智能体记忆的三个层级。"""
 
     WORKING = "working"
     EPISODIC = "episodic"
@@ -16,7 +16,7 @@ class MemoryType(Enum):
 
 @dataclass
 class MemoryEntry:
-    """A single memory with content, metadata, and importance score."""
+    """包含内容、元数据和重要性分数的单条记忆。"""
 
     content: str
     memory_type: MemoryType
@@ -26,7 +26,7 @@ class MemoryEntry:
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
     def to_dict(self) -> dict:
-        """Serialize to a JSON-safe dictionary."""
+        """序列化为可安全转换为 JSON 的字典。"""
         return {
             "id": self.id,
             "content": self.content,
@@ -38,7 +38,7 @@ class MemoryEntry:
 
     @classmethod
     def from_dict(cls, data: dict) -> "MemoryEntry":
-        """Deserialize from a dictionary."""
+        """从字典反序列化。"""
         return cls(
             id=data["id"],
             content=data["content"],

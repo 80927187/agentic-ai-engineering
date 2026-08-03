@@ -1,7 +1,7 @@
 [project]
 name = "lesson-context-engineering"
 version = "0.1.0"
-description = "Context window management with token counting and compression"
+description = "通过令牌计数和压缩管理上下文窗口"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.76.0",

@@ -1,7 +1,7 @@
 [project]
 name = "lesson-streaming"
 version = "0.1.0"
-description = "Streaming & real-time output — token-by-token responses and streaming tool calls"
+description = "流式传输与实时输出——逐 Token 响应和流式工具调用"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

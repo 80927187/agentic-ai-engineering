@@ -1,32 +1,32 @@
-# TechFlow API v3 Reference
+# TechFlow API v3 参考文档
 
-## Authentication
+## 身份验证
 
-All API requests require authentication via one of two methods:
+所有 API 请求都需要通过以下两种方法之一进行身份验证：
 
-### API Key Authentication
-Include your API key in the `X-TechFlow-Key` header. API keys are generated from the Admin Dashboard under Settings > API Keys. Each key has configurable scopes (read, write, admin) and an optional expiration date. Keys are 64 characters long and prefixed with `tfk_`.
+### API 密钥认证
+在 `X-TechFlow-Key` 请求头中携带 API 密钥。API 密钥可在管理控制台的“设置 > API 密钥”中生成。每个密钥都可配置权限范围（读取、写入、管理）和可选的到期日期。密钥长度为 64 个字符，以 `tfk_` 为前缀。
 
 ```
 X-TechFlow-Key: tfk_abc123...
 ```
 
-### OAuth2 Authentication
-For user-facing applications, use OAuth2 with the authorization code flow. Register your application at developers.techflow.com to receive a `client_id` and `client_secret`. The authorization endpoint is `https://auth.techflow.com/oauth2/authorize` and the token endpoint is `https://auth.techflow.com/oauth2/token`. Access tokens expire after 1 hour; use the refresh token to obtain new ones without user interaction. Refresh tokens are valid for 30 days.
+### OAuth2 认证
+面向用户的应用应使用 OAuth2 授权码流程。在 developers.techflow.com 注册应用，以获取 `client_id` 和 `client_secret`。授权端点为 `https://auth.techflow.com/oauth2/authorize`，令牌端点为 `https://auth.techflow.com/oauth2/token`。访问令牌的有效期为 1 小时；可以使用刷新令牌在无需用户交互的情况下获取新令牌。刷新令牌的有效期为 30 天。
 
-## Rate Limits
+## 速率限制
 
-Rate limits are enforced per API key or OAuth2 token:
+速率限制按 API 密钥或 OAuth2 令牌分别执行：
 
-- **Basic plan**: 100 requests/minute, 5,000 requests/day
-- **Pro plan**: 500 requests/minute, 50,000 requests/day
-- **Enterprise plan**: 2,000 requests/minute, unlimited daily requests
+- **基础版**：每分钟 100 个请求，每天 5,000 个请求
+- **专业版**：每分钟 500 个请求，每天 50,000 个请求
+- **企业版**：每分钟 2,000 个请求，每日请求数不限
 
-When rate limited, the API returns HTTP 429 with a `Retry-After` header indicating seconds to wait. Rate limit headers are included in every response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+触发速率限制时，API 返回 HTTP 429，并通过 `Retry-After` 响应头指明需要等待的秒数。每个响应都包含以下速率限制响应头：`X-RateLimit-Limit`、`X-RateLimit-Remaining`、`X-RateLimit-Reset`。
 
-## Pagination
+## 分页
 
-List endpoints return paginated results using cursor-based pagination. Each response includes a `next_cursor` field. Pass it as the `cursor` query parameter to fetch the next page. Default page size is 25 items, maximum is 100. Set page size with the `limit` query parameter.
+列表端点使用基于游标的分页。每个响应都包含 `next_cursor` 字段，将其作为 `cursor` 查询参数传入即可获取下一页。默认每页 25 项，最多 100 项；通过 `limit` 查询参数设置每页数量。
 
 ```json
 {
@@ -36,48 +36,48 @@ List endpoints return paginated results using cursor-based pagination. Each resp
 }
 ```
 
-## Core Endpoints
+## 核心端点
 
-### Projects
-- `GET /v3/projects` — List all projects. Supports `status` filter (active, archived, draft) and `sort` (created_at, updated_at, name).
-- `POST /v3/projects` — Create a project. Required fields: `name` (max 128 chars), `workspace_id`. Optional: `description` (max 2000 chars), `template_id`, `visibility` (private, team, public).
-- `GET /v3/projects/{id}` — Get project details including member count, task count, and storage usage.
-- `PATCH /v3/projects/{id}` — Update project fields. Supports partial updates.
-- `DELETE /v3/projects/{id}` — Archive a project (soft delete). Archived projects are retained for 90 days.
+### 项目
+- `GET /v3/projects` — 列出所有项目。支持 `status` 筛选条件（`active`、`archived`、`draft`）和 `sort` 排序字段（`created_at`、`updated_at`、`name`）。
+- `POST /v3/projects` — 创建项目。必填字段：`name`（最多 128 个字符）、`workspace_id`。可选字段：`description`（最多 2,000 个字符）、`template_id`、`visibility`（`private`、`team`、`public`）。
+- `GET /v3/projects/{id}` — 获取项目详情，包括成员数、任务数和存储用量。
+- `PATCH /v3/projects/{id}` — 更新项目字段。支持部分更新。
+- `DELETE /v3/projects/{id}` — 存档项目（软删除）。存档的项目将保留 90 天。
 
-### Tasks
-- `GET /v3/projects/{id}/tasks` — List tasks. Supports filters: `status` (todo, in_progress, review, done), `assignee_id`, `priority` (low, medium, high, critical), `due_before`, `due_after`, `label`.
-- `POST /v3/projects/{id}/tasks` — Create a task. Required: `title` (max 256 chars). Optional: `description` (Markdown, max 10000 chars), `assignee_id`, `priority`, `due_date`, `labels[]`, `parent_task_id`.
-- `GET /v3/tasks/{id}` — Get task with full details, comments, and activity history.
-- `PATCH /v3/tasks/{id}` — Update task. All fields optional.
+### 任务
+- `GET /v3/projects/{id}/tasks` — 列出任务。支持以下筛选条件：`status`（`todo`、`in_progress`、`review`、`done`）、`assignee_id`、`priority`（`low`、`medium`、`high`、`critical`）、`due_before`、`due_after`、`label`。
+- `POST /v3/projects/{id}/tasks` — 创建任务。必填字段：`title`（最多 256 个字符）。可选字段：`description`（Markdown，最多 10,000 个字符）、`assignee_id`、`priority`、`due_date`、`labels[]`、`parent_task_id`。
+- `GET /v3/tasks/{id}` — 获取任务的完整详情、评论和活动历史。
+- `PATCH /v3/tasks/{id}` — 更新任务。所有字段都是可选的。
 
-### Users
-- `GET /v3/users` — List workspace members. Supports `role` filter (owner, admin, member, guest).
-- `GET /v3/users/{id}` — Get user profile including role, teams, and activity stats.
-- `POST /v3/users/invite` — Invite a user by email. Required: `email`, `role`. Optional: `team_ids[]`.
+### 用户
+- `GET /v3/users` — 列出工作区成员。支持 `role` 筛选条件（`owner`、`admin`、`member`、`guest`）。
+- `GET /v3/users/{id}` — 获取用户个人资料，包括角色、团队和活动统计数据。
+- `POST /v3/users/invite` — 通过电子邮件邀请用户。必填字段：`email`、`role`。可选字段：`team_ids[]`。
 
-### Webhooks
-- `POST /v3/webhooks` — Register a webhook. Required: `url` (HTTPS only), `events[]`. Supported events: `project.created`, `project.updated`, `task.created`, `task.updated`, `task.completed`, `member.added`, `member.removed`.
-- `GET /v3/webhooks` — List registered webhooks with delivery stats.
-- `DELETE /v3/webhooks/{id}` — Remove a webhook registration.
+### Webhook
+- `POST /v3/webhooks` — 注册 Webhook。必填字段：`url`（仅限 HTTPS）、`events[]`。支持的事件：`project.created`、`project.updated`、`task.created`、`task.updated`、`task.completed`、`member.added`、`member.removed`。
+- `GET /v3/webhooks` — 列出已注册的 Webhook 及其投递统计信息。
+- `DELETE /v3/webhooks/{id}` — 删除 Webhook 注册。
 
-Webhook payloads are signed with HMAC-SHA256 using your webhook secret. Verify the `X-TechFlow-Signature` header before processing. Failed deliveries are retried 3 times with exponential backoff (1 min, 5 min, 30 min).
+Webhook 载荷会使用 Webhook 密钥通过 HMAC-SHA256 签名。处理载荷前，请验证 `X-TechFlow-Signature` 请求头。投递失败后会按指数退避策略重试 3 次（分别在 1 分钟、5 分钟和 30 分钟后）。
 
-## Error Codes
+## 错误代码
 
-| Code | Meaning | Common Cause |
-|------|---------|-------------|
-| 400 | Bad Request | Invalid JSON or missing required fields |
-| 401 | Unauthorized | Missing or invalid API key / expired token |
-| 403 | Forbidden | Insufficient scope or permissions |
-| 404 | Not Found | Resource doesn't exist or was archived |
-| 409 | Conflict | Duplicate resource (e.g., project name) |
-| 422 | Unprocessable | Valid JSON but semantic errors (e.g., invalid date) |
-| 429 | Rate Limited | Too many requests — check Retry-After header |
-| 500 | Server Error | Internal error — contact support with request ID |
+| 状态码 | 含义 | 常见原因 |
+| --- | --- | --- |
+| 400 | 请求错误 | JSON 无效或缺少必填字段 |
+| 401 | 未通过身份验证 | 缺少 API 密钥、API 密钥无效或令牌已过期 |
+| 403 | 禁止访问 | 权限范围或访问权限不足 |
+| 404 | 未找到 | 资源不存在或已归档 |
+| 409 | 冲突 | 资源重复（例如项目名称重复） |
+| 422 | 无法处理 | JSON 有效，但存在语义错误（例如日期无效） |
+| 429 | 超出速率限制 | 请求过多，请检查 `Retry-After` 响应头 |
+| 500 | 服务器错误 | 内部错误，请联系支持人员并提供请求 ID |
 
-All error responses include a `request_id` for support tracing and a human-readable `message` field.
+所有错误响应都包含便于支持人员追踪问题的 `request_id`，以及内容便于阅读的 `message` 字段。
 
-## Versioning
+## 版本控制
 
-The API uses URL-based versioning (`/v3/`). Breaking changes are only introduced in new major versions. Deprecated endpoints return a `Sunset` header with the removal date. The current version (v3) was released January 2024. Version v2 will be sunset on June 2025.
+API 使用基于 URL 的版本控制（`/v3/`）。破坏性变更只会在新的主版本中引入。已弃用的端点会返回 `Sunset` 响应头，其中包含移除日期。当前版本 v3 于 2024 年 1 月发布；v2 将于 2025 年 6 月停止服务。

@@ -1,4 +1,4 @@
-"""FlashRank reranker — lightweight, CPU-only, no API key needed."""
+"""FlashRank 重排序器：轻量、仅使用 CPU，且无需 API 密钥。"""
 
 import logging
 
@@ -8,20 +8,20 @@ logger = logging.getLogger(__name__)
 
 
 class Reranker:
-    """Reranks chunks by relevance to a query using FlashRank.
+    """使用 FlashRank 按文本块与查询的相关性重新排序。
 
-    FlashRank uses a small ONNX model (~4MB) that runs on CPU.
-    No API key or GPU required — ideal for tutorials and prototyping.
+    FlashRank 使用可在 CPU 上运行的小型 ONNX 模型（约 4MB），无需 API 密钥或
+    GPU，非常适合教程和原型开发。
     """
 
     def __init__(self, model: str = "ms-marco-MiniLM-L-12-v2"):
         from flashrank import Ranker
 
         self.ranker = Ranker(model_name=model)
-        logger.info("Reranker initialized with model=%s", model)
+        logger.info("重排序器初始化完成，模型=%s", model)
 
     def rerank(self, query: str, chunks: list[Chunk], top_k: int = 5) -> list[Chunk]:
-        """Rerank chunks by relevance to query, return top_k."""
+        """按文本块与查询的相关性重新排序，并返回前 top_k 个结果。"""
         if not chunks:
             return []
 
@@ -31,7 +31,7 @@ class Reranker:
         request = RerankRequest(query=query, passages=passages)
         results = self.ranker.rerank(request)
 
-        # Map back to Chunk objects, sorted by reranker score (descending)
+        # 映射回 Chunk 对象，并按重排序分数降序排列
         chunk_lookup = {c.id: c for c in chunks}
         reranked = []
         for r in sorted(results, key=lambda x: x["score"], reverse=True)[:top_k]:
@@ -39,5 +39,5 @@ class Reranker:
             if chunk:
                 reranked.append(chunk)
 
-        logger.info("Reranked %d chunks → top %d", len(chunks), len(reranked))
+        logger.info("已将 %d 个文本块重排序 → 取前 %d 个", len(chunks), len(reranked))
         return reranked

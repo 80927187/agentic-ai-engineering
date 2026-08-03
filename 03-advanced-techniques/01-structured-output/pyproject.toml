@@ -1,15 +1,15 @@
 [project]
 name = "lesson-structured-output"
 version = "0.1.0"
-description = "Advanced structured output techniques with validation and retry"
+description = "包含验证与重试机制的高级结构化输出技术"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=0.76.0",  # Anthropic API client (structured outputs, tool_use)
-    "openai>=1.0.0",  # OpenAI API client (response_format strict schemas)
-    "pydantic>=2.0.0",  # Schema definitions and validation
-    "python-dotenv>=1.0.0",  # Environment variable management
+    "anthropic>=0.76.0",  # Anthropic API 客户端（结构化输出、tool_use）
+    "openai>=1.0.0",  # OpenAI API 客户端（response_format 严格模式）
+    "pydantic>=2.0.0",  # 模式定义与验证
+    "python-dotenv>=1.0.0",  # 环境变量管理
     "common",
-    "rich>=13.7.0",  # Beautiful terminal output
+    "rich>=13.7.0",  # 美观的终端输出
 ]
 
 [tool.uv.sources]

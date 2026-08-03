@@ -1,4 +1,4 @@
-"""Episodic memory — timestamped events persisted to a JSON file."""
+"""情景记忆——持久化到 JSON 文件的带时间戳事件。"""
 
 import json
 from pathlib import Path
@@ -11,7 +11,7 @@ logger = setup_logging(__name__)
 
 
 class EpisodicMemory:
-    """Long-term event memory backed by a JSON file."""
+    """以 JSON 文件为后端的长期事件记忆。"""
 
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or Path("data/episodic.json")
@@ -19,40 +19,40 @@ class EpisodicMemory:
         self._load()
 
     def _load(self) -> None:
-        """Load memories from disk."""
+        """从磁盘加载记忆。"""
         if self.path.exists():
             try:
                 raw = json.loads(self.path.read_text(encoding="utf-8"))
                 self._entries = [MemoryEntry.from_dict(d) for d in raw]
-                logger.info("Loaded %d episodic memories from %s", len(self._entries), self.path)
+                logger.info("已从 %s 加载 %d 条情景记忆", self.path, len(self._entries))
             except (json.JSONDecodeError, KeyError) as e:
-                logger.error("Failed to load episodic memory: %s", e)
+                logger.error("加载情景记忆失败：%s", e)
                 self._entries = []
         else:
-            logger.info("No existing episodic memory at %s", self.path)
+            logger.info("%s 中没有现有的情景记忆", self.path)
 
     def _save(self) -> None:
-        """Persist memories to disk."""
+        """将记忆持久化到磁盘。"""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         data = [e.to_dict() for e in self._entries]
         self.path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     def save(self, entry: MemoryEntry) -> None:
-        """Save a memory entry to the episodic store."""
+        """将记忆条目保存到情景记忆库。"""
         entry.memory_type = MemoryType.EPISODIC
         self._entries.append(entry)
         self._save()
-        logger.info("Saved episodic memory: %s", entry.content[:60])
+        logger.info("已保存情景记忆：%s", entry.content[:60])
 
     def search(self, query: str, limit: int = 5) -> list[MemoryEntry]:
-        """Search memories by keyword matching."""
+        """通过关键词匹配搜索记忆。"""
         query_lower = query.lower()
         query_words = query_lower.split()
 
         scored: list[tuple[MemoryEntry, int]] = []
         for entry in self._entries:
             content_lower = entry.content.lower()
-            # Score by number of query words found
+            # 根据找到的查询词数量评分
             score = sum(1 for word in query_words if word in content_lower)
             if score > 0:
                 scored.append((entry, score))
@@ -61,32 +61,32 @@ class EpisodicMemory:
         return [entry for entry, _ in scored[:limit]]
 
     def get_recent(self, n: int = 10) -> list[MemoryEntry]:
-        """Return the N most recent episodic memories."""
+        """返回最近的 N 条情景记忆。"""
         return sorted(self._entries, key=lambda e: e.timestamp, reverse=True)[:n]
 
     def delete(self, memory_id: str) -> bool:
-        """Delete a memory by ID."""
+        """根据 ID 删除记忆。"""
         for i, entry in enumerate(self._entries):
             if entry.id == memory_id:
                 self._entries.pop(i)
                 self._save()
-                logger.info("Deleted episodic memory: %s", memory_id)
+                logger.info("已删除情景记忆：%s", memory_id)
                 return True
         return False
 
     def list_all(self) -> list[MemoryEntry]:
-        """Return all episodic memories ordered by timestamp."""
+        """返回所有按时间戳排序的情景记忆。"""
         return sorted(self._entries, key=lambda e: e.timestamp)
 
     def clear(self) -> None:
-        """Clear all episodic memories."""
+        """清除所有情景记忆。"""
         count = len(self._entries)
         self._entries.clear()
         self._save()
-        logger.info("Cleared %d episodic memories", count)
+        logger.info("已清除 %d 条情景记忆", count)
 
     def stats(self) -> dict:
-        """Return episodic memory statistics."""
+        """返回情景记忆统计信息。"""
         return {
             "count": len(self._entries),
             "file": str(self.path),

@@ -1,7 +1,7 @@
 [project]
 name = "lesson-rag-techniques"
 version = "0.1.0"
-description = "RAG pipeline with hybrid search, reranking, and agentic retrieval"
+description = "采用混合搜索、重排序和智能体检索的 RAG 流水线"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.76.0",

@@ -1,9 +1,9 @@
-"""RAG pipeline components: chunking, embedding, storage, retrieval, and reranking."""
+"""RAG 流水线组件：分块、嵌入、存储、检索和重排序。"""
 
 import logging
 import os
 
-# Suppress noisy third-party logs and progress bars before they initialize
+# 在第三方库初始化前关闭冗余日志和进度条
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["SAFETENSORS_LOG_LEVEL"] = "error"

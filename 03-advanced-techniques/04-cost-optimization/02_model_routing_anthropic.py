@@ -1,9 +1,8 @@
 """
-Model Routing (Anthropic)
+模型路由（Anthropic）
 
-Demonstrates cost optimization through intelligent model routing. A cheap
-classifier (Haiku) evaluates task difficulty and routes to Haiku (easy) or
-Sonnet (hard). Shows actual cost savings vs an all-Sonnet baseline.
+演示如何通过智能模型路由优化成本。低成本分类器（Haiku）评估任务难度，并将简单任务
+路由到 Haiku，将困难任务路由到 Sonnet。展示与全部使用 Sonnet 的基准方案相比实际节省的成本。
 """
 
 from dataclasses import dataclass, field
@@ -18,18 +17,18 @@ from rich.table import Table
 from common import AnthropicTokenTracker, setup_logging
 from common.menu import interactive_menu
 
-# Load environment variables from root .env file
+# 从根目录的 .env 文件加载环境变量
 load_dotenv(find_dotenv())
 
-# Configure logging
+# 配置日志记录
 logger = setup_logging(__name__)
 
-# Model configuration
+# 模型配置
 MODEL_CLASSIFIER = "claude-haiku-4-5-20251001"
 MODEL_EASY = "claude-haiku-4-5-20251001"
 MODEL_HARD = "claude-sonnet-4-6"
 
-# Pricing ($ per million tokens)
+# 定价（美元/百万词元）
 PRICING = {
     "haiku_input": 1.00,
     "haiku_output": 5.00,
@@ -37,36 +36,34 @@ PRICING = {
     "sonnet_output": 15.00,
 }
 
-# Sample tasks mixing easy and hard
+# 混合简单和困难任务的示例
 SAMPLE_TASKS = [
-    "What is the capital of France?",
-    "Convert 72 degrees Fahrenheit to Celsius.",
-    "Design a microservices architecture for a real-time multiplayer game that needs to handle "
-    "100,000 concurrent users with sub-50ms latency.",
-    "What year did the first iPhone launch?",
-    "Analyze the trade-offs between event sourcing and traditional CRUD for a financial "
-    "transaction system that requires full audit trails and regulatory compliance.",
-    "How many meters are in a kilometer?",
-    "Compare and contrast the CAP theorem implications when choosing between PostgreSQL, "
-    "Cassandra, and CockroachDB for a globally distributed e-commerce platform.",
-    "What is the chemical symbol for gold?",
+    "法国的首都是哪里？",
+    "将 72 华氏度换算为摄氏度。",
+    "为一款实时多人游戏设计微服务架构。该游戏需要支持 10 万名并发用户，延迟低于 50 毫秒。",
+    "第一代 iPhone 是在哪一年发布的？",
+    "分析事件溯源与传统 CRUD 在金融交易系统中的权衡；该系统需要完整的审计追踪并满足监管要求。",
+    "一千米等于多少米？",
+    "对于全球分布式电子商务平台，比较选择 PostgreSQL、Cassandra 和 CockroachDB 时，"
+    "CAP 定理所带来的不同影响。",
+    "金的化学符号是什么？",
 ]
 
 
 @dataclass
 class TaskResult:
-    """Result of a routed task execution."""
+    """路由任务的执行结果。"""
 
     task: str
     difficulty: str
     model_used: str
     response: str
     routed_cost: float
-    baseline_cost: float  # what it would cost on Sonnet
+    baseline_cost: float  # 使用 Sonnet 时的成本
 
 
 class ModelRouter:
-    """Routes tasks to appropriate models based on complexity."""
+    """根据复杂度将任务路由到合适的模型。"""
 
     def __init__(self, token_tracker: AnthropicTokenTracker):
         self.client = anthropic.Anthropic()
@@ -75,32 +72,31 @@ class ModelRouter:
         self.results = []
 
     def classify(self, task: str) -> str:
-        """Use Haiku to classify task difficulty as 'easy' or 'hard'."""
+        """使用 Haiku 将任务难度分类为 'easy' 或 'hard'。"""
         response = self.client.messages.create(
             model=MODEL_CLASSIFIER,
             max_tokens=10,
             system=(
-                "Classify the following task as either 'easy' or 'hard'.\n"
-                "Easy: simple factual lookups, unit conversions, basic math, definitions.\n"
-                "Hard: analysis, architecture design, multi-step reasoning, comparisons, "
-                "creative writing, code review.\n"
-                "Respond with exactly one word: easy or hard."
+                "将以下任务分类为 'easy' 或 'hard'。\n"
+                "easy：简单的事实查询、单位换算、基础数学和定义。\n"
+                "hard：分析、架构设计、多步推理、比较、创意写作和代码审查。\n"
+                "只用一个单词回答：easy 或 hard。"
             ),
             messages=[{"role": "user", "content": task}],
         )
         self.token_tracker.track(response.usage)
 
         classification = str(response.content[0].text).strip().lower()
-        # Default to hard if classification is unclear
+        # 分类结果不明确时，默认按困难任务处理
         if classification not in ("easy", "hard"):
-            logger.warning("Unclear classification '%s', defaulting to hard", classification)
+            logger.warning("分类结果 '%s' 不明确，默认按 hard 处理", classification)
             classification = "hard"
 
-        logger.info("Classified as '%s': %s", classification, task[:60])
+        logger.info("分类为 '%s'：%s", classification, task[:60])
         return classification
 
     def execute(self, task: str, model: str) -> tuple[str, int, int]:
-        """Run task on specified model, return (response, input_tokens, output_tokens)."""
+        """在指定模型上运行任务，返回（响应, 输入词元数, 输出词元数）。"""
         response = self.client.messages.create(
             model=model,
             max_tokens=1024,
@@ -115,7 +111,7 @@ class ModelRouter:
         )
 
     def _calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
-        """Calculate cost for a given model and token counts."""
+        """根据给定模型和词元数计算成本。"""
         if model == MODEL_HARD:
             return (
                 input_tokens * PRICING["sonnet_input"] + output_tokens * PRICING["sonnet_output"]
@@ -125,7 +121,7 @@ class ModelRouter:
         ) / 1_000_000
 
     def route_and_execute(self, task: str) -> TaskResult:
-        """Classify, route, execute, and track costs."""
+        """对任务进行分类、路由和执行，并跟踪成本。"""
         difficulty = self.classify(task)
 
         model = MODEL_EASY if difficulty == "easy" else MODEL_HARD
@@ -147,7 +143,7 @@ class ModelRouter:
         return result
 
     def get_summary(self) -> dict:
-        """Aggregate cost comparison across all results."""
+        """汇总所有结果的成本对比。"""
         total_routed = sum(r.routed_cost for r in self.results)
         total_baseline = sum(r.baseline_cost for r in self.results)
         savings = total_baseline - total_routed
@@ -167,7 +163,7 @@ class ModelRouter:
 
 
 def _render_task_result(console: Console, result: TaskResult, index: int) -> None:
-    """Render a single task result with routing info."""
+    """呈现单个任务结果及其路由信息。"""
     model_label = "Haiku" if result.model_used == MODEL_EASY else "Sonnet"
     diff_color = "green" if result.difficulty == "easy" else "yellow"
     savings = result.baseline_cost - result.routed_cost
@@ -175,13 +171,13 @@ def _render_task_result(console: Console, result: TaskResult, index: int) -> Non
 
     console.print(
         Panel(
-            f"[dim]Task:[/dim] {result.task}\n"
-            f"[dim]Difficulty:[/dim] [{diff_color}]{result.difficulty}[/{diff_color}] → "
+            f"[dim]任务：[/dim] {result.task}\n"
+            f"[dim]难度：[/dim] [{diff_color}]{result.difficulty}[/{diff_color}] → "
             f"[bold]{model_label}[/bold]\n"
-            f"[dim]Routed cost:[/dim] [green]${result.routed_cost:.6f}[/green]  "
-            f"[dim]Baseline (Sonnet):[/dim] [red]${result.baseline_cost:.6f}[/red]  "
-            f"[dim]Saved:[/dim] [bold green]${savings:.6f} ({savings_pct:.0f}%)[/bold green]",
-            title=f"Task {index}",
+            f"[dim]路由成本：[/dim] [green]${result.routed_cost:.6f}[/green]  "
+            f"[dim]基准（Sonnet）：[/dim] [red]${result.baseline_cost:.6f}[/red]  "
+            f"[dim]节省：[/dim] [bold green]${savings:.6f} ({savings_pct:.0f}%)[/bold green]",
+            title=f"任务 {index}",
             border_style="dim",
             padding=(0, 1),
         )
@@ -189,34 +185,34 @@ def _render_task_result(console: Console, result: TaskResult, index: int) -> Non
 
 
 def _render_summary(console: Console, summary: dict) -> None:
-    """Render aggregate cost summary."""
+    """呈现汇总成本信息。"""
     table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column("Metric", style="dim", min_width=22)
-    table.add_column("Value", justify="right")
+    table.add_column("指标", style="dim", min_width=22)
+    table.add_column("值", justify="right")
 
-    table.add_row("Tasks processed", f"[cyan]{summary['total_tasks']}[/cyan]")
+    table.add_row("已处理任务", f"[cyan]{summary['total_tasks']}[/cyan]")
     table.add_row(
-        "Routing breakdown",
-        f"[green]{summary['easy_count']} easy[/green] / "
-        f"[yellow]{summary['hard_count']} hard[/yellow]",
+        "路由明细",
+        f"[green]{summary['easy_count']} 个简单任务[/green] / "
+        f"[yellow]{summary['hard_count']} 个困难任务[/yellow]",
     )
     table.add_row(
-        "Cost (routed)",
+        "成本（路由后）",
         f"[green]${summary['total_routed_cost']:.6f}[/green]",
     )
     table.add_row(
-        "Cost (all-Sonnet baseline)",
+        "成本（全部使用 Sonnet 的基准）",
         f"[red]${summary['total_baseline_cost']:.6f}[/red]",
     )
     table.add_row(
-        "Total savings",
+        "节省总额",
         f"[bold green]${summary['savings']:.6f} ({summary['savings_pct']:.1f}%)[/bold green]",
     )
 
     console.print(
         Panel(
             table,
-            title="Cost Summary — Routed vs All-Sonnet",
+            title="成本汇总——路由方案与全部使用 Sonnet 的方案",
             border_style="green",
             padding=(0, 1),
         )
@@ -224,36 +220,36 @@ def _render_summary(console: Console, summary: dict) -> None:
 
 
 def _run_demo(console: Console, router: ModelRouter) -> None:
-    """Run all sample tasks and show results."""
-    console.print(f"\n[bold]Running {len(SAMPLE_TASKS)} sample tasks...[/bold]\n")
+    """运行所有示例任务并显示结果。"""
+    console.print(f"\n[bold]正在运行 {len(SAMPLE_TASKS)} 个示例任务……[/bold]\n")
 
     for i, task in enumerate(SAMPLE_TASKS, 1):
-        console.print(f"[dim]Processing task {i}/{len(SAMPLE_TASKS)}...[/dim]")
+        console.print(f"[dim]正在处理任务 {i}/{len(SAMPLE_TASKS)}……[/dim]")
         try:
             result = router.route_and_execute(task)
             _render_task_result(console, result, i)
-            # Show truncated response
+            # 显示截断后的响应
             preview = (
                 result.response[:200] + "..." if len(result.response) > 200 else result.response
             )
             console.print(Markdown(preview))
             console.print()
         except Exception as e:
-            logger.error("Error processing task %d: %s", i, e)
-            console.print(f"[red]Error: {e}[/red]\n")
+            logger.error("处理任务 %d 时发生错误：%s", i, e)
+            console.print(f"[red]错误：{e}[/red]\n")
 
     _render_summary(console, router.get_summary())
 
 
 def _run_interactive(console: Console, router: ModelRouter) -> None:
-    """Interactive mode — user enters tasks, sees classification in real-time."""
+    """交互模式——用户输入任务并实时查看分类结果。"""
     console.print(
-        "\n[bold]Interactive mode[/bold] — enter tasks to see routing decisions.\n"
-        "Type [bold]'summary'[/bold] for cost totals, [bold]'quit'[/bold] to exit.\n"
+        "\n[bold]交互模式[/bold]——输入任务以查看路由决策。\n"
+        "输入 [bold]'summary'[/bold] 查看成本汇总，输入 [bold]'quit'[/bold] 退出。\n"
     )
 
     while True:
-        console.print("[bold green]Task:[/bold green] ", end="")
+        console.print("[bold green]任务：[/bold green] ", end="")
         user_input = input().strip()
 
         if user_input.lower() in ["quit", "exit", ""]:
@@ -263,62 +259,62 @@ def _run_interactive(console: Console, router: ModelRouter) -> None:
             if router.results:
                 _render_summary(console, router.get_summary())
             else:
-                console.print("[dim]No tasks processed yet.[/dim]")
+                console.print("[dim]尚未处理任何任务。[/dim]")
             continue
 
         try:
             result = router.route_and_execute(user_input)
             _render_task_result(console, result, len(router.results))
 
-            console.print("\n[bold blue]Response:[/bold blue]")
+            console.print("\n[bold blue]响应：[/bold blue]")
             console.print(Markdown(result.response))
             console.print()
 
         except Exception as e:
-            logger.error("Error processing task: %s", e)
-            console.print(f"\n[red]Error: {e}[/red]")
+            logger.error("处理任务时发生错误：%s", e)
+            console.print(f"\n[red]错误：{e}[/red]")
 
     if router.results:
         _render_summary(console, router.get_summary())
 
 
 def main() -> None:
-    """Main orchestration function for the model routing demo."""
+    """模型路由演示的主编排函数。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
     router = ModelRouter(token_tracker)
 
     header = Panel(
-        "[bold cyan]Model Routing Demo[/bold cyan]\n\n"
-        "A cheap classifier (Haiku) evaluates each task's difficulty,\n"
-        "then routes to [green]Haiku[/green] (easy) or [yellow]Sonnet[/yellow] (hard).\n\n"
-        "Haiku costs ~73% less than Sonnet for input — routing simple tasks\n"
-        "to the cheaper model saves real money at scale.\n\n"
-        "[bold]Pricing:[/bold]\n"
-        f"  Haiku:  ${PRICING['haiku_input']:.2f} input / ${PRICING['haiku_output']:.2f} output  (per MTok)\n"
-        f"  Sonnet: ${PRICING['sonnet_input']:.2f} input / ${PRICING['sonnet_output']:.2f} output (per MTok)",
-        title="Smart Model Routing",
+        "[bold cyan]模型路由演示[/bold cyan]\n\n"
+        "低成本分类器（Haiku）会评估每项任务的难度，\n"
+        "然后将简单任务路由到 [green]Haiku[/green]，困难任务路由到 [yellow]Sonnet[/yellow]。\n\n"
+        "Haiku 的输入成本比 Sonnet 低约 73%——将简单任务路由到更便宜的模型，\n"
+        "在大规模使用时可以真正节省费用。\n\n"
+        "[bold]定价：[/bold]\n"
+        f"  Haiku： ${PRICING['haiku_input']:.2f} 输入 / ${PRICING['haiku_output']:.2f} 输出（每百万词元）\n"
+        f"  Sonnet：${PRICING['sonnet_input']:.2f} 输入 / ${PRICING['sonnet_output']:.2f} 输出（每百万词元）",
+        title="智能模型路由",
     )
 
     mode = interactive_menu(
         console,
         items=[
-            "Demo — run sample tasks with auto-routing",
-            "Interactive — enter your own tasks",
+            "演示——使用自动路由运行示例任务",
+            "交互——输入你自己的任务",
         ],
-        title="Select Mode",
+        title="选择模式",
         header=header,
     )
 
     if mode is None:
         return
 
-    if mode.startswith("Demo"):
+    if mode.startswith("演示"):
         _run_demo(console, router)
     else:
         _run_interactive(console, router)
 
-    # Final token report
+    # 最终词元报告
     console.print()
     token_tracker.report()
 

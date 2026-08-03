@@ -1,116 +1,116 @@
 <!-- ---
-title: "Cost Optimization"
-description: "Reduce API costs with prompt caching and intelligent model routing"
+title: "成本优化"
+description: "通过提示词缓存和智能模型路由降低 API 成本"
 icon: "zap"
 --- -->
 
-# Cost Optimization
+# 成本优化
 
-The [context engineering tutorial](../03-context-engineering/) taught you to manage *what* fits in the context window. This tutorial tackles a different problem: reducing the *cost* of what you send. Two complementary strategies — cache repeated content so you pay less for it, and route tasks to the cheapest model that can handle them.
+[上下文工程教程](../03-context-engineering/)介绍了如何管理上下文窗口中可以容纳的*内容*。本教程解决另一个问题：降低所发送内容的*成本*。这里采用两种互补策略——缓存重复内容以降低重复付费，并将任务路由到能够胜任的最便宜模型。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Structure system prompts with explicit cache breakpoints for Anthropic's prompt caching
-- Understand cache MISS vs HIT mechanics and the 5-minute TTL
-- Track cache metrics and calculate real cost savings analytically
-- Build a model router that classifies task difficulty with a cheap model
-- Route tasks to Haiku (easy) or Sonnet (hard) based on complexity
-- Compare routed costs against an all-Sonnet baseline
+- 使用明确的缓存断点组织系统提示词，以利用 Anthropic 的提示词缓存
+- 理解缓存未命中（MISS）与命中（HIT）的机制，以及 5 分钟的生存时间（TTL）
+- 跟踪缓存指标，并通过分析计算实际节省的成本
+- 构建一个使用低成本模型判断任务难度的模型路由器
+- 根据复杂度将任务路由到 Haiku（简单）或 Sonnet（困难）
+- 将路由成本与全部使用 Sonnet 的基准方案进行比较
 
-## 📦 Available Examples
+## 📦 可用示例
 
-| Provider                                        | File                                                                             | Description                                       |
-| ----------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------- |
-| ![Anthropic](../../common/badges/anthropic.svg) | [01_prompt_caching_anthropic.py](01_prompt_caching_anthropic.py)                 | Customer support agent with cached policy document |
-| ![Anthropic](../../common/badges/anthropic.svg) | [02_model_routing_anthropic.py](02_model_routing_anthropic.py)                   | Difficulty-based routing (Haiku vs Sonnet)         |
+| 提供商 | 文件 | 说明 |
+| --- | --- | --- |
+| ![Anthropic](../../common/badges/anthropic.svg) | [01_prompt_caching_anthropic.py](01_prompt_caching_anthropic.py) | 使用缓存策略文档的客户支持智能体 |
+| ![Anthropic](../../common/badges/anthropic.svg) | [02_model_routing_anthropic.py](02_model_routing_anthropic.py) | 基于难度的路由（Haiku 与 Sonnet） |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+, API keys, and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+、API 密钥和 uv。完整安装说明请参阅 [SETUP.md](../../SETUP.md)。
 
 ```bash
-# Prompt caching demo
+# 提示词缓存演示
 uv run --directory 03-advanced-techniques/04-cost-optimization python 01_prompt_caching_anthropic.py
 
-# Model routing demo
+# 模型路由演示
 uv run --directory 03-advanced-techniques/04-cost-optimization python 02_model_routing_anthropic.py
 ```
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，单击即可运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
-### 1. How Prompt Caching Works
+### 1. 提示词缓存的工作原理
 
-Anthropic caches the *prefix* of your prompt. The first call writes to cache (small premium); subsequent calls with the same prefix read from cache at 90% savings.
+Anthropic 会缓存提示词的*前缀*。第一次调用会写入缓存（需支付少量溢价）；之后使用相同前缀的调用会读取缓存，节省 90% 的费用。
 
 ```
-Call 1 — Cache MISS:
-┌──────────────────────────────────┐
-│  System: instructions + policy   │ ──→ written to cache (1.25x cost)
-│  User: "What's the return policy?"│
-└──────────────────────────────────┘
+调用 1 — 缓存未命中：
+┌────────────────────────────────┐
+│  系统：指令 + 策略             │ ──→ 写入缓存（1.25 倍成本）
+│  用户：“退货政策是什么？”       │
+└────────────────────────────────┘
 
-Call 2 — Cache HIT:
-┌──────────────────────────────────┐
-│  System: instructions + policy   │ ──→ read from cache (0.1x cost!)
-│  User: "How long is shipping?"   │
-└──────────────────────────────────┘
+调用 2 — 缓存命中：
+┌────────────────────────────────┐
+│  系统：指令 + 策略             │ ──→ 从缓存读取（0.1 倍成本！）
+│  用户：“配送需要多长时间？”     │
+└────────────────────────────────┘
 ```
 
-The cache has a 5-minute TTL, refreshed on each hit. As long as you keep making requests, the cache stays warm.
+缓存的 TTL 为 5 分钟，每次命中都会刷新。只要持续发出请求，缓存就会保持热状态。
 
-### 2. Cache-Aware Prompt Design
+### 2. 缓存感知的提示词设计
 
-Structure your system prompt for maximum cache reuse:
+按以下方式组织系统提示词，可以最大限度地复用缓存：
 
-| Rule | Why |
+| 规则 | 原因 |
 | --- | --- |
-| **Static content first** | Cache is prefix-based — put stable content (policies, instructions) at the beginning |
-| **Dynamic content last** | Anything after the cached prefix is charged at full rate |
-| **Exceed minimum tokens** | Sonnet requires 1024+ tokens in the cached block; Haiku requires 2048+ |
-| **Use explicit breakpoints** | `cache_control: {"type": "ephemeral"}` gives precise control over what's cached |
-| **Mind the TTL** | 5-minute window — caching only helps if requests come frequently enough |
+| **静态内容在前** | 缓存基于前缀——把策略、指令等稳定内容放在开头 |
+| **动态内容在后** | 缓存前缀之后的所有内容均按全价计费 |
+| **超过最低词元数** | Sonnet 要求缓存块不少于 1024 个词元；Haiku 要求不少于 2048 个 |
+| **使用明确的断点** | `cache_control: {"type": "ephemeral"}` 可以精确控制缓存哪些内容 |
+| **留意 TTL** | 缓存窗口为 5 分钟——只有请求足够频繁时，缓存才有帮助 |
 
 ```python
-# Explicit cache breakpoints on system prompt blocks
+# 在系统提示词块上设置明确的缓存断点
 system = [
-    {"type": "text", "text": "Short instructions..."},
+    {"type": "text", "text": "简短指令……"},
     {
         "type": "text",
-        "text": large_policy_document,   # 1500+ tokens
+        "text": large_policy_document,   # 1500+ 个词元
         "cache_control": {"type": "ephemeral"},
     },
 ]
 ```
 
-### 3. Reading Cache Metrics
+### 3. 读取缓存指标
 
-Every Anthropic response includes cache token counts in the `usage` object:
+Anthropic 的每个响应都会在 `usage` 对象中包含缓存词元计数：
 
 ```python
 response = client.messages.create(model=model, system=system, messages=messages)
 
 usage = response.usage
-print(usage.input_tokens)                  # total input tokens
-print(usage.cache_creation_input_tokens)   # tokens written to cache (MISS)
-print(usage.cache_read_input_tokens)       # tokens read from cache (HIT)
+print(usage.input_tokens)                  # 输入词元总数
+print(usage.cache_creation_input_tokens)   # 写入缓存的词元数（未命中）
+print(usage.cache_read_input_tokens)       # 从缓存读取的词元数（命中）
 ```
 
-On the first call, `cache_creation_input_tokens > 0`. On subsequent calls with the same prefix, `cache_read_input_tokens > 0` — that's your 90% savings.
+第一次调用时，`cache_creation_input_tokens > 0`。后续使用相同前缀的调用中，`cache_read_input_tokens > 0`——这正是节省 90% 费用的来源。
 
-### 4. When Caching Hurts
+### 4. 缓存何时会适得其反
 
-| Anti-pattern | Problem |
+| 反模式 | 问题 |
 | --- | --- |
-| Unique prompts every call | You pay the 1.25x write premium but never get a cache hit |
-| System prompt < 1024 tokens | Below the minimum — Sonnet won't cache it at all |
-| Requests spaced > 5 minutes apart | Cache expires between calls, so every call is a write |
-| Dynamic content before static | Breaks the prefix — cache can't match after the dynamic part |
+| 每次调用的提示词都不同 | 支付了 1.25 倍的写入溢价，却从未命中缓存 |
+| 系统提示词少于 1024 个词元 | 低于最低要求——Sonnet 完全不会缓存 |
+| 请求间隔超过 5 分钟 | 缓存在调用之间过期，导致每次调用都是写入操作 |
+| 动态内容位于静态内容之前 | 破坏前缀——动态部分之后的内容无法匹配缓存 |
 
-### 5. Model Routing
+### 5. 模型路由
 
-Not every task needs your most capable (and expensive) model. A routing layer classifies each task and sends it to the right model:
+并非每项任务都需要能力最强（同时也是最昂贵）的模型。路由层会对每项任务进行分类，并将其发送给合适的模型：
 
 <!-- prettier-ignore -->
 ```mermaid
@@ -120,81 +120,82 @@ config:
   theme: neutral
 ---
 flowchart TD
-    A["🗣️ User Task         "] --> B["🧠 Classifier (Haiku) "]
-    B -- "easy" --> C["🧠 Haiku              "]
-    B -- "hard" --> D["🧠 Sonnet             "]
-    C --> E["📄 Response           "]
+    A["🗣️ 用户任务"] --> B["🧠 分类器（Haiku）"]
+    B -- "简单" --> C["🧠 Haiku"]
+    B -- "困难" --> D["🧠 Sonnet"]
+    C --> E["📄 响应"]
     D --> E
-    E --> F["💰 Cost Tracking      "]
+    E --> F["💰 成本跟踪"]
 ```
 
-The classifier itself runs on Haiku (cheap), adding minimal overhead. Even with the classification cost, routing simple tasks to Haiku saves significantly vs sending everything to Sonnet.
+分类器本身运行在低成本的 Haiku 上，只会增加很少的开销。即使计入分类成本，将简单任务路由到 Haiku，相比所有任务都发送给 Sonnet 仍能显著节省费用。
 
-### 6. Cost Comparison
+### 6. 成本比较
 
-| Model | Input ($/MTok) | Output ($/MTok) | Best for |
+| 模型 | 输入（美元/百万词元） | 输出（美元/百万词元） | 最适合 |
 | --- | --- | --- | --- |
-| Haiku 4.5 | $1.00 | $5.00 | Factual lookups, simple math, classification |
-| Sonnet 4.5 | $3.00 | $15.00 | Analysis, design, multi-step reasoning |
+| Haiku 4.5 | $1.00 | $5.00 | 事实查询、简单数学、分类 |
+| Sonnet 4.5 | $3.00 | $15.00 | 分析、设计、多步推理 |
 
-Haiku input costs **67% less** than Sonnet. For workloads where 50%+ of tasks are simple, routing can cut costs substantially.
+Haiku 的输入成本比 Sonnet **低 67%**。对于简单任务占比达到 50% 以上的工作负载，路由可以大幅降低成本。
 
-## 🏗️ Code Structure
+## 🏗️ 代码结构
 
-### Script 01 — Prompt Caching (CachedSupportAgent)
+### 脚本 01——提示词缓存（CachedSupportAgent）
 
 ```python
 class CachedSupportAgent:
-    """Customer support agent demonstrating prompt caching."""
+    """演示提示词缓存的客户支持智能体。"""
 
     def _build_system(self) -> str | list[dict]:
-        """Build system prompt with cache_control blocks or plain string."""
+        """构建包含 cache_control 块或纯字符串的系统提示词。"""
 
     def chat(self, user_input: str) -> tuple[str, dict]:
-        """Send message, track cache metrics, return (response, usage_dict)."""
+        """发送消息、跟踪缓存指标并返回（响应, 用量字典）。"""
 
 @dataclass
 class CacheMetrics:
-    """Tracks cache performance across API calls."""
+    """跟踪多次 API 调用的缓存性能。"""
 
     def record_call(...) -> None: ...
     def cost_with_caching(self) -> float: ...
-    def cost_without_caching(self) -> float: ...     # all tokens at base input rate
+    def cost_without_caching(self) -> float: ...     # 所有词元均按基础输入费率计算
     def savings(self) -> float: ...
     def cache_hit_rate(self) -> float: ...
 ```
 
-### Script 02 — Model Routing (ModelRouter)
+### 脚本 02——模型路由（ModelRouter）
 
 ```python
 class ModelRouter:
-    """Routes tasks to appropriate models based on complexity."""
+    """根据复杂度将任务路由到合适的模型。"""
 
     def classify(self, task: str) -> str:
-        """Haiku classifies as 'easy' or 'hard'."""
+        """Haiku 将任务分类为 'easy' 或 'hard'。"""
 
     def execute(self, task: str, model: str) -> tuple[str, int, int]:
-        """Run task on specified model."""
+        """在指定模型上运行任务。"""
 
     def route_and_execute(self, task: str) -> TaskResult:
-        """Classify → route → execute → track costs."""
+        """分类 → 路由 → 执行 → 跟踪成本。"""
 
     def get_summary(self) -> dict:
-        """Aggregate: total routed cost, baseline cost, savings."""
+        """汇总总路由成本、基准成本和节省金额。"""
 ```
 
-## ⚠️ Important Considerations
+## ⚠️ 重要注意事项
 
-- **Cache TTL** — Anthropic's prompt cache has a 5-minute TTL. Caching only helps if you make multiple requests within that window. Each cache hit refreshes the timer.
-- **Write premium** — The first call pays 1.25x for cached tokens. You need at least 4 cache hits to break even on the write cost (since reads are 0.1x).
-- **Cannot "un-cache"** — Once cached server-side, you can't force a cache miss. The scripts calculate "cost without caching" analytically by treating all tokens at the base input rate.
-- **Routing accuracy** — The classifier isn't perfect. Occasional misroutes (hard task → Haiku) may produce lower-quality responses. In production, add confidence thresholds or fallback logic.
-- **Pricing changes** — Token prices are hardcoded as constants. Check Anthropic's pricing page for current rates.
-- **Minimum token thresholds** — Cache breakpoints require minimum token counts (1024 for Sonnet, 2048 for Haiku). Below the threshold, caching is silently skipped.
+- **缓存 TTL**——Anthropic 的提示词缓存 TTL 为 5 分钟。只有在该时间窗口内发出多个请求时，缓存才有帮助。每次缓存命中都会刷新计时器。
+- **写入溢价**——第一次调用对缓存词元按 1.25 倍收费。至少需要 4 次缓存命中才能抵消写入成本（因为读取费率为 0.1 倍）。
+- **无法“取消缓存”**——内容在服务端缓存后，无法强制使缓存未命中。脚本通过将所有词元按基础输入费率计算，分析得出“未使用缓存时的成本”。
+- **路由准确性**——分类器并不完美。偶尔误将困难任务路由到 Haiku，可能导致响应质量下降。在生产环境中应添加置信度阈值或回退逻辑。
+- **价格变化**——词元价格以常量形式硬编码。请查看 Anthropic 的价格页面了解当前费率。
+- **最低词元数阈值**——缓存断点要求达到最低词元数（Sonnet 为 1024，Haiku 为 2048）。低于阈值时会静默跳过缓存。
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-Once you've explored cost optimization, continue to:
-- **[Memory Systems](../05-memory/)** — Give agents persistent memory across sessions
-- **Experiment** — Try combining both strategies: cache the system prompt *and* route tasks to different models
-- **Explore** — Add a third routing tier (e.g., Opus for the hardest tasks) or implement confidence-based fallback
+完成成本优化示例后，可以继续：
+
+- **[记忆系统](../05-memory/)**——让智能体拥有跨会话的持久记忆
+- **实验**——尝试组合两种策略：既缓存系统提示词，又将任务路由到不同模型
+- **探索**——添加第三个路由层级（例如将最困难的任务交给 Opus），或实现基于置信度的回退

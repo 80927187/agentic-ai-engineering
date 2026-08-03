@@ -1,4 +1,4 @@
-"""Three-tier memory system — working, episodic, and semantic."""
+"""三层记忆系统——工作记忆、情景记忆和语义记忆。"""
 
 from .episodic import EpisodicMemory
 from .manager import MemoryManager

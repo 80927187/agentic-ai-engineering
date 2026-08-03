@@ -1,69 +1,69 @@
-# TechFlow System Architecture
+# TechFlow 系统架构
 
-## Overview
+## 概述
 
-TechFlow uses a microservices architecture deployed on AWS. The system handles approximately 50,000 concurrent users during peak hours with an average API response time of 45ms at the 95th percentile.
+TechFlow 采用部署在 AWS 上的微服务架构。系统在高峰时段可承载约 50,000 名并发用户，API 响应时间的第 95 百分位数平均为 45 毫秒。
 
-## Service Map
+## 服务拓扑
 
-### API Gateway (Kong)
-The API Gateway is the single entry point for all client requests. It handles SSL termination, request routing, rate limiting, and API key validation. The gateway runs on 4 instances behind an AWS Application Load Balancer with auto-scaling between 4-12 instances based on CPU utilization (target: 60%).
+### API 网关（Kong）
+API 网关是所有客户端请求的唯一入口，负责 SSL 终止、请求路由、速率限制和 API 密钥验证。网关在 AWS 应用程序负载均衡器后运行 4 个实例，并根据 CPU 使用率在 4～12 个实例之间自动扩缩容（目标值：60%）。
 
-### Auth Service
-Handles authentication and authorization. Manages user sessions, API key validation, OAuth2 flows, and permission checks. Built with Python (FastAPI) and uses PostgreSQL for user data and Redis for session caching. Session tokens are JWT-based with 1-hour expiry. The service validates permissions using a role-based access control (RBAC) model with four roles: owner, admin, member, and guest.
+### 身份验证服务
+负责身份验证和授权，管理用户会话、API 密钥验证、OAuth2 流程和权限检查。该服务使用 Python（FastAPI）构建，以 PostgreSQL 存储用户数据，并使用 Redis 缓存会话。会话 Token 基于 JWT，有效期为 1 小时。服务使用基于角色的访问控制（RBAC）模型验证权限，包含四种角色：所有者、管理员、成员和访客。
 
-### Project Service
-Core business logic for projects, tasks, labels, and workflows. This is the largest service (~40,000 lines) and handles all CRUD operations for project management. Built with Python (Django) and PostgreSQL. Uses database connection pooling (PgBouncer, max 200 connections) to handle concurrent requests efficiently. Complex queries (reporting, analytics) are routed to a read replica to avoid impacting write performance.
+### 项目服务
+负责项目、任务、标签和工作流的核心业务逻辑。这是规模最大的服务（约 40,000 行代码），处理项目管理相关的所有 CRUD 操作。该服务使用 Python（Django）和 PostgreSQL 构建，并通过数据库连接池（PgBouncer，最多 200 个连接）高效处理并发请求。复杂查询（报表、分析）会被路由到只读副本，避免影响写入性能。
 
-### Notification Service
-Manages all outbound notifications: email (via AWS SES), in-app notifications (via WebSocket), push notifications (via Firebase Cloud Messaging), and webhook deliveries. Built with Node.js and uses a Redis-backed queue to decouple notification processing from the main request flow. Failed webhook deliveries are retried with exponential backoff. The service processes approximately 2 million notifications per day.
+### 通知服务
+管理所有对外通知：电子邮件（通过 AWS SES）、应用内通知（通过 WebSocket）、推送通知（通过 Firebase Cloud Messaging）和 Webhook 投递。该服务使用 Node.js 构建，并利用基于 Redis 的队列将通知处理与主请求流程解耦。Webhook 投递失败后会按指数退避策略重试。服务每天处理约 200 万条通知。
 
-### Search Service
-Powers full-text search across projects, tasks, and comments. Built on Elasticsearch with custom analyzers for code snippet search. Indexes are updated asynchronously via Kafka events. Search results are ranked using a combination of text relevance, recency, and user activity signals. The index is rebuilt nightly to clean up stale entries.
+### 搜索服务
+提供项目、任务和评论的全文搜索。该服务基于 Elasticsearch 构建，并为代码片段搜索配置了自定义分析器。索引通过 Kafka 事件异步更新；搜索结果综合文本相关性、时效性和用户活动信号进行排序。索引每晚重建，以清理过期条目。
 
-### File Service
-Handles file uploads, storage, and retrieval. Files are stored in AWS S3 with CloudFront CDN for delivery. Supports files up to 100MB. Generates thumbnails for images and preview renders for documents. Virus scanning is performed asynchronously via ClamAV before files are made available. Storage quotas are enforced per workspace: 5GB (Basic), 50GB (Pro), unlimited (Enterprise).
+### 文件服务
+负责文件上传、存储和下载。文件存储在 AWS S3 中，并通过 CloudFront CDN 分发。支持最大 100MB 的文件，可为图像生成缩略图，并为文档生成预览。文件开放访问前会通过 ClamAV 异步进行病毒扫描。每个工作区均有存储配额：基础版 5GB、专业版 50GB、企业版不限容量。
 
-## Database Architecture
+## 数据库架构
 
-### PostgreSQL (Primary Database)
-- **Version**: PostgreSQL 15 on AWS RDS
-- **Configuration**: Multi-AZ deployment with automatic failover
-- **Primary instance**: db.r6g.2xlarge (8 vCPU, 64GB RAM)
-- **Read replica**: Used for analytics queries and reporting dashboards
-- **Backup**: Automated daily snapshots retained for 30 days, point-in-time recovery enabled
-- **Tables**: 47 tables across 6 schemas (public, auth, projects, billing, audit, analytics)
+### PostgreSQL（主数据库）
+- **版本**：AWS RDS 上的 PostgreSQL 15
+- **配置**：具有自动故障转移功能的多可用区部署
+- **主实例**：db.r6g.2xlarge（8 vCPU，64GB RAM）
+- **只读副本**：用于分析查询和报表仪表板
+- **备份**：每日自动创建快照并保留 30 天，支持时间点恢复
+- **数据表**：6 个 schema 中共有 47 张表（`public`、`auth`、`projects`、`billing`、`audit`、`analytics`）
 
-### Redis (Caching & Sessions)
-- **Version**: Redis 7 on AWS ElastiCache
-- **Cluster**: 3-node cluster with automatic failover
-- **Usage**: Session storage (TTL: 1 hour), API response caching (TTL: 5 minutes), rate limit counters, real-time presence tracking
-- **Memory**: 32GB per node, eviction policy: volatile-lru
+### Redis（缓存和会话）
+- **版本**：AWS ElastiCache 上的 Redis 7
+- **集群**：具有自动故障转移功能的 3 节点集群
+- **用途**：会话存储（TTL：1 小时）、API 响应缓存（TTL：5 分钟）、速率限制计数器、实时在线状态跟踪
+- **内存**：每个节点 32GB，淘汰策略为 `volatile-lru`
 
-### Elasticsearch (Search)
-- **Version**: OpenSearch 2.11 on AWS
-- **Cluster**: 3 data nodes + 2 dedicated master nodes
-- **Indexes**: projects, tasks, comments, files (metadata only)
-- **Refresh interval**: 1 second (near real-time search)
+### Elasticsearch（搜索）
+- **版本**：AWS OpenSearch 2.11
+- **集群**：3 个数据节点 + 2 个专用主节点
+- **索引**：`projects`、`tasks`、`comments`、`files`（仅元数据）
+- **刷新间隔**：1 秒（近实时搜索）
 
-## Event-Driven Architecture
+## 事件驱动架构
 
-Services communicate asynchronously via Apache Kafka. This decouples services and enables reliable event processing even during partial outages.
+服务通过 Apache Kafka 异步通信。这种方式可以解耦服务，即使部分系统发生故障，也能可靠地处理事件。
 
-### Kafka Configuration
-- **Cluster**: 3 brokers on AWS MSK
-- **Replication factor**: 3 (every message is stored on all brokers)
-- **Retention**: 7 days for all topics
+### Kafka 配置
+- **集群**：AWS MSK 上的 3 个 Broker
+- **副本因子**：3（每条消息都存储在所有 Broker 上）
+- **保留时间**：所有 Topic 均保留 7 天
 
-### Key Topics
-- `project.events` — Project created, updated, archived, restored. Consumed by: Search Service, Notification Service, Analytics.
-- `task.events` — Task created, updated, status changed, assigned, commented. Consumed by: Search Service, Notification Service, Analytics. Highest volume topic (~500K events/day).
-- `user.events` — User registered, profile updated, role changed, deactivated. Consumed by: Auth Service (cache invalidation), Notification Service.
-- `file.events` — File uploaded, scanned, deleted. Consumed by: File Service (thumbnail generation), Search Service (metadata indexing).
-- `billing.events` — Subscription created, upgraded, downgraded, payment failed. Consumed by: Notification Service, Auth Service (feature flag updates).
+### 主要 Topic
+- `project.events` — 项目创建、更新、归档和恢复。消费者：搜索服务、通知服务、分析系统。
+- `task.events` — 任务创建、更新、状态变更、指派和评论。消费者：搜索服务、通知服务、分析系统。这是流量最大的 Topic（约 50 万条事件/天）。
+- `user.events` — 用户注册、资料更新、角色变更和停用。消费者：身份验证服务（使缓存失效）、通知服务。
+- `file.events` — 文件上传、扫描和删除。消费者：文件服务（生成缩略图）、搜索服务（索引元数据）。
+- `billing.events` — 订阅创建、升级、降级和支付失败。消费者：通知服务、身份验证服务（更新功能开关）。
 
-### Event Schema
-All events follow a standard envelope format:
+### 事件结构
+所有事件都遵循标准的信封格式：
 ```json
 {
   "event_id": "evt_abc123",
@@ -75,11 +75,11 @@ All events follow a standard envelope format:
 }
 ```
 
-## Deployment Topology
+## 部署拓扑
 
-All services run on AWS ECS (Fargate) with the following configuration:
-- **Region**: us-east-1 (primary), eu-west-1 (disaster recovery)
-- **Networking**: VPC with public subnets (load balancers), private subnets (services, databases)
-- **DNS**: Route 53 with health-check-based failover
-- **CDN**: CloudFront for static assets and file downloads
-- **Secrets**: AWS Secrets Manager for API keys, database credentials, and encryption keys
+所有服务都在 AWS ECS（Fargate）上运行，配置如下：
+- **区域**：`us-east-1`（主区域）、`eu-west-1`（灾难恢复）
+- **网络**：带有公共子网（负载均衡器）、私有子网（服务、数据库）的 VPC
+- **DNS**：Route 53，根据健康检查结果执行故障转移
+- **CDN**：使用 CloudFront 分发静态资源和文件下载
+- **密钥管理**：使用 AWS Secrets Manager 管理 API 密钥、数据库凭据和加密密钥

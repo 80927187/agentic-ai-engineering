@@ -1,4 +1,4 @@
-"""Working memory — in-session buffer with importance-based eviction."""
+"""工作记忆——基于重要性淘汰的会话内缓冲区。"""
 
 from common.logging_config import setup_logging
 
@@ -8,7 +8,7 @@ logger = setup_logging(__name__)
 
 
 class WorkingMemory:
-    """Session-scoped buffer that evicts lowest-importance entries when full."""
+    """会话级缓冲区，容量已满时淘汰重要性最低的条目。"""
 
     def __init__(self, max_items: int = 50) -> None:
         self.max_items = max_items
@@ -20,7 +20,7 @@ class WorkingMemory:
         importance: float = 0.5,
         metadata: dict | None = None,
     ) -> MemoryEntry:
-        """Add a memory, evicting the least important entry if at capacity."""
+        """添加一条记忆；如果已达容量上限，则淘汰最不重要的条目。"""
         entry = MemoryEntry(
             content=content,
             memory_type=MemoryType.WORKING,
@@ -29,34 +29,34 @@ class WorkingMemory:
         )
 
         if len(self._entries) >= self.max_items:
-            # Evict lowest importance
+            # 淘汰重要性最低的条目
             self._entries.sort(key=lambda e: e.importance)
             evicted = self._entries.pop(0)
-            logger.info("Evicted working memory: %s", evicted.content[:60])
+            logger.info("已淘汰工作记忆：%s", evicted.content[:60])
 
         self._entries.append(entry)
         return entry
 
     def get_recent(self, n: int = 10) -> list[MemoryEntry]:
-        """Return the N most recent entries."""
+        """返回最近的 N 条记忆。"""
         return sorted(self._entries, key=lambda e: e.timestamp, reverse=True)[:n]
 
     def get_important(self, threshold: float = 0.7) -> list[MemoryEntry]:
-        """Return entries above the importance threshold."""
+        """返回重要性超过阈值的条目。"""
         return [e for e in self._entries if e.importance >= threshold]
 
     def get_all(self) -> list[MemoryEntry]:
-        """Return all entries ordered by timestamp."""
+        """返回所有按时间戳排序的条目。"""
         return sorted(self._entries, key=lambda e: e.timestamp)
 
     def clear(self) -> None:
-        """Clear all working memory."""
+        """清除所有工作记忆。"""
         count = len(self._entries)
         self._entries.clear()
-        logger.info("Cleared %d working memory entries", count)
+        logger.info("已清除 %d 条工作记忆", count)
 
     def stats(self) -> dict:
-        """Return working memory statistics."""
+        """返回工作记忆统计信息。"""
         return {
             "count": len(self._entries),
             "max_items": self.max_items,

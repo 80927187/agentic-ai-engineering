@@ -1,4 +1,4 @@
-"""MemoryManager — orchestrates all three memory tiers."""
+"""MemoryManager——协调三个记忆层。"""
 
 import json
 
@@ -12,25 +12,25 @@ from .working import WorkingMemory
 
 logger = setup_logging(__name__)
 
-# Prompt for extracting important items from conversation
+# 从对话中提取重要项目的提示词
 CONSOLIDATION_PROMPT = """\
-Analyze this conversation and extract important information worth remembering long-term.
-Return a JSON array of objects, each with:
-- "content": the fact or event to remember (one concise sentence)
-- "importance": float 0.0-1.0 (how important is this to remember?)
-- "type": either "episodic" (events, interactions, things that happened) or \
-"semantic" (facts, preferences, knowledge)
+分析以下对话，提取值得长期记住的重要信息。
+返回一个 JSON 对象数组，每个对象包含：
+- "content"：要记住的事实或事件（一个简洁的句子）
+- "importance"：0.0-1.0 的浮点数（记住它有多重要？）
+- "type"："episodic"（事件、互动、发生过的事）或 \
+"semantic"（事实、偏好、知识）
 
-Only extract genuinely important information. Return an empty array [] if nothing is worth saving.
+只提取真正重要的信息。如果没有值得保存的内容，返回空数组 []。
 
-Conversation:
+对话：
 {conversation}
 
-Respond with ONLY the JSON array, no other text."""
+只回复 JSON 数组，不要包含其他文本。"""
 
 
 class MemoryManager:
-    """Orchestrates working, episodic, and semantic memory tiers."""
+    """协调工作记忆、情景记忆和语义记忆层。"""
 
     def __init__(self) -> None:
         self.working = WorkingMemory()
@@ -44,7 +44,7 @@ class MemoryManager:
         importance: float = 0.5,
         metadata: dict | None = None,
     ) -> str:
-        """Store a memory in the specified tier."""
+        """在指定层中存储记忆。"""
         entry = MemoryEntry(
             content=content,
             memory_type=MemoryType(memory_type),
@@ -59,73 +59,80 @@ class MemoryManager:
         elif memory_type == "semantic":
             self.semantic.save(entry)
         else:
-            return f"Unknown memory type: {memory_type}"
+            return f"未知记忆类型：{memory_type}"
 
-        return f"Remembered in {memory_type}: {content}"
+        memory_label = {
+            "working": "工作记忆",
+            "episodic": "情景记忆",
+            "semantic": "语义记忆",
+        }[memory_type]
+        return f"已记入{memory_label}：{content}"
 
     def recall(self, query: str, limit: int = 5) -> str:
-        """Cross-tier search — combines episodic keyword and semantic similarity results."""
-        results: list[tuple[str, str, float]] = []  # (source, content, score)
+        """跨层搜索——结合情景关键词和语义相似度结果。"""
+        results: list[tuple[str, str, float]] = []  # (来源, 内容, 分数)
 
-        # Episodic keyword search
+        # 情景关键词搜索
         episodic_matches = self.episodic.search(query, limit=limit)
         for entry in episodic_matches:
-            results.append(("episodic", entry.content, entry.importance))
+            results.append(("情景记忆", entry.content, entry.importance))
 
-        # Semantic similarity search
+        # 语义相似度搜索
         semantic_matches = self.semantic.search(query, limit=limit)
         for entry, similarity in semantic_matches:
-            # Rank by similarity * importance
+            # 按“相似度 × 重要性”排名
             score = similarity * entry.importance
-            results.append(("semantic", entry.content, score))
+            results.append(("语义记忆", entry.content, score))
 
-        # Sort by score descending
+        # 按分数降序排列
         results.sort(key=lambda x: x[2], reverse=True)
         results = results[:limit]
 
         if not results:
-            return "No relevant memories found."
+            return "未找到相关记忆。"
 
         lines = []
         for source, content, score in results:
-            lines.append(f"[{source}] (score: {score:.2f}) {content}")
+            lines.append(f"[{source}]（分数：{score:.2f}）{content}")
         return "\n".join(lines)
 
     def forget(self, memory_id: str, memory_type: str) -> str:
-        """Delete a specific memory from the specified tier."""
+        """从指定层删除特定记忆。"""
         if memory_type == "episodic":
             success = self.episodic.delete(memory_id)
         elif memory_type == "semantic":
             success = self.semantic.delete(memory_id)
         elif memory_type == "working":
-            return "Working memory clears automatically at session end."
+            return "工作记忆会在会话结束时自动清除。"
         else:
-            return f"Unknown memory type: {memory_type}"
+            return f"未知记忆类型：{memory_type}"
 
-        return f"{'Deleted' if success else 'Not found'}: {memory_id} from {memory_type}"
+        status = "已删除" if success else "未找到"
+        memory_label = {"episodic": "情景记忆", "semantic": "语义记忆"}[memory_type]
+        return f"{status}：{memory_label}中的 {memory_id}"
 
     def build_memory_context(self) -> str:
-        """Build a memory context string for injection into the system prompt."""
+        """构建要注入系统提示词的记忆上下文字符串。"""
         sections: list[str] = []
 
-        # Recent episodic memories
+        # 最近的情景记忆
         recent = self.episodic.get_recent(5)
         if recent:
             episodic_lines = [f"- {e.content}" for e in recent]
-            sections.append("## Recent Events\n" + "\n".join(episodic_lines))
+            sections.append("## 最近事件\n" + "\n".join(episodic_lines))
 
-        # Top semantic memories (most relevant general knowledge)
+        # 最重要的语义记忆（最相关的常识）
         semantic_all = self.semantic.list_all()
         if semantic_all:
-            # Sort by importance, take top entries
+            # 按重要性排序，取排名最高的条目
             top = sorted(semantic_all, key=lambda e: e.importance, reverse=True)[:5]
             semantic_lines = [f"- {e.content}" for e in top]
-            sections.append("## Known Facts\n" + "\n".join(semantic_lines))
+            sections.append("## 已知事实\n" + "\n".join(semantic_lines))
 
         if not sections:
             return ""
 
-        return "# Recalled Memories\n\n" + "\n\n".join(sections)
+        return "# 回忆起的记忆\n\n" + "\n\n".join(sections)
 
     def consolidate(
         self,
@@ -133,8 +140,8 @@ class MemoryManager:
         client: anthropic.Anthropic,
         model: str,
     ) -> list[str]:
-        """Use LLM to extract important items from conversation into persistent memory."""
-        # Build conversation text from messages
+        """使用 LLM 从对话中提取重要项目并存入持久记忆。"""
+        # 根据消息构建对话文本
         parts: list[str] = []
         for msg in conversation_messages:
             role = msg["role"]
@@ -162,19 +169,19 @@ class MemoryManager:
             )
             raw = response.content[0].text.strip()
 
-            # Strip markdown code fences if present
+            # 如果存在 Markdown 代码围栏，则将其去除
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
                 if raw.endswith("```"):
                     raw = raw[:-3].strip()
 
-            # Parse JSON array from response
+            # 从响应中解析 JSON 数组
             items = json.loads(raw)
             if not isinstance(items, list):
                 return []
 
         except (json.JSONDecodeError, anthropic.APIError) as e:
-            logger.error("Consolidation failed: %s", e)
+            logger.error("记忆整合失败：%s", e)
             return []
 
         saved: list[str] = []
@@ -187,13 +194,14 @@ class MemoryManager:
                 mem_type = "episodic"
 
             self.remember(content, memory_type=mem_type, importance=importance)
-            saved.append(f"[{mem_type}] {content}")
+            memory_label = {"episodic": "情景记忆", "semantic": "语义记忆"}[mem_type]
+            saved.append(f"[{memory_label}] {content}")
 
-        logger.info("Consolidated %d memories from conversation", len(saved))
+        logger.info("已从对话中整合 %d 条记忆", len(saved))
         return saved
 
     def get_stats(self) -> dict:
-        """Aggregate statistics across all memory tiers."""
+        """汇总所有记忆层的统计信息。"""
         return {
             "working": self.working.stats(),
             "episodic": self.episodic.stats(),

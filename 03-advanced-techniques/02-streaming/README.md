@@ -1,54 +1,54 @@
 <!-- ---
-title: "Streaming & Real-Time Output"
-description: "Token-by-token streaming responses and handling tool calls mid-stream"
+title: "流式传输与实时输出"
+description: "逐 Token 流式响应，以及在流式传输过程中处理工具调用"
 icon: "zap"
 --- -->
 
-# Streaming & Real-Time Output
+# 流式传输与实时输出
 
-Make agents feel alive with real-time, token-by-token responses. Every tutorial so far uses blocking API calls — the user waits in silence until the full response arrives. This tutorial adds streaming, transforming the experience from "did it freeze?" to "it's thinking and I can see it."
+通过逐 Token 的实时响应，让智能体显得更加生动。此前的所有教程都使用阻塞式 API 调用——用户只能在沉默中等待完整响应返回。本教程将加入流式传输，把体验从“是不是卡住了？”变为“它正在思考，而且我能看到过程”。
 
-The real challenge isn't basic streaming — it's streaming with tool calls. When Claude decides to call a tool mid-response, you need to detect it, execute the tool, feed the result back, and resume streaming. This tutorial makes that approachable.
+真正的挑战并非基础流式传输，而是如何在流式传输中处理工具调用。当 Claude 决定在响应途中调用工具时，你需要检测该调用、执行工具、将结果反馈给模型，然后恢复流式传输。本教程将以易于理解的方式完成这一过程。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Stream Claude responses token-by-token using `client.messages.stream()`
-- Render streaming markdown in the terminal with Rich `Live` display
-- Understand the full streaming event lifecycle (message_start → content_block_delta → message_stop)
-- Handle tool_use blocks mid-stream — detect, execute, resume
-- Build a complete streaming agent loop with tool calls
-- Track token usage with streaming (usage arrives at stream end)
+- 使用 `client.messages.stream()` 逐 Token 流式输出 Claude 的响应
+- 使用 Rich 的 `Live` 显示组件在终端中渲染流式 Markdown
+- 理解完整的流式事件生命周期（message_start → content_block_delta → message_stop）
+- 在流式传输途中处理 tool_use 块——检测、执行并恢复传输
+- 构建支持工具调用的完整流式智能体循环
+- 跟踪流式传输的 Token 用量（用量信息会在流结束时到达）
 
-## 📦 Available Examples
+## 📦 可用示例
 
-| Provider                                        | File                                                         | Description                      |
-| ----------------------------------------------- | ------------------------------------------------------------ | -------------------------------- |
-| ![Anthropic](../../common/badges/anthropic.svg) | [01_streaming_fundamentals.py](01_streaming_fundamentals.py) | Text streaming + multi-turn chat |
-| ![Anthropic](../../common/badges/anthropic.svg) | [02_streaming_agent.py](02_streaming_agent.py)               | Streaming agent with tool calls  |
+| 提供商                                          | 文件                                                         | 说明                       |
+| ----------------------------------------------- | ------------------------------------------------------------ | -------------------------- |
+| ![Anthropic](../../common/badges/anthropic.svg) | [01_streaming_fundamentals.py](01_streaming_fundamentals.py) | 文本流式传输与多轮对话     |
+| ![Anthropic](../../common/badges/anthropic.svg) | [02_streaming_agent.py](02_streaming_agent.py)               | 支持工具调用的流式智能体   |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+, API keys, and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+、API 密钥和 uv。完整配置说明请参阅 [SETUP.md](../../SETUP.md)。
 
 ```bash
 uv run --directory 03-advanced-techniques/02-streaming python {script_name}
 
-# Start with fundamentals
+# 先从基础示例开始
 uv run --directory 03-advanced-techniques/02-streaming python 01_streaming_fundamentals.py
 
-# Then try the streaming agent
+# 然后尝试流式智能体
 uv run --directory 03-advanced-techniques/02-streaming python 02_streaming_agent.py
 ```
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+你也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，单击一次即可运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
-### 1. Two Ways to Stream
+### 1. 两种流式传输方式
 
-Anthropic provides two streaming approaches. Start with the simple one, graduate to events when you need control.
+Anthropic 提供两种流式传输方式。可以先使用简单方式，需要更多控制时再改用事件方式。
 
-**Simple — `.text_stream` iterator:**
+**简单方式——`.text_stream` 迭代器：**
 
 ```python
 with client.messages.stream(
@@ -57,91 +57,92 @@ with client.messages.stream(
     messages=messages,
 ) as stream:
     for text in stream.text_stream:
-        print(text, end="", flush=True)  # each chunk is a few characters
+        print(text, end="", flush=True)  # 每个分片包含几个字符
 ```
 
-This is the easiest way to stream. The iterator yields plain text strings — just the content deltas. Perfect for simple use cases where you don't need event-level control.
+这是最简单的流式传输方式。迭代器会产出纯文本字符串，也就是内容增量。它非常适合不需要事件级控制的简单用例。
 
-**Event-based — full lifecycle control:**
+**事件方式——完整的生命周期控制：**
 
 ```python
 with client.messages.stream(...) as stream:
     for event in stream:
         if event.type == "content_block_start":
-            # A new content block (text or tool_use) is starting
+            # 一个新的内容块（text 或 tool_use）即将开始
             pass
         elif event.type == "content_block_delta":
             if event.delta.type == "text_delta":
                 print(event.delta.text, end="")
             elif event.delta.type == "input_json_delta":
-                # Tool input parameters streaming in
+                # 工具输入参数正在流式传入
                 pass
         elif event.type == "content_block_stop":
-            # Block finished
+            # 内容块已结束
             pass
         elif event.type == "message_delta":
-            # stop_reason is now available
-            print(f"\nStop reason: {event.delta.stop_reason}")
+            # 此时已经可以获取 stop_reason
+            print(f"\n停止原因：{event.delta.stop_reason}")
 ```
 
-Use event-based iteration when you need to detect tool calls, track block boundaries, or build custom rendering logic.
+当你需要检测工具调用、跟踪内容块边界或构建自定义渲染逻辑时，请使用基于事件的迭代方式。
 
-### 2. Streaming Event Lifecycle
+### 2. 流式事件生命周期
 
-Every stream follows this sequence:
+每个流都遵循以下顺序：
 
 ```
-message_start                          ← stream begins
+message_start                          ← 流开始
 │
-├─ content_block_start (index=0)       ← first block (usually text)
-│  ├─ content_block_delta              ← text chunks arrive
-│  ├─ content_block_delta              ← more text
-│  └─ content_block_stop              ← block complete
+├─ content_block_start (index=0)       ← 第一个块（通常是文本）
+│  ├─ content_block_delta              ← 文本分片到达
+│  ├─ content_block_delta              ← 更多文本到达
+│  └─ content_block_stop               ← 内容块完成
 │
-├─ content_block_start (index=1)       ← could be another text or tool_use block
-│  ├─ content_block_delta              ← text or input_json deltas
+├─ content_block_start (index=1)       ← 可能是另一个 text 或 tool_use 块
+│  ├─ content_block_delta              ← text 或 input_json 增量
 │  └─ content_block_stop
 │
-├─ message_delta                       ← stop_reason + final usage stats
-└─ message_stop                        ← stream is done
+├─ message_delta                       ← stop_reason 和最终用量统计
+└─ message_stop                        ← 流结束
 ```
 
-The key insight: a single response can contain **multiple content blocks** — both text and tool_use blocks interleaved. This is what makes streaming with tools interesting.
+关键点在于：单个响应可以包含**多个内容块**，文本块与 tool_use 块可以交错出现。这正是带工具的流式传输有趣之处。
 
-### 3. Streaming with Tool Calls
+### 3. 在流式传输中调用工具
 
-When Claude wants to call a tool, the stream contains a `tool_use` content block. The flow becomes:
+当 Claude 想要调用工具时，流中会包含一个 `tool_use` 内容块。处理流程如下：
 
 ```
-User: "What's the weather in Tokyo?"
+用户：“东京的天气怎么样？”
         │
         ▼
-  ┌─ Stream starts ──────────────────────────┐
-  │ text block: "Let me check the weather..."  │  ← streamed to terminal
-  │ tool_use block: get_weather(city="Tokyo")  │  ← detected mid-stream
-  │ stop_reason: "tool_use"                    │
-  └────────────────────────────────────────────┘
+  ┌─ 流开始 ────────────────────────────────────┐
+  │ 文本块：“让我查一下天气……”                    │  ← 流式输出到终端
+  │ tool_use 块：get_weather(city="Tokyo")       │  ← 在流传输途中被检测到
+  │ stop_reason: "tool_use"                      │
+  └──────────────────────────────────────────────┘
         │
-        ▼ execute tool
-  ┌─ Tool result ────────────────────┐
-  │ {"city": "Tokyo", "temp_f": 58}  │
-  └──────────────────────────────────┘
+        ▼ 执行工具
+  ┌─ 工具结果 ─────────────────────────┐
+  │ {"city": "Tokyo", "temp_f": 58} │
+  └────────────────────────────────────┘
         │
-        ▼ feed result back, start new stream
-  ┌─ Stream resumes ─────────────────────────────────┐
-  │ text block: "It's 58°F and clear in Tokyo today." │  ← streamed to terminal
-  │ stop_reason: "end_turn"                            │
-  └────────────────────────────────────────────────────┘
+        ▼ 反馈结果并启动新的流
+  ┌─ 恢复流式传输 ───────────────────────────────┐
+  │ 文本块：“东京今天是 58°F，天气晴朗。”          │  ← 流式输出到终端
+  │ stop_reason: "end_turn"                      │
+  └──────────────────────────────────────────────┘
 ```
 
-The agent loop checks `stop_reason` after each stream:
-- `"end_turn"` → done, return the response
-- `"tool_use"` → execute tools, feed results back, stream again
-- `"max_tokens"` → response was truncated
+智能体循环会在每次流结束后检查 `stop_reason`：
 
-### 4. Rendering with Rich Live Display
+- `"end_turn"` → 已完成，返回响应
+- `"tool_use"` → 执行工具，反馈结果，然后再次开始流式传输
+- `"max_tokens"` → 响应已被截断
 
-Raw `print()` gives you streaming text, but it can't handle markdown formatting mid-stream. Rich's `Live` display solves this — it re-renders the full accumulated markdown on every update:
+### 4. 使用 Rich Live 渲染
+
+直接使用 `print()` 可以获得流式文本，但无法在传输过程中处理 Markdown 格式。Rich 的 `Live` 显示组件可以解决这个问题——每次更新时，它都会重新渲染已累积的全部 Markdown：
 
 ```python
 from rich.live import Live
@@ -154,95 +155,96 @@ with Live(Markdown(""), refresh_per_second=15, console=console) as live:
         live.update(Markdown(accumulated))
 ```
 
-The `refresh_per_second=15` parameter throttles updates to keep rendering smooth. The user sees formatted markdown building up in real-time — headers, bullet points, bold text all render correctly as they stream in.
+`refresh_per_second=15` 参数会限制更新频率，使渲染保持流畅。用户可以看到格式化后的 Markdown 实时生成——标题、项目符号和粗体文本都能在流式传输过程中正确渲染。
 
-### 5. Token Tracking with Streaming
+### 5. 在流式传输中跟踪 Token
 
-Token usage isn't available until the stream completes. Use `get_final_message()` to retrieve it:
+在流完成之前，Token 用量不可用。请使用 `get_final_message()` 获取用量：
 
 ```python
 with client.messages.stream(...) as stream:
     for text in stream.text_stream:
         print(text, end="")
 
-    # Usage is available after stream completes
+    # 流完成后即可获取用量
     final_message = stream.get_final_message()
     token_tracker.track(final_message.usage)
-    print(f"\nTokens: {final_message.usage.input_tokens} in, {final_message.usage.output_tokens} out")
+    print(f"\nToken：输入 {final_message.usage.input_tokens}，输出 {final_message.usage.output_tokens}")
 ```
 
-`get_final_message()` returns the fully accumulated `Message` object — same as what `client.messages.create()` would return, but you got to stream it first.
+`get_final_message()` 返回完整累积的 `Message` 对象——它与 `client.messages.create()` 返回的对象相同，只不过你已经先以流式方式接收了它。
 
-## 🏗️ Code Structure
+## 🏗️ 代码结构
 
-### Script 01 — Streaming Fundamentals
+### 脚本 01——流式传输基础
 
 ```python
 class StreamingChat:
-    """Interactive chat with streaming responses."""
+    """提供流式响应的交互式聊天。"""
 
     def stream_simple(self, user_input, console) -> str:
-        """Stream using .text_stream — the easy way."""
+        """使用 .text_stream 进行流式传输——简单方式。"""
         with client.messages.stream(...) as stream:
-            for text in stream.text_stream:   # just text strings
-                # render with Rich Live
+            for text in stream.text_stream:   # 只有文本字符串
+                # 使用 Rich Live 渲染
             final = stream.get_final_message()
-            # track tokens
+            # 跟踪 Token
 
     def stream_with_events(self, user_input, console) -> str:
-        """Stream with event-based iteration — full control."""
+        """使用基于事件的迭代进行流式传输——完全控制。"""
         with client.messages.stream(...) as stream:
-            for event in stream:              # typed event objects
+            for event in stream:              # 带类型的事件对象
                 if event.type == "content_block_delta":
-                    # handle text_delta, input_json_delta
+                    # 处理 text_delta 和 input_json_delta
 ```
 
-### Script 02 — Streaming Agent
+### 脚本 02——流式智能体
 
 ```python
 class StreamingAgent:
-    """Streaming agent with tool call handling."""
+    """支持工具调用处理的流式智能体。"""
 
     def run(self, user_input, console) -> str:
-        """Agent loop: stream → detect tools → execute → resume."""
+        """智能体循环：流式传输 → 检测工具 → 执行 → 恢复传输。"""
         while True:
             response = self._stream_response(console)
             if response.stop_reason == "tool_use":
                 results = self._execute_tool_calls(response.content, console)
-                # feed results back, loop again
+                # 反馈结果，然后再次循环
             else:
-                return extract_text(response)   # done
+                return extract_text(response)   # 完成
 
     def _stream_response(self, console) -> Message:
-        """Stream one API call, rendering text + tool indicators."""
+        """执行一次流式 API 调用，并渲染文本和工具指示信息。"""
         with client.messages.stream(tools=TOOLS, ...) as stream:
             self._render_mixed_stream(stream, console)
             return stream.get_final_message()
 
     def _render_mixed_stream(self, stream, console) -> None:
-        """The key method: handle interleaved text and tool_use blocks."""
+        """关键方法：处理交错的文本块和 tool_use 块。"""
         for event in stream:
             if event.type == "content_block_start":
                 if event.content_block.type == "text":
-                    # start Rich Live display
+                    # 启动 Rich Live 显示
                 elif event.content_block.type == "tool_use":
-                    # show "Calling tool_name..."
+                    # 显示“正在调用 tool_name……”
             elif event.type == "content_block_delta":
                 if event.delta.type == "text_delta":
-                    # update live markdown display
+                    # 更新实时 Markdown 显示
 ```
 
-## ⚠️ Important Considerations
+## ⚠️ 重要注意事项
 
-- **Streaming doesn't reduce total latency** — same tokens, same processing time. It reduces *perceived* latency by showing progress immediately.
-- **Error handling** — streams can fail mid-way. Always wrap in try/except and handle `APIError`. The `Live` display must be stopped in a `finally` block to avoid terminal corruption.
-- **`stop_reason` is critical** — always check it. `"tool_use"` means execute tools and continue. `"end_turn"` means done. `"max_tokens"` means the response was truncated.
-- **Token tracking timing** — usage stats arrive only after the stream completes via `get_final_message()`. You cannot track tokens mid-stream.
-- **Conversation history** — after streaming, you need the full response content for message history. Use `get_final_message().content` to get the complete list of content blocks.
+- **流式传输不会减少总延迟**——Token 数量与处理时间都不会改变。它通过立即显示进度来降低用户的*感知延迟*。
+- **错误处理**——流可能在途中失败。务必使用 try/except，并处理 `APIError`。必须在 `finally` 块中停止 `Live` 显示，以免终端显示异常。
+- **`stop_reason` 至关重要**——务必检查它。`"tool_use"` 表示执行工具并继续，`"end_turn"` 表示完成，`"max_tokens"` 表示响应被截断。
+- **Token 跟踪时机**——只有流完成后，才能通过 `get_final_message()` 获取用量统计。无法在流传输途中跟踪 Token。
+- **对话历史**——流式传输结束后，需要保存完整的响应内容作为消息历史。使用 `get_final_message().content` 获取完整的内容块列表。
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-Once you've mastered streaming, continue to:
-- **[Context Engineering](../03-context-engineering/)** — Manage finite context windows with sliding windows and summarization
-- **Experiment** — Add more tools to the streaming agent and try prompts that trigger multiple tool calls in one response
-- **Explore** — Try switching between `stream.text_stream` and event iteration to see the difference in control vs simplicity
+掌握流式传输后，可以继续：
+
+- **[上下文工程](../03-context-engineering/)**——通过滑动窗口和摘要管理有限的上下文窗口
+- **动手实验**——为流式智能体添加更多工具，并尝试在一次响应中触发多个工具调用的提示词
+- **深入探索**——尝试在 `stream.text_stream` 和事件迭代之间切换，体会两者在控制能力和简洁性上的差异

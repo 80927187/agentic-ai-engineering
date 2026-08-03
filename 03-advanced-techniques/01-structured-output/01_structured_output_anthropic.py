@@ -1,16 +1,14 @@
 """
-Structured Output & Validation (Anthropic)
+结构化输出与验证（Anthropic）
 
-Demonstrates four production techniques for extracting reliable structured data from Claude,
-progressing from basic to advanced:
+演示从 Claude 提取可靠结构化数据的四种生产级技术，内容由浅入深：
 
-1. Tool Use as Structured Output — force structured responses via tool_choice (simple + complex)
-2. Native Structured Output — API-level constrained decoding (guaranteed valid)
-3. Validation + Retry — self-healing extraction with error feedback loop
-4. Batch Extraction — process multiple items in a single call
+1. 将工具调用用作结构化输出——通过 tool_choice 强制生成结构化响应（简单 + 复杂）
+2. 原生结构化输出——API 级约束解码（保证有效）
+3. 验证与重试——通过错误反馈循环实现自修复提取
+4. 批量提取——通过一次调用处理多个项目
 
-All techniques use the same real-world domain — support ticket analysis — so results
-are directly comparable across methods.
+所有技术都使用同一个真实业务场景——客服工单分析，便于直接比较不同方法的结果。
 """
 
 import json
@@ -33,39 +31,39 @@ logger = setup_logging(__name__)
 MODEL = "claude-sonnet-4-6"
 
 # ---------------------------------------------------------------------------
-# Pydantic models — progressive complexity
+# Pydantic 模型——复杂度逐步提升
 # ---------------------------------------------------------------------------
 
 
-# Simple schema: flat classification
+# 简单模式：扁平分类
 class TicketClassification(BaseModel):
-    """Basic ticket classification with category, priority, and sentiment."""
+    """包含类别、优先级和情感倾向的基础工单分类。"""
 
     category: Literal["billing", "technical", "account", "feature_request", "general"]
     priority: Literal["critical", "high", "medium", "low"]
     sentiment: Literal["positive", "neutral", "negative", "frustrated"]
-    summary: str = Field(description="One-sentence summary of the ticket")
+    summary: str = Field(description="用一句话概括工单")
 
 
-# Complex schema: nested extraction
+# 复杂模式：嵌套提取
 class Entity(BaseModel):
-    """An entity mentioned in the ticket."""
+    """工单中提到的实体。"""
 
-    name: str = Field(description="Entity name as mentioned in the ticket")
+    name: str = Field(description="工单中提到的实体名称")
     type: Literal["product", "feature", "error_code", "account_id", "person"]
-    context: str = Field(description="Brief context of how it was mentioned")
+    context: str = Field(description="简要说明该实体是在什么语境中被提及的")
 
 
 class ActionItem(BaseModel):
-    """A recommended action to resolve the ticket."""
+    """为解决工单而建议执行的操作。"""
 
-    action: str = Field(description="Specific action to take")
+    action: str = Field(description="需要执行的具体操作")
     assignee: Literal["support", "engineering", "billing", "account_manager"]
     urgency: Literal["immediate", "next_business_day", "backlog"]
 
 
 class TicketAnalysis(BaseModel):
-    """Full ticket analysis with classification, entities, and action items."""
+    """包含分类、实体和操作项的完整工单分析。"""
 
     classification: TicketClassification
     entities: list[Entity]
@@ -74,82 +72,79 @@ class TicketAnalysis(BaseModel):
     escalation_reason: str | None = None
     customer_tier: Literal["free", "pro", "enterprise"] | None = None
 
-    # Custom business validation beyond what JSON schema can express
+    # JSON Schema 无法表达的自定义业务验证
     @model_validator(mode="after")
     def check_escalation_consistency(self) -> "TicketAnalysis":
-        """If escalation is required, a reason must be provided."""
+        """如果需要升级处理，则必须提供原因。"""
         if self.requires_escalation and not self.escalation_reason:
-            raise ValueError("escalation_reason is required when requires_escalation is True")
+            raise ValueError("requires_escalation 为 True 时必须提供 escalation_reason")
         return self
 
 
 class TicketBatch(BaseModel):
-    """Batch analysis of multiple tickets."""
+    """对多张工单进行批量分析。"""
 
     analyses: list[TicketAnalysis]
-    batch_summary: str = Field(description="Overall summary of the batch")
-    priority_distribution: dict[str, int] = Field(description="Count of tickets per priority level")
+    batch_summary: str = Field(description="本批工单的总体摘要")
+    priority_distribution: dict[str, int] = Field(description="各优先级对应的工单数量")
 
 
 # ---------------------------------------------------------------------------
-# Sample support tickets (easy → medium → hard)
+# 客服工单示例（简单 → 中等 → 困难）
 # ---------------------------------------------------------------------------
 
 SAMPLE_TICKETS = [
     (
-        "Subject: Double charged for Pro subscription\n"
-        "Hi, I was charged twice for my Pro subscription this month — $49.99 on Jan 3rd "
-        "and again on Jan 5th. My account ID is ACC-78234. This is the third time this "
-        "has happened and I'm really frustrated. Please refund the duplicate charge ASAP. "
-        "If this isn't resolved today I'm cancelling my subscription."
+        "主题：Pro 订阅被重复扣费\n"
+        "您好，我的 Pro 订阅本月被扣了两次款——1 月 3 日扣了 49.99 美元，"
+        "1 月 5 日又扣了一次。我的账户 ID 是 ACC-78234。这已经是第三次发生这种事了，"
+        "我真的非常恼火。请尽快退还重复扣取的费用。若今天还不能解决，我会取消订阅。"
     ),
     (
-        "Subject: API rate limit issues on Enterprise plan\n"
-        "The API keeps returning 429 errors when I batch process more than 50 items. "
-        "I'm on the Enterprise plan and the docs say the rate limit should be 1000/min. "
-        "Could you also add a retry-after header to the response? That would help a lot. "
-        "Using Python SDK v3.2.1."
+        "主题：企业版套餐的 API 速率限制问题\n"
+        "批量处理超过 50 个项目时，API 总是返回 429 错误。"
+        "我使用的是企业版套餐，文档中说速率限制应为每分钟 1000 次。"
+        "另外，能否在响应中添加 retry-after 标头？这会非常有帮助。"
+        "当前使用 Python SDK v3.2.1。"
     ),
     (
-        "Subject: SSO blocker during enterprise evaluation\n"
-        "We're evaluating your product for our team of 200 engineers. The SSO integration "
-        "with Okta worked great but we hit a blocker — the SCIM provisioning endpoint returns "
-        "a 500 error when syncing groups with more than 50 members (error: SCIM-ERR-4012). "
-        "Also, is there a way to get volume pricing? Our current Acme Corp contract is up "
-        "for renewal next month. Contact: Sarah Chen, VP Engineering."
+        "主题：企业评估期间遇到 SSO 阻断问题\n"
+        "我们正在为一支由 200 名工程师组成的团队评估贵公司的产品。与 Okta 的 SSO 集成"
+        "运行良好，但我们遇到了一个阻断问题——同步成员超过 50 人的用户组时，SCIM 配置"
+        "端点会返回 500 错误（错误代码：SCIM-ERR-4012）。另外，是否可以提供批量采购价？"
+        "我们目前与 Acme Corp 的合同将在下个月续约。联系人：工程副总裁 Sarah Chen。"
     ),
 ]
 
 SYSTEM_PROMPT = (
-    "You are a support ticket analysis system. Analyze customer support tickets "
-    "and extract structured data. Be precise with classifications and extract all "
-    "relevant entities and action items."
+    "你是一个客服工单分析系统。请分析客户支持工单并提取结构化数据。"
+    "分类务必准确，并提取所有相关实体和操作项。"
 )
 
 
 # ---------------------------------------------------------------------------
-# Core extractor class
+# 核心提取器类
 # ---------------------------------------------------------------------------
 
 
 class StructuredExtractor:
-    """Extracts structured data from unstructured text using multiple techniques."""
+    """使用多种技术从非结构化文本中提取结构化数据。"""
 
     def __init__(self, model: str, token_tracker: AnthropicTokenTracker):
         self.client = anthropic.Anthropic()
         self.model = model
         self.token_tracker = token_tracker
 
-    # -- Technique 1: Tool Use as Structured Output --
+    # -- 技术 1：将工具调用用作结构化输出 --
 
     def extract_with_tool_use(
         self,
         text: str,
         model_class: type[BaseModel] = TicketClassification,
         tool_name: str = "classify_ticket",
-        tool_description: str = "Classify a support ticket.",
+        tool_description: str = "对客服工单进行分类。",
     ) -> BaseModel | None:
-        """Extract using tool_choice to force structured output via a tool definition."""
+        """使用 tool_choice 强制模型通过工具定义输出结构化数据。"""
         tool = self._pydantic_to_tool(tool_name, tool_description, model_class)
         try:
             response = self.client.messages.create(
@@ -158,7 +153,7 @@ class StructuredExtractor:
                 system=SYSTEM_PROMPT,
                 tools=[tool],
                 tool_choice={"type": "tool", "name": tool_name},
-                messages=[{"role": "user", "content": f"Analyze this ticket:\n\n{text}"}],
+                messages=[{"role": "user", "content": f"分析以下工单：\n\n{text}"}],
             )
             self.token_tracker.track(response.usage)
 
@@ -166,19 +161,19 @@ class StructuredExtractor:
                 if block.type == "tool_use":
                     return model_class(**block.input)
         except Exception as e:
-            logger.error("Tool use extraction failed: %s", e)
+            logger.error("工具调用提取失败：%s", e)
         return None
 
-    # -- Technique 2: Native Structured Output (Constrained Decoding) --
+    # -- 技术 2：原生结构化输出（约束解码）--
 
     def extract_with_native_schema(self, text: str) -> TicketClassification | None:
-        """Extract using Anthropic's native constrained decoding — guaranteed valid."""
+        """使用 Anthropic 原生约束解码进行提取，保证结果有效。"""
         try:
             response = self.client.beta.messages.parse(
                 model=self.model,
                 max_tokens=1024,
                 system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": f"Analyze this ticket:\n\n{text}"}],
+                messages=[{"role": "user", "content": f"分析以下工单：\n\n{text}"}],
                 output_config={"format": TicketClassification},
             )
             self.token_tracker.track(response.usage)
@@ -187,22 +182,22 @@ class StructuredExtractor:
             if result:
                 return result
         except Exception as e:
-            logger.error("Native schema extraction failed: %s", e)
+            logger.error("原生模式提取失败：%s", e)
         return None
 
-    # -- Technique 3: Validation + Retry (Self-Healing) --
+    # -- 技术 3：验证与重试（自修复）--
 
     def extract_with_validation_retry(
         self, text: str, max_retries: int = 3
     ) -> TicketAnalysis | None:
-        """Extract with validation loop — retry on failure with error feedback."""
+        """使用验证循环提取；失败时反馈错误并重试。"""
         tool = self._pydantic_to_tool(
             name="analyze_ticket",
-            description="Perform full analysis of a support ticket.",
+            description="对客服工单进行完整分析。",
             model=TicketAnalysis,
         )
         messages: list[dict[str, Any]] = [
-            {"role": "user", "content": f"Perform full analysis:\n\n{text}"}
+            {"role": "user", "content": f"执行完整分析：\n\n{text}"}
         ]
 
         for attempt in range(1, max_retries + 1):
@@ -220,47 +215,47 @@ class StructuredExtractor:
                 for block in response.content:
                     if block.type == "tool_use":
                         raw = block.input
-                        # Validate with Pydantic (includes custom business rules)
+                        # 使用 Pydantic 验证（包括自定义业务规则）
                         result = TicketAnalysis(**raw)
-                        logger.info("Attempt %d: validation passed", attempt)
+                        logger.info("第 %d 次尝试：验证通过", attempt)
                         return result
 
             except ValidationError as e:
-                logger.warning("Attempt %d: validation failed — %s", attempt, e)
+                logger.warning("第 %d 次尝试：验证失败——%s", attempt, e)
                 if attempt < max_retries:
-                    # Feed the error back to the LLM for correction
+                    # 将错误反馈给大语言模型进行修正
                     messages = [
-                        {"role": "user", "content": f"Perform full analysis:\n\n{text}"},
+                        {"role": "user", "content": f"执行完整分析：\n\n{text}"},
                         {"role": "assistant", "content": response.content},
                         {
                             "role": "user",
                             "content": (
-                                f"The output failed validation:\n{e}\n\n"
-                                "Please fix the issues and try again. Key rules:\n"
-                                "- If requires_escalation is true, escalation_reason must "
-                                "be a non-empty string\n"
-                                "- All enum values must match exactly"
+                                f"输出未通过验证：\n{e}\n\n"
+                                "请修复问题后重试。关键规则：\n"
+                                "- requires_escalation 为 true 时，escalation_reason 必须"
+                                "是非空字符串\n"
+                                "- 所有枚举值必须完全匹配"
                             ),
                         },
                     ]
             except Exception as e:
-                logger.error("Attempt %d: unexpected error — %s", attempt, e)
+                logger.error("第 %d 次尝试：发生意外错误——%s", attempt, e)
                 break
 
-        logger.error("All %d attempts failed", max_retries)
+        logger.error("全部 %d 次尝试均失败", max_retries)
         return None
 
-    # -- Technique 4: Batch Extraction --
+    # -- 技术 4：批量提取 --
 
     def extract_batch(self, texts: list[str]) -> TicketBatch | None:
-        """Extract structured data from multiple tickets in a single call."""
+        """通过一次调用从多张工单中提取结构化数据。"""
         tool = self._pydantic_to_tool(
             name="batch_analyze",
-            description="Analyze multiple support tickets and provide batch summary.",
+            description="分析多张客服工单并提供批次摘要。",
             model=TicketBatch,
         )
         numbered_tickets = "\n\n".join(
-            f"--- TICKET {i + 1} ---\n{text}" for i, text in enumerate(texts)
+            f"--- 工单 {i + 1} ---\n{text}" for i, text in enumerate(texts)
         )
         try:
             response = self.client.messages.create(
@@ -273,8 +268,8 @@ class StructuredExtractor:
                     {
                         "role": "user",
                         "content": (
-                            f"Analyze all {len(texts)} tickets below and provide a "
-                            f"batch analysis:\n\n{numbered_tickets}"
+                            f"分析下面全部 {len(texts)} 张工单，并提供"
+                            f"批量分析：\n\n{numbered_tickets}"
                         ),
                     }
                 ],
@@ -285,15 +280,15 @@ class StructuredExtractor:
                 if block.type == "tool_use":
                     return TicketBatch(**block.input)
         except Exception as e:
-            logger.error("Batch extraction failed: %s", e)
+            logger.error("批量提取失败：%s", e)
         return None
 
-    # -- Helpers --
+    # -- 辅助方法 --
 
     def _pydantic_to_tool(
         self, name: str, description: str, model: type[BaseModel]
     ) -> dict[str, Any]:
-        """Convert any Pydantic model to an Anthropic tool definition."""
+        """将任意 Pydantic 模型转换为 Anthropic 工具定义。"""
         return {
             "name": name,
             "description": description,
@@ -302,162 +297,162 @@ class StructuredExtractor:
 
 
 # ---------------------------------------------------------------------------
-# Display helpers (Rich UI)
+# 显示辅助函数（Rich 界面）
 # ---------------------------------------------------------------------------
 
 
 def _display_result(console: Console, title: str, result: BaseModel | None) -> None:
-    """Display a Pydantic model as formatted JSON."""
+    """以格式化 JSON 显示 Pydantic 模型。"""
     if result:
         formatted = json.dumps(result.model_dump(), indent=2, default=str)
         syntax = Syntax(formatted, "json", theme="monokai")
-        console.print(Panel(syntax, title=f"{title} [green]SUCCESS[/green]"))
+        console.print(Panel(syntax, title=f"{title} [green]成功[/green]"))
     else:
-        console.print(Panel("[red]Extraction failed[/red]", title=title))
+        console.print(Panel("[red]提取失败[/red]", title=title))
 
 
 # ---------------------------------------------------------------------------
-# Menu handlers
+# 菜单处理函数
 # ---------------------------------------------------------------------------
 
 TECHNIQUE_LABELS = [
-    "1: Tool Use as Structured Output (Simple + Complex)",
-    "2: Native Structured Output (Constrained Decoding)",
-    "3: Validation + Retry (Self-Healing)",
-    "4: Batch Extraction (Multiple Items)",
+    "1：将工具调用用作结构化输出（简单 + 复杂）",
+    "2：原生结构化输出（约束解码）",
+    "3：验证与重试（自修复）",
+    "4：批量提取（多个项目）",
 ]
 
 
 def _run_tool_use(console: Console, extractor: StructuredExtractor) -> None:
-    """Technique 1: Extract using tool_choice — simple and complex schemas."""
+    """技术 1：使用 tool_choice 按简单和复杂模式进行提取。"""
     console.print(
-        "[dim]Force structured output by defining a tool whose input_schema IS the "
-        "desired output schema, then using tool_choice to invoke it.[/dim]\n"
+        "[dim]定义一个 input_schema 即所需输出模式的工具，再通过 tool_choice "
+        "调用它，从而强制生成结构化输出。[/dim]\n"
     )
     console.print(
         Markdown(
-            "**How it works:** Define a tool → set `tool_choice` to force it → "
-            "extract `block.input` as structured data.\n\n"
-            "**Key insight:** Use `model.model_json_schema()` to generate tool schemas "
-            "from Pydantic models — never hand-write JSON schemas for complex structures.\n\n"
-            "**Reliability:** High — tool inputs are schema-validated by the API.\n"
+            "**工作原理：** 定义工具 → 设置 `tool_choice` 强制调用 → "
+            "将 `block.input` 作为结构化数据提取。\n\n"
+            "**关键认识：** 使用 `model.model_json_schema()` 从 Pydantic 模型生成工具模式，"
+            "不要为复杂结构手写 JSON Schema。\n\n"
+            "**可靠性：** 高——API 会按照模式验证工具输入。\n"
         )
     )
 
-    # Part A: Simple flat schema
-    console.print("[bold]Part A: Simple schema[/bold] — `TicketClassification` (flat, 4 fields)\n")
+    # A 部分：简单扁平模式
+    console.print("[bold]A 部分：简单模式[/bold]——`TicketClassification`（扁平，4 个字段）\n")
     ticket_simple = SAMPLE_TICKETS[0]
-    console.print(Panel(ticket_simple, title="Input Ticket (Simple)"))
+    console.print(Panel(ticket_simple, title="输入工单（简单）"))
 
     result_simple = extractor.extract_with_tool_use(ticket_simple)
-    _display_result(console, "Simple Schema Extraction", result_simple)
+    _display_result(console, "简单模式提取", result_simple)
 
-    # Part B: Complex nested schema
+    # B 部分：复杂嵌套模式
     console.print(
-        "\n[bold]Part B: Complex schema[/bold] — `TicketAnalysis` "
-        "(nested: classification + entities + action items, 10+ fields)\n"
+        "\n[bold]B 部分：复杂模式[/bold]——`TicketAnalysis` "
+        "（嵌套：分类 + 实体 + 操作项，10 多个字段）\n"
     )
     ticket_complex = SAMPLE_TICKETS[2]
-    console.print(Panel(ticket_complex, title="Input Ticket (Complex)"))
+    console.print(Panel(ticket_complex, title="输入工单（复杂）"))
 
     result_complex = extractor.extract_with_tool_use(
         ticket_complex,
         model_class=TicketAnalysis,
         tool_name="analyze_ticket",
-        tool_description="Perform full analysis of a support ticket.",
+        tool_description="对客服工单进行完整分析。",
     )
-    _display_result(console, "Complex Schema Extraction", result_complex)
+    _display_result(console, "复杂模式提取", result_complex)
 
 
 def _run_native_schema(console: Console, extractor: StructuredExtractor) -> None:
-    """Technique 2: Extract using native constrained decoding."""
+    """技术 2：使用原生约束解码进行提取。"""
     console.print(
-        "[dim]Use Anthropic's native structured output — the model literally cannot "
-        "produce invalid JSON. Uses constrained decoding at the decoder level.[/dim]\n"
+        "[dim]使用 Anthropic 的原生结构化输出——模型从根本上无法生成无效 JSON。"
+        "该方式在解码器层使用约束解码。[/dim]\n"
     )
     console.print(
         Markdown(
-            "**How it works:** Pass a Pydantic model as `output_config` → API guarantees "
-            "the response matches the schema exactly.\n\n"
-            "**Schema:** `TicketClassification` (flat, 4 fields)\n\n"
-            "**Reliability:** Guaranteed — decoder-level enforcement, zero parsing errors.\n"
+            "**工作原理：** 将 Pydantic 模型作为 `output_config` 传入 → API 保证"
+            "响应与模式完全匹配。\n\n"
+            "**模式：** `TicketClassification`（扁平，4 个字段）\n\n"
+            "**可靠性：** 有保证——解码器层强制约束，不会发生解析错误。\n"
         )
     )
 
     ticket = SAMPLE_TICKETS[0]
-    console.print(Panel(ticket, title="Input Ticket"))
+    console.print(Panel(ticket, title="输入工单"))
 
     result = extractor.extract_with_native_schema(ticket)
-    _display_result(console, "Native Schema Extraction", result)
+    _display_result(console, "原生模式提取", result)
 
 
 def _run_validation_retry(console: Console, extractor: StructuredExtractor) -> None:
-    """Technique 3: Self-healing extraction with validation + retry."""
+    """技术 3：通过验证与重试实现自修复提取。"""
     console.print(
-        "[dim]When schema validation isn't enough — add custom business rules. "
-        "On failure, feed the validation error back to the LLM for self-correction.[/dim]\n"
+        "[dim]当模式验证还不够时，可添加自定义业务规则。失败后将验证错误反馈给"
+        "大语言模型，让其自行修正。[/dim]\n"
     )
     console.print(
         Markdown(
-            "**How it works:** Extract → validate with Pydantic (including custom "
-            "`@model_validator` rules) → on failure, send error back to LLM → retry.\n\n"
-            "**Custom rule:** If `requires_escalation` is True, `escalation_reason` "
-            "must be provided (not expressible in JSON Schema alone).\n\n"
-            "**Max retries:** 3 attempts with error accumulation.\n"
+            "**工作原理：** 提取 → 使用 Pydantic 验证（包括自定义 `@model_validator` "
+            "规则）→ 失败时将错误反馈给大语言模型 → 重试。\n\n"
+            "**自定义规则：** `requires_escalation` 为 True 时必须提供 "
+            "`escalation_reason`（单靠 JSON Schema 无法表达）。\n\n"
+            "**最大重试次数：** 3 次，并累积错误信息。\n"
         )
     )
 
-    # Use ticket 3 — likely to require escalation (enterprise evaluation, blocker)
+    # 使用工单 3——它很可能需要升级处理（企业评估、阻断问题）
     ticket = SAMPLE_TICKETS[2]
-    console.print(Panel(ticket, title="Input Ticket (Requires Escalation)"))
+    console.print(Panel(ticket, title="输入工单（需要升级处理）"))
 
     result = extractor.extract_with_validation_retry(ticket)
-    _display_result(console, "Validation + Retry Extraction", result)
+    _display_result(console, "验证与重试提取", result)
 
 
 def _run_batch(console: Console, extractor: StructuredExtractor) -> None:
-    """Technique 4: Batch extraction from multiple items."""
+    """技术 4：从多个项目中批量提取。"""
     console.print(
-        "[dim]Process multiple tickets in a single API call. The model extracts "
-        "structured data for each and provides a batch summary.[/dim]\n"
+        "[dim]通过一次 API 调用处理多张工单。模型会为每张工单提取结构化数据，"
+        "并提供批次摘要。[/dim]\n"
     )
     console.print(
         Markdown(
-            "**How it works:** Send all tickets in one prompt → extract a `TicketBatch` "
-            "with `list[TicketAnalysis]` + summary + priority distribution.\n\n"
-            "**Use case:** Production data pipelines processing ticket queues.\n\n"
-            "**Trade-off:** Single call (cheaper) vs per-item calls (more reliable). "
-            "Batch works well for 3-10 items; beyond that, parallelize individual calls.\n"
+            "**工作原理：** 在一个提示词中发送所有工单 → 提取包含 "
+            "`list[TicketAnalysis]` + 摘要 + 优先级分布的 `TicketBatch`。\n\n"
+            "**使用场景：** 处理工单队列的生产数据管道。\n\n"
+            "**权衡：** 单次调用（成本更低）与逐项调用（更可靠）。批量处理适合 "
+            "3～10 个项目；超过此数量时，应并行逐项调用。\n"
         )
     )
 
     for i, ticket in enumerate(SAMPLE_TICKETS):
-        console.print(Panel(ticket, title=f"Ticket {i + 1}"))
+        console.print(Panel(ticket, title=f"工单 {i + 1}"))
 
     result = extractor.extract_batch(SAMPLE_TICKETS)
-    _display_result(console, "Batch Extraction", result)
+    _display_result(console, "批量提取", result)
 
 
 # ---------------------------------------------------------------------------
-# Main
+# 主程序
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    """Run support ticket analysis through four structured output techniques."""
+    """使用四种结构化输出技术运行客服工单分析。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
     extractor = StructuredExtractor(MODEL, token_tracker)
 
     header = Panel(
-        "[bold cyan]Structured Output & Validation[/bold cyan]\n\n"
-        "Four techniques for extracting reliable structured data from Claude:\n"
-        "  1. Tool Use — force structured output via tool_choice (simple + complex)\n"
-        "  2. Native Schema — constrained decoding (guaranteed valid)\n"
-        "  3. Validation + Retry — self-healing with error feedback\n"
-        "  4. Batch Extraction — multiple items in one call\n\n"
-        "[bold]Domain:[/bold] Support ticket analysis (classification, entities, actions)",
-        title="Advanced Techniques — Anthropic",
+        "[bold cyan]结构化输出与验证[/bold cyan]\n\n"
+        "从 Claude 提取可靠结构化数据的四种技术：\n"
+        "  1. 工具调用——通过 tool_choice 强制结构化输出（简单 + 复杂）\n"
+        "  2. 原生模式——约束解码（保证有效）\n"
+        "  3. 验证与重试——通过错误反馈实现自修复\n"
+        "  4. 批量提取——通过一次调用处理多个项目\n\n"
+        "[bold]场景：[/bold]客服工单分析（分类、实体、操作）",
+        title="高级技术——Anthropic",
     )
 
     handlers = {
@@ -472,7 +467,7 @@ def main() -> None:
             selection = interactive_menu(
                 console,
                 TECHNIQUE_LABELS,
-                title="Select a Technique",
+                title="选择一种技术",
                 header=header,
             )
             if not selection:
@@ -483,16 +478,16 @@ def main() -> None:
             try:
                 handlers[selection](console, extractor)
             except Exception as e:
-                logger.error("Technique error: %s", e)
+                logger.error("技术示例出错：%s", e)
 
             token_tracker.report()
             token_tracker.reset()
 
-            console.print("\n[dim]Press Enter to continue...[/dim]")
+            console.print("\n[dim]按 Enter 键继续……[/dim]")
             input()
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]已中断。[/yellow]")
 
 
 if __name__ == "__main__":

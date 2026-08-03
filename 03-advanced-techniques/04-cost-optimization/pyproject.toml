@@ -1,7 +1,7 @@
 [project]
 name = "lesson-prompt-caching"
 version = "0.1.0"
-description = "Prompt caching and cost optimization with model routing"
+description = "使用提示词缓存和模型路由进行成本优化"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.76.0",
