@@ -124,30 +124,33 @@ class PromptChain:
 
         response = self._call_llm(system, messages, use_light=use_light, tools=tools)
 
-        for _ in range(4):
+        for attempt in range(4):
             # 收集本轮的搜索结果
             for block in response.content:
                 if block.type == "web_search_tool_result" and isinstance(block.content, list):
                     for result in block.content:
-                        searches.append({"title": result.title, "url": result.url})
+                        if result.type == "web_search_result":
+                            searches.append({"title": result.title, "url": result.url})
+                        elif result.type == "web_search_tool_result_error":
+                            logger.warning("网络搜索失败：%s", result.error_code)
 
             if response.stop_reason == "end_turn":
                 break
 
-            # 携带工具结果继续对话
-            messages.append({"role": "assistant", "content": response.content})
-            tool_results = [
-                {"type": "tool_result", "tool_use_id": b.id, "content": "搜索已完成。"}
-                for b in response.content
-                if b.type == "tool_use"
-            ]
-            if not tool_results:
+            if response.stop_reason != "pause_turn":
+                logger.warning("模型以未处理的原因停止：%s", response.stop_reason)
                 break
-            messages.append({"role": "user", "content": tool_results})
 
+            if attempt == 3:
+                raise RuntimeError("服务端工具连续暂停，超过最大续传次数。")
+
+            # 服务端搜索结果已包含在响应中；原样续传即可，不应伪造客户端 tool_result。
+            messages.append({"role": "assistant", "content": response.content})
             response = self._call_llm(system, messages, use_light=use_light, tools=tools)
 
         text_parts = [b.text for b in response.content if b.type == "text"]
+        if not text_parts:
+            raise ValueError("模型响应中没有文本内容。")
         return "\n\n".join(text_parts), searches
 
     def _step_outline(self, topic: str) -> str:
