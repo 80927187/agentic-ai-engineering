@@ -22,8 +22,8 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 OUTPUT_DIR = Path("output")
-MODEL = "claude-sonnet-4-6"
-LIGHT_MODEL = "claude-haiku-4-5-20251001"
+MODEL = "deepseek-v4-flash"
+LIGHT_MODEL = "deepseek-v4-flash"
 
 CONTENT_TYPE_LABELS = {
     "tutorial": "教程",
@@ -68,7 +68,10 @@ CLASSIFY_TOOLS = [
 
 # --- 提示词 ---
 
-CLASSIFY_SYSTEM_PROMPT = "将以下主题归入 tutorial、news 或 concept 其中一类。"
+CLASSIFY_SYSTEM_PROMPT = (
+    "将以下主题归入 tutorial、news 或 concept 其中一类，"
+    "并调用 classify_content 工具返回分类结果。"
+)
 
 # 路由链步骤
 
@@ -136,15 +139,12 @@ class ContentRouter:
         use_light: bool = False,
         max_tokens: int = 4096,
         tools: list[dict[str, Any]] | None = None,
-        tool_choice: dict[str, str] | None = None,
     ) -> anthropic.types.Message:
         """执行一次大语言模型调用并跟踪令牌用量。"""
         model = self.light_model if use_light else self.model
         kwargs: dict[str, Any] = {}
         if tools:
             kwargs["tools"] = tools
-        if tool_choice:
-            kwargs["tool_choice"] = tool_choice
         tool_names = [t.get("name", t.get("type", "unknown")) for t in tools or []]
         logger.info("正在调用 %s，工具=%s", model, tool_names)
         response = self.client.messages.create(
@@ -160,10 +160,14 @@ class ContentRouter:
     def _call_llm_text(self, system: str, user_message: str, *, use_light: bool = False) -> str:
         """调用大语言模型并返回文本内容。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
-        return cast(str, self._call_llm(system, messages, use_light=use_light).content[0].text)
+        response = self._call_llm(system, messages, use_light=use_light)
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            raise ValueError("模型响应中没有文本内容。")
+        return "\n\n".join(text_parts)
 
     def _classify(self, topic: str) -> dict[str, str]:
-        """使用基于工具的结构化输出（Haiku）对主题进行分类。"""
+        """使用基于工具的结构化输出对主题进行分类。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": topic}]
         response = self._call_llm(
             CLASSIFY_SYSTEM_PROMPT,
@@ -171,7 +175,6 @@ class ContentRouter:
             use_light=True,
             max_tokens=256,
             tools=CLASSIFY_TOOLS,
-            tool_choice={"type": "tool", "name": "classify_content"},
         )
 
         for block in response.content:
