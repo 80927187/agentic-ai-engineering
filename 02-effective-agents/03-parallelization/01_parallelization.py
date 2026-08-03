@@ -8,7 +8,7 @@
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import anthropic
 from dotenv import find_dotenv, load_dotenv
@@ -21,7 +21,7 @@ from common import AnthropicTokenTracker, interactive_menu, setup_logging
 load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 INPUT_DIR = Path("input")
 OUTPUT_DIR = Path("output")
 
@@ -85,13 +85,20 @@ class ParallelContentGenerator:
         logger.info("正在调用 %s（温度=%.1f）", self.model, temperature)
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=2048,
+            max_tokens=8192,
             temperature=temperature,
             system=system,
             messages=[{"role": "user", "content": user_message}],
         )
         self.token_tracker.track(response.usage)
-        return cast(str, response.content[0].text)
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}）。"
+            )
+        return "\n\n".join(text_parts)
 
     def _write_linkedin(self, blog_post: str) -> str:
         """生成 LinkedIn 专业摘要。"""

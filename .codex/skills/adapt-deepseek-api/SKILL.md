@@ -1,6 +1,6 @@
 ---
 name: adapt-deepseek-api
-description: 根据本项目的实际改造经验，将原本调用 Claude 的 Python 提示词链适配为 DeepSeek API。用于修改模型配置、兼容 ThinkingBlock，以及处理 DeepSeek 并行网页搜索和搜索错误结果。
+description: 根据本项目的实际改造经验，将原本调用 Claude 的 Python 提示词链适配为 DeepSeek API。用于修改模型配置、兼容 ThinkingBlock、诊断思考阶段耗尽输出 token，以及处理 DeepSeek 并行网页搜索和搜索错误结果。
 ---
 
 # 适配 DeepSeek API
@@ -32,13 +32,29 @@ response.content[0].text
 response = self._call_llm(system, messages)
 text_parts = [block.text for block in response.content if block.type == "text"]
 if not text_parts:
-    raise ValueError("模型响应中没有文本内容。")
+    block_types = [block.type for block in response.content]
+    raise ValueError(
+        f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+        f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+    )
 return "\n\n".join(text_parts)
 ```
 
 删除因此不再使用的 `cast` 导入。
 
-## 3. 调整网页搜索次数
+## 3. 快速诊断无文本响应
+
+不要只报告“没有文本内容”。至少记录：
+
+- `response.stop_reason`
+- `response.content` 中的块类型
+- `response.usage.output_tokens`
+
+若出现 `stop_reason=max_tokens` 且内容块只有 `thinking`，说明 DeepSeek 在思考阶段耗尽了输出预算，不是文本提取代码漏掉了结果。适当提高 `max_tokens`，例如从 `2048` 提高到 `8192`，再用原始长输入复现验证。`max_tokens` 是上限，不会要求模型固定消耗这么多 token。
+
+优先验证最容易触发问题的调用：长输入、复杂提示词以及最高温度的并行任务。不要仅用简短测试提示词判断适配成功。
+
+## 4. 调整网页搜索次数
 
 DeepSeek 可能根据多个大纲方向在一次响应中并行发起多次搜索。若 `max_uses=1`，后续搜索会返回 `max_uses_exceeded`。
 
@@ -64,9 +80,10 @@ for result in block.content:
 
 错误对象没有 `title` 和 `url`，不要直接读取。
 
-## 4. 验证
+## 5. 验证
 
 1. 运行 `uv run python -m py_compile <目标文件>`。
 2. 单独验证大纲阶段能跳过 `ThinkingBlock` 并取得文本。
-3. 使用真实写作提示词检查搜索调用数和 `error_code`。
-4. 完整运行提示词链，确认各阶段都取得非空文本。
+3. 使用真实长输入和最高温度检查 `stop_reason`、内容块类型与输出 token，确认不会在思考阶段耗尽预算。
+4. 使用真实写作提示词检查搜索调用数和 `error_code`。
+5. 完整运行提示词链，确认各阶段都取得非空文本。
