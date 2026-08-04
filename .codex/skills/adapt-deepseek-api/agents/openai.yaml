@@ -1,4 +1,4 @@
 interface:
   display_name: "DeepSeek API 适配"
-  short_description: "适配 DeepSeek 并放大输出与工具循环上限"
+  short_description: "适配 DeepSeek 流式长请求与高额度工具循环"
   default_prompt: "使用 $adapt-deepseek-api 按本项目实际改造经验适配当前 DeepSeek 提示词链。"

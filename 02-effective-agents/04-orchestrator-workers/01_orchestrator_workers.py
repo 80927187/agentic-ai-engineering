@@ -26,7 +26,7 @@ MODEL = "deepseek-v4-flash"
 LIGHT_MODEL = "deepseek-v4-flash"
 
 # Anthropic 兼容接口的服务端网络搜索工具——由模型决定何时搜索
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 20}
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search"}
 
 SUGGESTED_TOPICS = [
     "比较 Bun 与 Node.js 在后端开发中的表现",
@@ -109,7 +109,7 @@ class OrchestratorWorkers:
         messages: list[dict[str, Any]],
         *,
         use_light: bool = False,
-        max_tokens: int = 8192,
+        max_tokens: int = 21333,
         tools: list[dict[str, Any]] | None = None,
         tool_choice: dict[str, str] | None = None,
     ) -> anthropic.types.Message:
@@ -156,7 +156,7 @@ class OrchestratorWorkers:
         response = self._call_llm(
             ORCHESTRATOR_SYSTEM_PROMPT,
             messages,
-            max_tokens=8192,
+            max_tokens=21333,
             tools=PLANNING_TOOLS,
             tool_choice={"type": "tool", "name": "create_research_plan"},
         )
@@ -171,7 +171,9 @@ class OrchestratorWorkers:
             f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
         )
 
-    def _research_subtopic(self, subtopic: dict[str, str]) -> dict[str, str]:
+    def _research_subtopic(
+        self, subtopic: dict[str, str], max_turns: int = 100
+    ) -> dict[str, str]:
         """工作器：深入研究一个子主题，并可按需使用网络搜索。"""
         title = subtopic["title"]
         logger.info("工作器正在研究：%s", title)
@@ -181,7 +183,7 @@ class OrchestratorWorkers:
             WORKER_SYSTEM_PROMPT, messages, use_light=True, tools=[WEB_SEARCH_TOOL]
         )
 
-        for attempt in range(4):
+        for attempt in range(max_turns):
             search_uses = sum(block.type == "server_tool_use" for block in response.content)
             if search_uses:
                 logger.info("工作器 %s 本轮发起 %d 次网络搜索", title, search_uses)
@@ -197,7 +199,7 @@ class OrchestratorWorkers:
             if response.stop_reason != "pause_turn":
                 logger.warning("工作器 %s 以未处理的原因停止：%s", title, response.stop_reason)
                 break
-            if attempt == 3:
+            if attempt == max_turns - 1:
                 raise RuntimeError("服务端工具连续暂停，超过最大续传次数。")
 
             messages.append({"role": "assistant", "content": response.content})

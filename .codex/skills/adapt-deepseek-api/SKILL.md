@@ -54,10 +54,10 @@ return "\n\n".join(text_parts)
 搜索默认值和所有显式覆盖，统一提高。保留字段和明确数字，不要删除、改成 `None` 或无限循环。
 
 ```python
-def _call_llm(..., max_tokens: int = 65536, ...):
+def _call_llm(..., max_tokens: int = 21333, ...):
     ...
 
-response = self._call_llm(..., max_tokens=65536)
+response = self._call_llm(..., max_tokens=21333)
 
 WEB_SEARCH_TOOL = {
     "type": "web_search_20250305",
@@ -69,7 +69,7 @@ def run_agent(..., max_turns: int = 100):
     ...
 ```
 
-- `max_tokens`：使用 `65536`。仅当网关明确拒绝时，改成其实际最大值。
+- `max_tokens`：非流式 `messages.create(...)` 使用 `21333`，这是当前 SDK 10 分钟限制内的最大整数。
 - `max_uses`：使用 `100` 或网关允许的更大值。
 - `max_turns`、`max_iterations`、`max_steps`、`max_tool_calls`、`recursion_limit`：使用 `100` 或框架允许的更大值。
 - 保留无工具调用、`end_turn`、重复调用和不可恢复错误等正常退出条件。
@@ -92,4 +92,4 @@ for result in block.content:
 2. 确认请求中没有 `tool_choice`，但原形参和调用点仍在。
 3. 确认能跳过 `ThinkingBlock` 并取得文本。
 4. 确认所有输出和工具循环限制都已调大，没有低值覆盖。
-5. 用真实长输入完整运行，确认没有 `max_tokens`、`max_uses_exceeded` 或循环次数耗尽。
+5. 用真实长输入完整运行，确认没有非流式长请求错误、`max_tokens`、`max_uses_exceeded` 或循环次数耗尽。
