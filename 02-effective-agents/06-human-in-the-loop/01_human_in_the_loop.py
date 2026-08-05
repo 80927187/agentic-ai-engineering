@@ -7,7 +7,6 @@ LLM 起草邮件，人工批准或拒绝并提供反馈，随后 LLM 根据反�
 """
 
 from collections.abc import Callable
-from typing import cast
 
 import anthropic
 from dotenv import find_dotenv, load_dotenv
@@ -19,7 +18,7 @@ from common import AnthropicTokenTracker, interactive_menu, setup_logging
 load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
-MODEL = "claude-haiku-4-5-20251001"
+MODEL = "deepseek-v4-flash"
 MAX_REVISIONS = 2
 
 SUGGESTED_SCENARIOS = [
@@ -53,7 +52,7 @@ class EmailDrafter:
         self.model = model
         self.token_tracker = token_tracker
 
-    def _call_llm(self, system: str, user_msg: str, *, max_tokens: int = 1024) -> str:
+    def _call_llm(self, system: str, user_msg: str, *, max_tokens: int = 21333) -> str:
         """调用 LLM 并返回文本响应。"""
         logger.info("正在调用 %s", self.model)
         response = self.client.messages.create(
@@ -63,7 +62,14 @@ class EmailDrafter:
             messages=[{"role": "user", "content": user_msg}],
         )
         self.token_tracker.track(response.usage)
-        return cast(str, response.content[0].text)
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
+        return "\n\n".join(text_parts)
 
     def _draft(self, scenario: str) -> str:
         """根据场景描述生成邮件初稿。"""
