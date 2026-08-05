@@ -25,11 +25,11 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 OUTPUT_DIR = Path("output")
-MODEL = "claude-sonnet-4-6"
-LIGHT_MODEL = "claude-haiku-4-5-20251001"
+MODEL = "deepseek-v4-flash"
+LIGHT_MODEL = "deepseek-v4-flash"
 
-# Anthropic 服务端网页搜索工具——由 Claude 决定何时搜索
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 1}
+# Anthropic 兼容接口的服务端网页搜索工具——由模型决定何时搜索
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 100}
 
 SUGGESTED_TOPICS = [
     "构建事件驱动的微服务",
@@ -147,7 +147,7 @@ class EvaluatorOptimizer:
         messages: list[dict[str, Any]],
         *,
         use_light: bool = False,
-        max_tokens: int = 4096,
+        max_tokens: int = 21333,
         tools: list[dict[str, Any]] | None = None,
         tool_choice: dict[str, str] | None = None,
     ) -> anthropic.types.Message:
@@ -156,8 +156,9 @@ class EvaluatorOptimizer:
         kwargs: dict[str, Any] = {}
         if tools:
             kwargs["tools"] = tools
-        if tool_choice:
-            kwargs["tool_choice"] = tool_choice
+        # DeepSeek 思考模式不支持 tool_choice；保留形参和调用点用于对照学习。
+        # if tool_choice:
+        #     kwargs["tool_choice"] = tool_choice
         tool_names = [t.get("name", t.get("type", "unknown")) for t in tools or []]
         logger.info("Calling %s, tools=%s", model, tool_names)
 
@@ -174,7 +175,15 @@ class EvaluatorOptimizer:
     def _call_llm_text(self, system: str, user_message: str, **kwargs: Any) -> str:
         """调用大语言模型并返回文本内容。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
-        return cast(str, self._call_llm(system, messages, **kwargs).content[0].text)
+        response = self._call_llm(system, messages, **kwargs)
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
+        return "\n\n".join(text_parts)
 
     def _research(self, topic: str) -> str:
         """调研阶段：通过网页搜索收集该主题的最新资料。"""
@@ -185,10 +194,16 @@ class EvaluatorOptimizer:
             RESEARCH_SYSTEM_PROMPT,
             messages,
             use_light=True,
-            max_tokens=1024,
+            max_tokens=21333,
             tools=[WEB_SEARCH_TOOL],
         )
         text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
         return "\n\n".join(text_parts)
 
     def _write(self, topic: str, research: str) -> str:
@@ -220,7 +235,7 @@ class EvaluatorOptimizer:
             EVALUATOR_SYSTEM_PROMPT,
             messages,
             use_light=True,
-            max_tokens=1024,
+            max_tokens=21333,
             tools=EVALUATION_TOOLS,
             tool_choice={"type": "tool", "name": "evaluate_draft"},
         )
