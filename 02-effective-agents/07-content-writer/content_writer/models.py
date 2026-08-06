@@ -1,9 +1,8 @@
 """
-Pydantic models for pipeline data and typed event system.
+流水线数据和类型化事件系统的 Pydantic 模型。
 
-Data models validate LLM structured output. Event models enable type-safe progress
-tracking via async generator — the entry point uses pattern matching to render each
-event type with appropriate Rich UI.
+数据模型用于校验 LLM 的结构化输出。事件模型通过异步生成器实现类型安全的进度跟踪，
+入口使用模式匹配，以合适的 Rich 界面渲染每种事件。
 """
 
 from enum import Enum
@@ -12,7 +11,7 @@ from typing import Literal, Union
 from pydantic import BaseModel, Field, computed_field
 
 
-# ─── Data Models ─────────────────────────────────────────────────────────────
+# ─── 数据模型 ────────────────────────────────────────────────────────────────
 
 
 class ContentType(str, Enum):
@@ -107,9 +106,9 @@ class WritingResult(BaseModel):
     seo: SeoResult | None = None
 
 
-# ─── Typed Events ────────────────────────────────────────────────────────────
-# Each event is a Pydantic model with a Literal stage field.
-# The async generator yields these; the entry point uses match/case to render.
+# ─── 类型化事件 ──────────────────────────────────────────────────────────────
+# 每个事件都是带有 Literal 阶段字段的 Pydantic 模型。
+# 异步生成器产生这些事件，入口使用 match/case 进行渲染。
 
 
 class ClassifyStartEvent(BaseModel):
