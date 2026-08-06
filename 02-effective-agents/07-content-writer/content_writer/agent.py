@@ -1,7 +1,7 @@
 """
-Content writer agent composing all patterns from tutorials 02-07.
+内容写作代理，组合教程 02-07 中的全部模式。
 
-Pipeline phases map to patterns:
+流水线阶段与模式的对应关系：
 - _classify()             → routing (03)
 - _plan() / _replan()     → orchestrator (05)
 - _research_parallel()    → parallel workers (05) with web search
@@ -10,18 +10,16 @@ Pipeline phases map to patterns:
 - _write_social()         → parallelization fan-out (04)
 - _generate_seo()         → parallelization voting (04)
 
-Human-in-the-loop (07) checkpoints are yielded as HumanCheckpointEvent and handled
-by the entry point via on_human_checkpoint callback.
+人在回路（07）检查点以 HumanCheckpointEvent 形式产生，由入口通过回调处理。
 
-Async generator (run_stream) yields typed events so the UI layer can render progress
-without any coupling to the agent logic.
+异步生成器（run_stream）产生带类型的事件，让 UI 层无需耦合代理逻辑即可显示进度。
 """
 
 import asyncio
 import json
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, AsyncGenerator, cast
+from typing import Any, AsyncGenerator
 
 import anthropic
 from anthropic import RateLimitError
@@ -84,7 +82,7 @@ HumanCheckpointFn = Callable[[HumanCheckpointEvent], tuple[bool, str]]
 
 
 class ContentWriterAgent:
-    """Full content creation agent composing all patterns from tutorials 02-07."""
+    """组合教程 02-07 全部模式的完整内容创作代理。"""
 
     def __init__(
         self,
@@ -92,7 +90,7 @@ class ContentWriterAgent:
         research_model: str,
         token_tracker: AnthropicTokenTracker,
     ) -> None:
-        # Disable SDK's built-in retry — tenacity handles it with longer backoff
+        # 禁用 SDK 内置重试，由 tenacity 以更长退避时间处理
         self.client = anthropic.Anthropic(max_retries=0)
         self.model = model
         self.research_model = research_model
@@ -108,7 +106,7 @@ class ContentWriterAgent:
         before_sleep=before_sleep_log(logger, log_level=20),
     )
     def _call_api(self, **kwargs: Any) -> Any:
-        """Low-level API call with retry on rate limits."""
+        """底层 API 调用，在触发速率限制时重试。"""
         return self.client.messages.create(**kwargs)
 
     def _call_llm(
@@ -117,18 +115,20 @@ class ContentWriterAgent:
         messages: list[dict[str, Any]],
         *,
         use_light: bool = True,
-        max_tokens: int = 4096,
+        max_tokens: int = 21333,
         temperature: float = 1.0,
         tools: list[dict[str, Any]] | None = None,
         tool_choice: dict[str, str] | None = None,
     ) -> anthropic.types.Message:
-        """Single LLM call with token tracking."""
+        """执行单次 LLM 调用并跟踪 token。"""
         model = self.research_model if use_light else self.model
         kwargs: dict[str, Any] = {}
         if tools:
             kwargs["tools"] = tools
-        if tool_choice:
-            kwargs["tool_choice"] = tool_choice
+
+        # DeepSeek 思考模式不支持 tool_choice；保留形参和调用点用于对照学习。
+        # if tool_choice:
+        #     kwargs["tool_choice"] = tool_choice
         tool_names = [t.get("name", t.get("type", "unknown")) for t in tools or []]
         logger.info("Calling %s, tools=%s", model, tool_names)
 
@@ -143,19 +143,31 @@ class ContentWriterAgent:
         self.token_tracker.track(response.usage)
         return response
 
+    @staticmethod
+    def _extract_text(response: anthropic.types.Message) -> str:
+        """提取文本块，兼容 DeepSeek 思考模式返回的 ThinkingBlock。"""
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
+        return "\n\n".join(text_parts)
+
     def _call_tool(self, system: str, user_message: str, tools: list, tool_name: str) -> dict:
-        """LLM call that returns structured output via tool_choice."""
+        """通过 tool_choice 调用 LLM 并返回结构化输出。"""
         response = self._call_llm(
             system,
             [{"role": "user", "content": user_message}],
             use_light=False,
-            max_tokens=1024,
+            max_tokens=21333,
             tools=tools,
             tool_choice={"type": "tool", "name": tool_name},
         )
         for block in response.content:
             if block.type == "tool_use":
-                return cast(dict[Any, Any], block.input)
+                return dict(block.input)
         raise ValueError(f"No tool call in response for {tool_name}")
 
     def _run_agent_loop(
@@ -165,10 +177,10 @@ class ContentWriterAgent:
         *,
         tools: list[dict[str, Any]],
         use_light: bool = True,
-        max_tokens: int = 4096,
-        max_turns: int = 5,
+        max_tokens: int = 21333,
+        max_turns: int = 100,
     ) -> tuple[str, list[Source]]:
-        """Agentic loop — runs LLM with tools across multiple turns."""
+        """代理循环：跨多个轮次运行带工具的 LLM。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
         sources: list[Source] = []
 
@@ -186,11 +198,13 @@ class ContentWriterAgent:
             for block in response.content:
                 if block.type == "web_search_tool_result" and isinstance(block.content, list):
                     for result in block.content:
-                        sources.append(Source(title=result.title, url=result.url))
+                        if result.type == "web_search_result":
+                            sources.append(Source(title=result.title, url=result.url))
+                        elif result.type == "web_search_tool_result_error":
+                            logger.warning("网络搜索失败：%s", result.error_code)
 
             if response.stop_reason == "end_turn":
-                text_parts = [b.text for b in response.content if b.type == "text"]
-                return "\n\n".join(text_parts), sources
+                return self._extract_text(response), sources
 
             # Tool was used — execute and feed results back
             messages.append({"role": "assistant", "content": response.content})
@@ -213,8 +227,7 @@ class ContentWriterAgent:
 
         if response is None:
             return "", sources
-        text_parts = [b.text for b in response.content if b.type == "text"]
-        return "\n\n".join(text_parts), sources
+        return self._extract_text(response), sources
 
     def _call_text(
         self,
@@ -222,10 +235,10 @@ class ContentWriterAgent:
         user_message: str,
         *,
         use_light: bool = True,
-        max_tokens: int = 4096,
+        max_tokens: int = 21333,
         temperature: float = 1.0,
     ) -> str:
-        """Single-turn LLM call without tools."""
+        """执行不带工具的单轮 LLM 调用。"""
         response = self._call_llm(
             system,
             [{"role": "user", "content": user_message}],
@@ -233,13 +246,12 @@ class ContentWriterAgent:
             max_tokens=max_tokens,
             temperature=temperature,
         )
-        text_parts = [b.text for b in response.content if b.type == "text"]
-        return "\n\n".join(text_parts)
+        return self._extract_text(response)
 
     # ─── Pipeline phases ─────────────────────────────────────────────────
 
     def _classify(self, topic: str) -> ClassificationResult:
-        """Classify topic into content type with structured output (routing pattern)."""
+        """使用结构化输出将主题分类为内容类型（路由模式）。"""
         logger.info("Phase: classify — %s", topic[:50])
         data = self._call_tool(
             prompts.CLASSIFICATION_SYSTEM, topic, CLASSIFY_TOOLS, "classify_content"
@@ -249,7 +261,7 @@ class ContentWriterAgent:
     def _plan(
         self, topic: str, content_type: ContentType, key_aspects: list[str]
     ) -> list[Subtopic]:
-        """Create a research plan with 2-4 subtopics (orchestrator pattern)."""
+        """创建包含 2-4 个子主题的研究计划（编排器模式）。"""
         logger.info("Phase: plan — %s (%s)", topic[:50], content_type.value)
         aspects_text = ", ".join(key_aspects) if key_aspects else "general overview"
         result = self._call_tool(
@@ -264,24 +276,24 @@ class ContentWriterAgent:
         return [Subtopic(**s) for s in result["subtopics"]]
 
     def _replan(self, topic: str, plan_text: str, feedback: str) -> list[Subtopic]:
-        """Revise a research plan based on human feedback."""
+        """根据人工反馈修订研究计划。"""
         logger.info("Phase: replan")
         result = self._call_tool(
             f"Revise this research plan based on feedback: {feedback}",
-            f"Original plan:\n{plan_text}\n\nTopic: {topic}",
+            f"原始计划：\n{plan_text}\n\n主题：{topic}",
             PLANNING_TOOLS,
             "create_research_plan",
         )
         return [Subtopic(**s) for s in result["subtopics"]]
 
     def _research_section(self, subtopic: Subtopic) -> ResearchSection:
-        """Research one subtopic using web search (worker pattern)."""
+        """使用网络搜索研究一个子主题（工作器模式）。"""
         logger.info("Phase: research — %s", subtopic.title)
         content, sources = self._run_agent_loop(
             prompts.RESEARCH_SYSTEM,
             subtopic.research_prompt,
             tools=[WEB_SEARCH_TOOL],
-            max_tokens=1024,
+            max_tokens=21333,
         )
         return ResearchSection(title=subtopic.title, content=content, sources=sources)
 
@@ -293,47 +305,47 @@ class ContentWriterAgent:
         feedback: str | None = None,
         previous_draft: str | None = None,
     ) -> tuple[str, list[Source]]:
-        """Write or revise the article with type-specific voice (chaining pattern)."""
+        """以类型专属语气撰写或修订文章（链式模式）。"""
         logger.info("Phase: write — %s (%s)", topic[:50], content_type.value)
 
         research_text = "\n\n".join(f"## {s.title}\n{s.content}" for s in sections)
 
         if feedback and previous_draft:
-            # Revision: Sonnet with web search for additional concepts
+            # 修订：使用 Sonnet 和网络搜索补充概念
             user_msg = (
-                f"Topic: {topic}\n\n"
-                f"Research:\n{research_text}\n\n"
-                f"Feedback to address:\n{feedback}\n\n"
-                f"Previous draft:\n{previous_draft}\n\n"
-                "Revise the draft to address all feedback."
+                f"主题：{topic}\n\n"
+                f"研究资料：\n{research_text}\n\n"
+                f"需要处理的反馈：\n{feedback}\n\n"
+                f"上一版草稿：\n{previous_draft}\n\n"
+                "请修订草稿，处理全部反馈。"
             )
             return self._run_agent_loop(
                 prompts.get_revision_system(content_type),
                 user_msg,
                 tools=[WEB_SEARCH_TOOL],
                 use_light=False,
-                max_tokens=8192,
+                max_tokens=21333,
             )
         else:
-            # Initial write: Sonnet for quality structure and completeness
+            # 初次写作：使用 Sonnet 确保结构和完整性
             user_msg = (
-                f"Research:\n{research_text}\n\n"
-                f"Write a complete {content_type.value} about: {topic}"
+                f"研究资料：\n{research_text}\n\n"
+                f"请围绕以下主题撰写完整的{content_type.value}：{topic}"
             )
             content = self._call_text(
                 prompts.get_writing_system(content_type),
                 user_msg,
                 use_light=False,
-                max_tokens=8192,
+                max_tokens=21333,
             )
             return content, []
 
     def _evaluate(self, topic: str, draft: str) -> EvaluationResult:
-        """Evaluate draft with 5-dimension structured scoring (evaluator pattern)."""
+        """使用五维结构化评分评估草稿（评估器模式）。"""
         logger.info("Phase: evaluate")
         data = self._call_tool(
             prompts.EVALUATION_SYSTEM,
-            f"Topic: {topic}\n\nDraft to evaluate:\n\n{draft}",
+            f"主题：{topic}\n\n待评估草稿：\n\n{draft}",
             EVALUATION_TOOLS,
             "evaluate_draft",
         )
@@ -342,31 +354,31 @@ class ContentWriterAgent:
     # ─── Social media (parallelization fan-out from 04) ──────────────────
 
     def _write_linkedin(self, article: str) -> str:
-        """Generate a LinkedIn professional summary."""
+        """生成 LinkedIn 专业摘要。"""
         return self._call_text(
             prompts.LINKEDIN_SYSTEM,
-            f"Create a LinkedIn post from this article:\n\n{article[:2000]}",
-            max_tokens=2048,
+            f"根据以下文章创建 LinkedIn 帖子：\n\n{article[:2000]}",
+            max_tokens=21333,
         )
 
     def _write_twitter(self, article: str) -> str:
-        """Generate a Twitter/X thread of 5 tweets."""
+        """生成包含 5 条推文的 Twitter/X 线程。"""
         return self._call_text(
             prompts.TWITTER_SYSTEM,
-            f"Create a tweet thread from this article:\n\n{article[:2000]}",
-            max_tokens=2048,
+            f"根据以下文章创建推文线程：\n\n{article[:2000]}",
+            max_tokens=21333,
         )
 
     def _write_newsletter(self, article: str) -> str:
-        """Generate a newsletter subject line and intro paragraph."""
+        """生成通讯主题和开场段落。"""
         return self._call_text(
             prompts.NEWSLETTER_SYSTEM,
-            f"Create a newsletter intro from this article:\n\n{article[:2000]}",
-            max_tokens=2048,
+            f"根据以下文章创建通讯开场：\n\n{article[:2000]}",
+            max_tokens=21333,
         )
 
     def _write_social(self, article: str) -> SocialContent:
-        """Generate social media content in parallel (fan-out pattern)."""
+        """并行生成社交媒体内容（扇出模式）。"""
         logger.info("Phase: social media fan-out")
         results: dict[str, str] = {}
         writers = {
@@ -388,16 +400,16 @@ class ContentWriterAgent:
     # ─── SEO title (parallelization voting from 04) ──────────────────────
 
     def _generate_seo_title(self, article: str, temperature: float) -> str:
-        """Generate a single SEO title candidate at a given temperature."""
+        """以给定温度生成一个 SEO 标题候选。"""
         return self._call_text(
             prompts.SEO_TITLE_SYSTEM,
-            f"Generate an SEO title for:\n\n{article[:500]}",
-            max_tokens=128,
+            f"为以下文章生成 SEO 标题：\n\n{article[:500]}",
+            max_tokens=21333,
             temperature=temperature,
         )
 
     def _vote_best_title(self, titles: list[str], article: str) -> dict:
-        """Use structured output to pick the best SEO title (voting pattern)."""
+        """使用结构化输出选出最佳 SEO 标题（投票模式）。"""
         titles_text = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(titles))
         return self._call_tool(
             prompts.SEO_EVALUATOR_SYSTEM,
@@ -407,7 +419,7 @@ class ContentWriterAgent:
         )
 
     def _generate_seo(self, article: str) -> SeoResult:
-        """Generate SEO title via voting pattern: 3 candidates → evaluator picks best."""
+        """通过投票模式生成 SEO 标题：3 个候选 → 评估器选出最佳。"""
         logger.info("Phase: SEO title voting")
         temperatures = [0.3, 0.7, 1.0]
         titles: list[str] = []
@@ -442,7 +454,7 @@ class ContentWriterAgent:
         max_refinements: int = 2,
         on_human_checkpoint: HumanCheckpointFn | None = None,
     ) -> AsyncGenerator[AgentEvent, None]:
-        """Async generator yielding typed events as the pipeline progresses."""
+        """随着流水线推进产生带类型事件的异步生成器。"""
         logger.info("Pipeline start — topic=%s, threshold=%.1f", topic[:50], score_threshold)
 
         def _checkpoint(
@@ -469,13 +481,13 @@ class ContentWriterAgent:
         approved, feedback = await asyncio.to_thread(
             _checkpoint,
             "classification",
-            "Classification",
-            f"Type: {content_type.value.upper()}\n"
-            f"Topic: {classification.topic}\n"
-            f"Aspects: {', '.join(classification.key_aspects)}\n"
-            f"Reasoning: {classification.reasoning}\n\n"
-            f"Other options: {', '.join(t.value for t in other_types)}",
-            f"Classified as '{content_type.value}'. Correct?",
+            "内容分类",
+            f"类型：{content_type.value.upper()}\n"
+            f"主题：{classification.topic}\n"
+            f"关键方面：{', '.join(classification.key_aspects)}\n"
+            f"理由：{classification.reasoning}\n\n"
+            f"其他选项：{', '.join(t.value for t in other_types)}",
+            f"已分类为“{content_type.value}”，是否正确？",
         )
         if not approved and feedback in [t.value for t in ContentType]:
             content_type = ContentType(feedback)
@@ -510,7 +522,7 @@ class ContentWriterAgent:
             yield ResearchSectionDoneEvent(title=section.title, sources=section.sources)
 
         if not sections:
-            raise ValueError("All research workers failed — cannot continue")
+            raise ValueError("所有研究工作器均失败，无法继续")
         yield ResearchDoneEvent(sections=sections)
 
         # Accumulate all sources across phases for the References section
@@ -575,9 +587,9 @@ class ContentWriterAgent:
             approved, user_feedback = await asyncio.to_thread(
                 _checkpoint,
                 "final_review",
-                "Final Review",
+                "最终审核",
                 preview,
-                "Approve article and publish?",
+                "是否批准文章并发布？",
             )
 
             if approved:
@@ -587,16 +599,16 @@ class ContentWriterAgent:
             # Combine evaluation issues with user feedback for targeted refinement
             feedback_parts = []
             if evaluation.issues:
-                feedback_parts.append("Evaluation issues: " + "; ".join(evaluation.issues))
+                feedback_parts.append("评估问题：" + "; ".join(evaluation.issues))
             if evaluation.suggestions:
                 feedback_parts.append(
-                    "Evaluation suggestions: " + "; ".join(evaluation.suggestions)
+                    "评估建议：" + "; ".join(evaluation.suggestions)
                 )
             if user_feedback:
-                feedback_parts.append(f"User feedback: {user_feedback}")
+                feedback_parts.append(f"用户反馈：{user_feedback}")
 
             if not feedback_parts:
-                feedback_parts.append("Please improve the overall quality of the article.")
+                feedback_parts.append("请提升文章整体质量。")
 
             combined_feedback = "\n".join(feedback_parts)
             logger.info("Human review round %d — refining with feedback", human_review_rounds)
@@ -633,7 +645,7 @@ class ContentWriterAgent:
                 unique_sources.append(src)
 
         if unique_sources:
-            refs = "\n\n---\n\n## References\n\n"
+            refs = "\n\n---\n\n## 参考资料\n\n"
             refs += "\n".join(f"- [{s.title}]({s.url})" for s in unique_sources)
             draft += refs
 

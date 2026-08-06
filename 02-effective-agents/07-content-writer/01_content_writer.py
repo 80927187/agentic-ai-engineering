@@ -1,13 +1,13 @@
 """
-Full Agent — "The Content Writer"
+完整代理——“内容写作者”
 
-Combines ALL patterns from this module into a production content creation pipeline:
-- Routing (03): classify content type → type-specific prompts
-- Prompt Chaining (02): research → write with type-specific voice
-- Orchestrator-Workers (05): dynamic research planning → parallel research
-- Parallelization (04): social media fan-out + SEO title voting
-- Evaluator-Optimizer (06): write-evaluate-refine loop with quality gate
-- Human-in-the-Loop (07): strategic checkpoints at high-leverage decisions
+将本模块的全部模式组合为生产级内容创作流水线：
+- 路由（03）：内容类型分类 → 类型专属提示词
+- 提示词链（02）：研究 → 以类型专属语气写作
+- 编排器-工作器（05）：动态研究规划 → 并行研究
+- 并行化（04）：社交媒体扇出 + SEO 标题投票
+- 评估器-优化器（06）：写作-评估-改进循环与质量门槛
+- 人在回路（07）：在关键决策点设置战略检查点
 """
 
 import asyncio
@@ -53,17 +53,17 @@ from content_writer import (
 load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
-MODEL = "claude-sonnet-4-6"
-RESEARCH_MODEL = "claude-haiku-4-5-20251001"
+MODEL = "deepseek-v4-flash"
+RESEARCH_MODEL = "deepseek-v4-flash"
 OUTPUT_DIR = Path("output")
 SCORE_THRESHOLD = 7.0
 MAX_REFINEMENTS = 2
 
 SUGGESTED_TOPICS = [
-    "Why Every Backend Team Should Try Feature Flags",
-    "How to Build a CLI Tool with Python and Click",
-    "What Are Vector Databases and Why Do They Matter",
-    "Structured Concurrency Changed How I Think About Async",
+    "为什么每个后端团队都应该尝试功能开关",
+    "如何使用 Python 和 Click 构建 CLI 工具",
+    "什么是向量数据库，它们为什么重要",
+    "结构化并发改变了我对异步的看法",
 ]
 
 
@@ -71,7 +71,7 @@ SUGGESTED_TOPICS = [
 
 
 def _topic_dir(topic: str) -> Path:
-    """Create and return a per-topic output directory."""
+    """创建并返回每个主题专属的输出目录。"""
     slug = topic.lower().replace(" ", "_")[:50]
     path = OUTPUT_DIR / slug
     path.mkdir(parents=True, exist_ok=True)
@@ -79,15 +79,15 @@ def _topic_dir(topic: str) -> Path:
 
 
 def _save_artifact(topic: str, filename: str, content: str) -> Path:
-    """Save a single artifact file into the topic directory."""
+    """将单个产物文件保存到主题目录。"""
     path = _topic_dir(topic) / filename
     path.write_text(content, encoding="utf-8")
-    logger.info("Saved: %s (%d chars)", path, len(content))
+    logger.info("已保存：%s（%d 个字符）", path, len(content))
     return path
 
 
 def _save_social(topic: str, social: SocialContent) -> list[Path]:
-    """Save each social media artifact as a separate file."""
+    """将每个社交媒体产物分别保存为文件。"""
     paths: list[Path] = []
     for name, content in [
         ("linkedin.md", social.linkedin),
@@ -100,72 +100,72 @@ def _save_social(topic: str, social: SocialContent) -> list[Path]:
 
 
 def _save_seo(topic: str, seo: SeoResult) -> Path:
-    """Save SEO voting results."""
-    parts = [f"# SEO Title\n\n{seo.winning_title}\n\n"]
+    """保存 SEO 投票结果。"""
+    parts = [f"# SEO 标题\n\n{seo.winning_title}\n\n"]
     if seo.candidates:
-        parts.append("## Candidates\n\n")
+        parts.append("## 候选标题\n\n")
         for i, c in enumerate(seo.candidates, 1):
             parts.append(f"{i}. {c}\n")
-        parts.append(f"\n## Reasoning\n\n{seo.reasoning}\n")
+        parts.append(f"\n## 选择理由\n\n{seo.reasoning}\n")
     return _save_artifact(topic, "seo.md", "".join(parts))
 
 
 def _display_evaluation(console: Console, evaluation: EvaluationResult, iteration: int) -> None:
-    """Display 5-dimension evaluation scores in a Rich table."""
+    """在 Rich 表格中显示五维评估分数。"""
     dimensions = {
-        "Clarity": evaluation.clarity,
-        "Technical Accuracy": evaluation.technical_accuracy,
-        "Structure": evaluation.structure,
-        "Engagement": evaluation.engagement,
-        "Human Voice": evaluation.human_voice,
+        "清晰度": evaluation.clarity,
+        "技术准确性": evaluation.technical_accuracy,
+        "结构": evaluation.structure,
+        "吸引力": evaluation.engagement,
+        "人类语气": evaluation.human_voice,
     }
 
-    table = Table(title=f"Iteration {iteration} — avg: {evaluation.avg_score:.1f}/10")
-    table.add_column("Dimension", style="cyan")
-    table.add_column("Score", justify="center")
+    table = Table(title=f"第 {iteration} 轮——平均分：{evaluation.avg_score:.1f}/10")
+    table.add_column("维度", style="cyan")
+    table.add_column("分数", justify="center")
     for dim, score in dimensions.items():
         color = "green" if score >= 8 else "yellow" if score >= 6 else "red"
         table.add_row(dim, f"[{color}]{score}/10[/{color}]")
     console.print(table)
 
     if evaluation.issues:
-        console.print("[bold red]Issues:[/bold red]")
+        console.print("[bold red]问题：[/bold red]")
         for issue in evaluation.issues:
             console.print(f"  [red]•[/red] {issue}")
 
     if evaluation.suggestions:
-        console.print("[bold yellow]Suggestions:[/bold yellow]")
+        console.print("[bold yellow]建议：[/bold yellow]")
         for suggestion in evaluation.suggestions:
             console.print(f"  [yellow]•[/yellow] {suggestion}")
 
 
 def _print_path(console: Console, label: str, path: Path) -> None:
-    """Print a clickable file link."""
+    """打印可点击的文件链接。"""
     console.print(f"  [dim]{label}: [link=file://{path.resolve()}]{path}[/link][/dim]")
 
 
 def _show_sources(console: Console, sources: list[Source]) -> None:
-    """Display web search sources as clickable links in a panel."""
+    """在面板中显示可点击的网络搜索来源。"""
     if not sources:
         return
     lines = [f"  [dim]•[/dim] [link={s.url}]{s.title}[/link]" for s in sources]
-    console.print(Panel("\n".join(lines), title="Sources", border_style="dim"))
+    console.print(Panel("\n".join(lines), title="来源", border_style="dim"))
 
 
 def _human_checkpoint(console: Console, event: HumanCheckpointEvent) -> tuple[bool, str]:
-    """Pause for human review at a strategic decision point."""
+    """在关键决策点暂停，等待人工审核。"""
     console.print(
-        Panel(event.content, title=f"Checkpoint: {event.title}", border_style="bright_magenta")
+        Panel(event.content, title=f"检查点：{event.title}", border_style="bright_magenta")
     )
     console.print(f"\n[bold magenta]{event.question}[/bold magenta]")
-    console.print("[dim](y)es / (n)o with feedback[/dim]")
+    console.print("[dim](y)是 / (n)否并提供反馈[/dim]")
     console.print("[bold magenta]> [/bold magenta]", end="")
 
     response = input().strip().lower()
     if response in ["y", "yes", ""]:
         return True, ""
 
-    console.print("[dim]Feedback:[/dim] ", end="")
+    console.print("[dim]反馈：[/dim] ", end="")
     feedback = input().strip() if response == "n" else response
     return False, feedback
 
@@ -179,7 +179,7 @@ async def _run_with_events(
     console: Console,
     tracker: AnthropicTokenTracker,
 ) -> WritingResult | None:
-    """Consume typed events from the agent and render with Rich."""
+    """消费代理产生的带类型事件，并使用 Rich 渲染。"""
     state: dict[str, Path | None] = {"last_draft_path": None}
 
     def on_checkpoint(event: HumanCheckpointEvent) -> tuple[bool, str]:
@@ -197,28 +197,28 @@ async def _run_with_events(
         on_human_checkpoint=on_checkpoint,
     ):
         match event:
-            # Phase 1: Classification
+            # 阶段 1：分类
             case ClassifyStartEvent():
-                console.print("\n[bold yellow]Phase 1:[/bold yellow] Classifying content type...")
+                console.print("\n[bold yellow]阶段 1：[/bold yellow]正在分类内容类型……")
 
             case ClassifyDoneEvent(classification=c):
                 console.print(f"  [green]✓[/green] {c.content_type.value}: {c.topic}")
                 tracker.report()
 
-            # Phase 2: Research planning
+            # 阶段 2：研究规划
             case PlanStartEvent():
-                console.print("\n[bold yellow]Phase 2:[/bold yellow] Planning research...")
+                console.print("\n[bold yellow]阶段 2：[/bold yellow]正在规划研究……")
 
             case PlanDoneEvent(subtopics=subs):
                 for i, s in enumerate(subs, 1):
                     console.print(f"  {i}. [bold]{s.title}[/bold]")
                 tracker.report()
 
-            # Phase 3: Parallel research
+            # 阶段 3：并行研究
             case ResearchStartEvent(count=n):
                 console.print(
-                    f"\n[bold yellow]Phase 3:[/bold yellow] "
-                    f"Researching {n} subtopics in parallel..."
+                    f"\n[bold yellow]阶段 3：[/bold yellow]"
+                    f"正在并行研究 {n} 个子主题……"
                 )
 
             case ResearchSectionDoneEvent(title=t, sources=srcs):
@@ -228,10 +228,10 @@ async def _run_with_events(
             case ResearchDoneEvent():
                 tracker.report()
 
-            # Phase 4: Write
+            # 阶段 4：写作
             case WriteStartEvent(iteration=i):
-                label = "Writing" if i == 1 else f"Rewriting (round {i - 1})"
-                console.print(f"\n[bold yellow]Phase 4:[/bold yellow] {label}...")
+                label = "写作" if i == 1 else f"重写（第 {i - 1} 轮）"
+                console.print(f"\n[bold yellow]阶段 4：[/bold yellow]{label}……")
 
             case WriteDoneEvent(iteration=i, content_length=length, content=draft, sources=srcs):
                 path = _save_artifact(topic, f"draft_v{i}.md", draft)
@@ -242,9 +242,9 @@ async def _run_with_events(
                 )
                 _show_sources(console, srcs)
 
-            # Phase 5: Evaluate + refine
+            # 阶段 5：评估与改进
             case EvaluateStartEvent(iteration=i):
-                console.print(f"\n[bold yellow]Phase 5:[/bold yellow] Evaluating (round {i})...")
+                console.print(f"\n[bold yellow]阶段 5：[/bold yellow]正在评估（第 {i} 轮）……")
 
             case EvaluateDoneEvent(iteration=i, evaluation=e):
                 _display_evaluation(console, e, i)
@@ -252,19 +252,19 @@ async def _run_with_events(
 
                 if e.avg_score >= SCORE_THRESHOLD:
                     console.print(
-                        f"\n[green]Score {e.avg_score:.1f} >= {SCORE_THRESHOLD}"
-                        f" — quality met![/green]"
+                        f"\n[green]得分 {e.avg_score:.1f} >= {SCORE_THRESHOLD}"
+                        f"——质量达标！[/green]"
                     )
                 else:
-                    console.print(f"\n[yellow]Score {e.avg_score:.1f} < {SCORE_THRESHOLD}[/yellow]")
+                    console.print(f"\n[yellow]得分 {e.avg_score:.1f} < {SCORE_THRESHOLD}[/yellow]")
 
             case RefineStartEvent(iteration=i):
-                console.print(f"\n[yellow]Refining (round {i - 1}/{MAX_REFINEMENTS})...[/yellow]")
+                console.print(f"\n[yellow]正在改进（第 {i - 1}/{MAX_REFINEMENTS} 轮）……[/yellow]")
 
-            # Phase 6: Social media
+            # 阶段 6：社交媒体
             case SocialStartEvent():
                 console.print(
-                    "\n[bold yellow]Phase 6:[/bold yellow] Social media blast (fan-out)..."
+                    "\n[bold yellow]阶段 6：[/bold yellow]社交媒体分发（扇出）……"
                 )
 
             case SocialWriterDoneEvent(name=n):
@@ -283,21 +283,21 @@ async def _run_with_events(
                     if content and not content.startswith("Error:"):
                         console.print(Panel(Markdown(content), title=key, border_style="cyan"))
 
-            # Phase 7: SEO title voting
+            # 阶段 7：SEO 标题投票
             case SeoStartEvent():
-                console.print("\n[bold yellow]Phase 7:[/bold yellow] SEO title voting...")
+                console.print("\n[bold yellow]阶段 7：[/bold yellow]SEO 标题投票……")
 
             case SeoCandidateEvent(title=t):
                 console.print(f"  [dim]• {t}[/dim]")
 
             case SeoDoneEvent(seo=s):
-                console.print(f"  [green]✓[/green] Winner: {s.winning_title}")
+                console.print(f"  [green]✓[/green] 获胜标题：{s.winning_title}")
                 console.print(f"  [dim]{s.reasoning}[/dim]")
                 tracker.report()
                 path = _save_seo(topic, s)
                 _print_path(console, "seo", path)
 
-            # Pipeline complete
+            # 流水线完成
             case CompleteEvent(result=r):
                 result = r
 
@@ -308,20 +308,20 @@ async def _run_with_events(
 
 
 def main() -> None:
-    """Run the full content writer agent."""
+    """运行完整的内容写作代理。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
     agent = ContentWriterAgent(MODEL, RESEARCH_MODEL, token_tracker)
 
     header = Panel(
-        "[bold cyan]Full Agent — The Content Writer[/bold cyan]\n\n"
-        "Combines ALL patterns from this module into one pipeline:\n"
-        "  [Classify] → [Plan] → [Research] → [Write] → [Evaluate] → [Refine]\n"
-        "  → [Human Review] → [Social Media Blast] → [SEO Title Voting]\n\n"
-        "Patterns:\n"
-        "  Routing (03) | Prompt Chaining (02) | Parallelization (04)\n"
-        "  Orchestrator-Workers (05) | Evaluator-Optimizer (06) | Human-in-the-Loop (07)",
-        title="Content Writer",
+        "[bold cyan]完整代理——内容写作者[/bold cyan]\n\n"
+        "将本模块的全部模式组合为一个流水线：\n"
+        "  [分类] → [规划] → [研究] → [写作] → [评估] → [改进]\n"
+        "  → [人工审核] → [社交媒体分发] → [SEO 标题投票]\n\n"
+        "模式：\n"
+        "  路由（03）| 提示词链（02）| 并行化（04）\n"
+        "  编排器-工作器（05）| 评估器-优化器（06）| 人在回路（07）",
+        title="内容写作者",
     )
 
     async def async_main() -> None:
@@ -329,15 +329,15 @@ def main() -> None:
             topic = interactive_menu(
                 console,
                 SUGGESTED_TOPICS,
-                title="Select a Topic",
+                title="选择主题",
                 header=header,
                 allow_custom=True,
-                custom_prompt="Enter your topic",
+                custom_prompt="请输入主题",
             )
             if not topic:
                 break
 
-            console.print(f"\n[bold green]Topic:[/bold green] {topic}")
+            console.print(f"\n[bold green]主题：[/bold green] {topic}")
 
             try:
                 result = await _run_with_events(agent, topic, console, token_tracker)
@@ -345,26 +345,26 @@ def main() -> None:
                 if result:
                     # Save final article
                     article_path = _save_artifact(topic, "article.md", result.content)
-                    _print_path(console, "Final article", article_path)
+                    _print_path(console, "最终文章", article_path)
 
                     # Show final article
-                    console.print("\n[bold blue]Final Article:[/bold blue]")
+                    console.print("\n[bold blue]最终文章：[/bold blue]")
                     console.print(Markdown(result.content))
 
                     # Show output directory
                     topic_dir = _topic_dir(topic)
                     console.print(
-                        f"\n[dim]All artifacts: "
+                        f"\n[dim]全部产物："
                         f"[link=file://{topic_dir.resolve()}]{topic_dir}/[/link][/dim]"
                     )
 
-                console.print("\n[dim]Press Enter to continue...[/dim]")
+                console.print("\n[dim]按 Enter 继续……[/dim]")
                 input()
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                logger.error("Pipeline failed: %s", e)
-                console.print(f"\n[red]Error: {e}[/red]")
+                logger.error("流水线失败：%s", e)
+                console.print(f"\n[red]错误：{e}[/red]")
             finally:
                 token_tracker.report()
                 token_tracker.reset()
@@ -372,7 +372,7 @@ def main() -> None:
     try:
         asyncio.run(async_main())
     except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
+        console.print("\n[yellow]已中断。[/yellow]")
         os._exit(130)
 
 
