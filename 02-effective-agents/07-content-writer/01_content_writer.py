@@ -54,7 +54,7 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 MODEL = "deepseek-v4-flash"
-RESEARCH_MODEL = "deepseek-v4-flash"
+RESEARCH_MODEL = "deepseek-v4-flash" # 低级一些的模型，因为websearch的成本比较高
 OUTPUT_DIR = Path("output")
 SCORE_THRESHOLD = 7.0
 MAX_REFINEMENTS = 2
