@@ -301,7 +301,10 @@ class StructuredExtractor:
 def _display_result(console: Console, title: str, result: BaseModel | None) -> None:
     """以格式化 JSON 显示 Pydantic 模型。"""
     if result:
-        formatted = json.dumps(result.model_dump(), indent=2, default=str)
+        # 保留中文字符，避免 Rich 面板显示为 \uXXXX 转义序列。
+        formatted = json.dumps(
+            result.model_dump(), indent=2, ensure_ascii=False, default=str
+        )
         syntax = Syntax(formatted, "json", theme="monokai")
         console.print(Panel(syntax, title=f"{title} [green]成功[/green]"))
     else:
