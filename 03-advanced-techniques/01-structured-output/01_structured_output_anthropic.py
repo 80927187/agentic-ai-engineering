@@ -28,7 +28,7 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 
 # ---------------------------------------------------------------------------
 # Pydantic 模型——复杂度逐步提升
@@ -149,10 +149,9 @@ class StructuredExtractor:
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=2048,
+                max_tokens=21333,
                 system=SYSTEM_PROMPT,
                 tools=[tool],
-                tool_choice={"type": "tool", "name": tool_name},
                 messages=[{"role": "user", "content": f"分析以下工单：\n\n{text}"}],
             )
             self.token_tracker.track(response.usage)
@@ -171,7 +170,7 @@ class StructuredExtractor:
         try:
             response = self.client.beta.messages.parse(
                 model=self.model,
-                max_tokens=1024,
+                max_tokens=21333,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": f"分析以下工单：\n\n{text}"}],
                 output_config={"format": TicketClassification},
@@ -204,10 +203,9 @@ class StructuredExtractor:
             try:
                 response = self.client.messages.create(
                     model=self.model,
-                    max_tokens=2048,
+                    max_tokens=21333,
                     system=SYSTEM_PROMPT,
                     tools=[tool],
-                    tool_choice={"type": "tool", "name": "analyze_ticket"},
                     messages=messages,
                 )
                 self.token_tracker.track(response.usage)
@@ -260,10 +258,9 @@ class StructuredExtractor:
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=4096,
+                max_tokens=21333,
                 system=SYSTEM_PROMPT,
                 tools=[tool],
-                tool_choice={"type": "tool", "name": "batch_analyze"},
                 messages=[
                     {
                         "role": "user",

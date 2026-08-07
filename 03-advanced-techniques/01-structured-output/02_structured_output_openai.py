@@ -29,7 +29,7 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
-MODEL = "gpt-4.1"
+MODEL = "gpt-5.5"
 
 
 # ---------------------------------------------------------------------------
