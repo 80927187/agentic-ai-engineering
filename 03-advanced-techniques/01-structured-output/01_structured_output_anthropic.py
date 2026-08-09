@@ -173,13 +173,23 @@ class StructuredExtractor:
                 max_tokens=21333,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": f"分析以下工单：\n\n{text}"}],
-                output_config={"format": TicketClassification},
+                output_config={
+                    "format": {
+                        "type": "json_schema",
+                        "schema": TicketClassification.model_json_schema(),
+                    }
+                },
             )
             self.token_tracker.track(response.usage)
 
-            result: TicketClassification | None = response.parsed_output
-            if result:
-                return result
+            # 使用新版 output_config.format 时，手动从文本响应解析 Pydantic 模型。
+            text_parts = [
+                block.text
+                for block in response.content
+                if getattr(block, "type", None) == "text"
+            ]
+            if text_parts:
+                return TicketClassification.model_validate_json("".join(text_parts))
         except Exception as e:
             logger.error("原生模式提取失败：%s", e)
         return None
