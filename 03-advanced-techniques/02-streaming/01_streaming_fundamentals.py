@@ -20,7 +20,7 @@ load_dotenv(find_dotenv())
 # 配置日志
 logger = setup_logging(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 
 SYSTEM_PROMPT = (
     "你是一名乐于助人的助手。回答应简洁、结构清晰。"
@@ -50,7 +50,7 @@ class StreamingChat:
 
         with self.client.messages.stream(
             model=self.model,
-            max_tokens=2048,
+            max_tokens=21333,
             system=SYSTEM_PROMPT,
             messages=self.messages,
         ) as stream:
@@ -85,7 +85,7 @@ class StreamingChat:
 
         with self.client.messages.stream(
             model=self.model,
-            max_tokens=2048,
+            max_tokens=21333,
             system=SYSTEM_PROMPT,
             messages=self.messages,
         ) as stream:

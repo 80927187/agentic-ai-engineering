@@ -28,7 +28,7 @@ load_dotenv(find_dotenv())
 # 配置日志
 logger = setup_logging(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 
 SYSTEM_PROMPT = (
     "你是一名可以使用工具、乐于助人的助手。"
@@ -190,7 +190,7 @@ class StreamingAgent:
         self.messages.append({"role": "user", "content": user_input})
         full_response_text = ""
         iteration = 0
-        max_iterations = 10  # 防止无限循环的安全上限
+        max_iterations = 100  # 防止无限循环的安全上限
 
         while iteration < max_iterations:
             iteration += 1
@@ -227,7 +227,7 @@ class StreamingAgent:
         """
         with self.client.messages.stream(
             model=self.model,
-            max_tokens=2048,
+            max_tokens=21333,
             system=SYSTEM_PROMPT,
             messages=self.messages,
             tools=TOOLS,
