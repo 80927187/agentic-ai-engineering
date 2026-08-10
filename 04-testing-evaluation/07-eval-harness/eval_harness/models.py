@@ -1,10 +1,10 @@
-"""Pydantic data models for the eval harness pipeline."""
+"""评测工具流水线使用的 Pydantic 数据模型。"""
 
 from pydantic import BaseModel, Field
 
 
 class EvalTask(BaseModel):
-    """A single evaluation task from the golden dataset."""
+    """黄金数据集中的单项评测任务。"""
 
     id: str
     question: str
@@ -15,7 +15,7 @@ class EvalTask(BaseModel):
 
 
 class TraceSpan(BaseModel):
-    """A single span in an execution trace."""
+    """执行追踪中的单个 span。"""
 
     name: str
     span_type: str
@@ -27,12 +27,12 @@ class TraceSpan(BaseModel):
 
     @property
     def duration_ms(self) -> float:
-        """Duration in milliseconds."""
+        """以毫秒为单位的持续时间。"""
         return (self.end_time - self.start_time) * 1000 if self.end_time else 0.0
 
 
 class GraderScore(BaseModel):
-    """Score from a single grader."""
+    """单个评分器给出的分数。"""
 
     grader_name: str
     passed: bool
@@ -41,7 +41,7 @@ class GraderScore(BaseModel):
 
 
 class EvalTrial(BaseModel):
-    """One execution of the agent on a task."""
+    """智能体针对一项任务的一次执行。"""
 
     task_id: str
     trial_number: int = 1
@@ -54,7 +54,7 @@ class EvalTrial(BaseModel):
 
 
 class EvalResult(BaseModel):
-    """Aggregated result for one task."""
+    """一项任务的汇总结果。"""
 
     task_id: str
     trials: list[EvalTrial] = Field(default_factory=list)
@@ -64,7 +64,7 @@ class EvalResult(BaseModel):
 
 
 class SafetyResult(BaseModel):
-    """Result from a safety/red-team test."""
+    """安全/红队测试的结果。"""
 
     attack_id: str
     attack_name: str
@@ -75,7 +75,7 @@ class SafetyResult(BaseModel):
 
 
 class BenchmarkEntry(BaseModel):
-    """A single benchmark measurement."""
+    """一条基准测试测量结果。"""
 
     config_name: str
     task_id: str
@@ -86,9 +86,9 @@ class BenchmarkEntry(BaseModel):
 
 
 class EvalReport(BaseModel):
-    """Complete evaluation report."""
+    """完整的评测报告。"""
 
-    agent_name: str = "Research Assistant"
+    agent_name: str = "研究助手"
     eval_results: list[EvalResult] = Field(default_factory=list)
     safety_results: list[SafetyResult] = Field(default_factory=list)
     benchmark_entries: list[BenchmarkEntry] = Field(default_factory=list)

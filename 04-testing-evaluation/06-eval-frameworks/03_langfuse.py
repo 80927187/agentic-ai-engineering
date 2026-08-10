@@ -1,19 +1,18 @@
 """
-Langfuse — Tracing and Evaluation Platform
+Langfuse——链路追踪与评测平台。
 
-Demonstrates how to use Langfuse for agent observability and evaluation. Langfuse
-provides tracing (hierarchical spans), scoring (numeric, categorical, boolean),
-and experiment tracking — all as an open-source, self-hostable platform.
+演示如何使用 Langfuse 实现智能体的可观测性和评测。Langfuse 是一个开源且可自行托管的
+平台，提供链路追踪（层次化跨度）、评分（数值、分类、布尔值）和实验跟踪功能。
 
-This script:
-1. Shows the decorator-based tracing pattern (@observe)
-2. Demonstrates programmatic scoring of traces
-3. Runs a mini evaluation experiment with dataset items
-4. Works in simulated mode without a Langfuse server
+本脚本将：
+1. 展示基于装饰器的链路追踪模式（@observe）
+2. 演示如何以编程方式为追踪评分
+3. 使用数据集条目运行一个小型评测实验
+4. 在没有 Langfuse 服务器时以模拟模式运行
 
-Install: pip install langfuse
-Requires: LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_BASE_URL
-Or self-host: docker compose up (from langfuse repo)
+安装：pip install langfuse
+需要：LANGFUSE_SECRET_KEY、LANGFUSE_PUBLIC_KEY、LANGFUSE_BASE_URL
+也可自行托管：在 Langfuse 仓库中运行 docker compose up
 """
 
 import os
@@ -35,13 +34,13 @@ logger = setup_logging(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Simulated Langfuse trace collector (for demo without a Langfuse server)
+# 模拟的 Langfuse 追踪收集器（用于在没有 Langfuse 服务器时演示）
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class SimulatedSpan:
-    """A simulated Langfuse observation/span."""
+    """模拟的 Langfuse 观测/跨度。"""
 
     name: str
     span_type: str
@@ -59,7 +58,7 @@ class SimulatedSpan:
 
 @dataclass
 class SimulatedTrace:
-    """A simulated Langfuse trace with scoring."""
+    """支持评分的模拟 Langfuse 追踪。"""
 
     trace_id: str
     name: str
@@ -68,28 +67,28 @@ class SimulatedTrace:
 
 
 class SimulatedLangfuse:
-    """Simulates Langfuse tracing and scoring for demo purposes."""
+    """模拟 Langfuse 的链路追踪和评分功能，以便演示。"""
 
     def __init__(self) -> None:
         self.traces: list[SimulatedTrace] = []
         self._current_trace: SimulatedTrace | None = None
 
     def start_trace(self, name: str, trace_id: str) -> SimulatedTrace:
-        """Start a new trace."""
+        """开始新的追踪。"""
         trace = SimulatedTrace(trace_id=trace_id, name=name)
         self.traces.append(trace)
         self._current_trace = trace
         return trace
 
     def start_span(self, name: str, span_type: str = "span") -> SimulatedSpan:
-        """Start a new span within the current trace."""
+        """在当前追踪中开始新的跨度。"""
         span = SimulatedSpan(name=name, span_type=span_type, start_time=time.perf_counter())
         if self._current_trace:
             self._current_trace.spans.append(span)
         return span
 
     def end_span(self, span: SimulatedSpan, output: dict[str, Any] | None = None) -> None:
-        """End a span and record output."""
+        """结束跨度并记录输出。"""
         span.end_time = time.perf_counter()
         if output:
             span.output_data = output
@@ -102,7 +101,7 @@ class SimulatedLangfuse:
         data_type: str = "NUMERIC",
         comment: str = "",
     ) -> None:
-        """Add a score to a trace (mirrors langfuse.create_score)."""
+        """为追踪添加评分（对应 langfuse.create_score）。"""
         trace.scores.append(
             {
                 "name": name,
@@ -114,7 +113,7 @@ class SimulatedLangfuse:
 
 
 # ---------------------------------------------------------------------------
-# Evaluation with tracing and scoring
+# 使用链路追踪和评分进行评测
 # ---------------------------------------------------------------------------
 
 
@@ -122,17 +121,17 @@ def run_traced_eval(
     langfuse_client: SimulatedLangfuse,
     tasks: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Run evaluation tasks with Langfuse-style tracing and scoring."""
+    """使用 Langfuse 风格的链路追踪和评分运行评测任务。"""
     results: list[dict[str, Any]] = []
 
     for task in tasks:
-        # Start a trace for this eval task
+        # 为当前评测任务开始一条追踪
         trace = langfuse_client.start_trace(
             name=f"eval_{task['id']}",
             trace_id=f"trace_{task['id']}",
         )
 
-        # Span: agent execution
+        # 跨度：执行智能体
         agent_span = langfuse_client.start_span("agent_call", span_type="generation")
         agent_span.input_data = {"question": task["question"]}
 
@@ -140,17 +139,17 @@ def run_traced_eval(
 
         langfuse_client.end_span(agent_span, output={"answer": response["answer"]})
 
-        # Span: grading
+        # 跨度：评分
         grading_span = langfuse_client.start_span("grading", span_type="span")
 
-        # Score: keyword coverage (NUMERIC)
+        # 评分：关键词覆盖率（NUMERIC）
         answer_lower = response["answer"].lower()
         keywords = task["expected_keywords"]
         if keywords:
             found = sum(1 for kw in keywords if kw.lower() in answer_lower)
             keyword_score = found / len(keywords)
         else:
-            has_refusal = "unable" in answer_lower or "no relevant" in answer_lower
+            has_refusal = "无法" in response["answer"] or "没有相关" in response["answer"]
             keyword_score = 1.0 if has_refusal else 0.0
 
         langfuse_client.score_trace(
@@ -158,36 +157,36 @@ def run_traced_eval(
             name="keyword_coverage",
             value=keyword_score,
             data_type="NUMERIC",
-            comment=f"Found {found if keywords else 'N/A'}/{len(keywords)} keywords",
+            comment=f"找到 {found if keywords else '不适用'}/{len(keywords)} 个关键词",
         )
 
-        # Score: source grounding (BOOLEAN)
+        # 评分：来源依据（BOOLEAN）
         expected_sources = task.get("expected_source_ids", [])
         if expected_sources:
             all_cited = all(sid in response["answer"] for sid in expected_sources)
         else:
-            all_cited = "unable" in answer_lower or "no relevant" in answer_lower
+            all_cited = "无法" in response["answer"] or "没有相关" in response["answer"]
         langfuse_client.score_trace(
             trace,
             name="source_grounded",
             value=all_cited,
             data_type="BOOLEAN",
-            comment="All expected sources cited" if all_cited else "Missing source citations",
+            comment="已引用所有预期来源" if all_cited else "缺少来源引用",
         )
 
-        # Score: quality category (CATEGORICAL)
+        # 评分：质量类别（CATEGORICAL）
         if keyword_score >= 0.8 and all_cited:
-            quality = "excellent"
+            quality = "优秀"
         elif keyword_score >= 0.5:
-            quality = "acceptable"
+            quality = "合格"
         else:
-            quality = "poor"
+            quality = "较差"
         langfuse_client.score_trace(
             trace,
             name="quality_tier",
             value=quality,
             data_type="CATEGORICAL",
-            comment=f"keyword={keyword_score:.0%}, grounded={all_cited}",
+            comment=f"关键词={keyword_score:.0%}，有来源依据={all_cited}",
         )
 
         langfuse_client.end_span(grading_span)
@@ -207,26 +206,26 @@ def run_traced_eval(
 
 
 # ---------------------------------------------------------------------------
-# Main
+# 主程序
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    """Run Langfuse-style traced evaluation of the research assistant."""
+    """对研究助手运行 Langfuse 风格的链路追踪评测。"""
     console = Console()
     console.print(
         Panel(
-            "[bold cyan]Langfuse — Tracing & Evaluation Platform[/bold cyan]\n\n"
-            "Demonstrates Langfuse patterns for agent evaluation:\n"
-            "  - Decorator-based tracing (@observe)\n"
-            "  - Programmatic scoring (NUMERIC, BOOLEAN, CATEGORICAL)\n"
-            "  - Experiment tracking with datasets\n\n"
-            "Open source, self-hostable. Install: pip install langfuse",
+            "[bold cyan]Langfuse——链路追踪与评测平台[/bold cyan]\n\n"
+            "演示用于智能体评测的 Langfuse 模式：\n"
+            "  - 基于装饰器的链路追踪（@observe）\n"
+            "  - 程序化评分（NUMERIC、BOOLEAN、CATEGORICAL）\n"
+            "  - 使用数据集跟踪实验\n\n"
+            "开源且可自行托管。安装：pip install langfuse",
             title="03 - Langfuse",
         )
     )
 
-    # Check for Langfuse SDK and credentials
+    # 检查 Langfuse SDK 和凭据
     has_langfuse = False
     try:
         import langfuse  # noqa: F401
@@ -240,36 +239,36 @@ def main() -> None:
     )
 
     if has_langfuse and has_langfuse_keys:
-        console.print("[green]Langfuse SDK + keys found — traces will be sent to server[/green]")
+        console.print("[green]已找到 Langfuse SDK 和密钥——追踪数据将发送到服务器[/green]")
     elif has_langfuse:
         console.print(
-            "[yellow]Langfuse SDK installed but no keys — running simulated mode[/yellow]"
+            "[yellow]已安装 Langfuse SDK，但未设置密钥——以模拟模式运行[/yellow]"
         )
     else:
-        console.print("[yellow]Langfuse not installed — running simulated demo[/yellow]")
+        console.print("[yellow]未安装 Langfuse——运行模拟演示[/yellow]")
     console.print()
 
-    # Run evaluation with simulated Langfuse client
-    # In production, replace SimulatedLangfuse with the real Langfuse SDK
+    # 使用模拟的 Langfuse 客户端运行评测
+    # 在生产环境中，请将 SimulatedLangfuse 替换为真正的 Langfuse SDK
     langfuse_client = SimulatedLangfuse()
     results = run_traced_eval(langfuse_client, EVAL_TASKS)
 
-    # Results table
-    table = Table(title="Langfuse Traced Evaluation Results", show_lines=True)
-    table.add_column("Task", style="cyan", width=12)
-    table.add_column("Trace ID", width=16)
-    table.add_column("Keywords", width=10, justify="center")
-    table.add_column("Grounded", width=10, justify="center")
-    table.add_column("Quality", width=12, justify="center")
-    table.add_column("Duration", width=10, justify="right")
+    # 结果表格
+    table = Table(title="Langfuse 链路追踪评测结果", show_lines=True)
+    table.add_column("任务", style="cyan", width=12)
+    table.add_column("追踪 ID", width=16)
+    table.add_column("关键词", width=10, justify="center")
+    table.add_column("有依据", width=10, justify="center")
+    table.add_column("质量", width=12, justify="center")
+    table.add_column("耗时", width=10, justify="right")
 
     for r in results:
         kw_color = "green" if r["keyword_score"] >= 0.7 else "yellow"
-        grounded_str = "[green]True[/green]" if r["grounded"] else "[red]False[/red]"
+        grounded_str = "[green]是[/green]" if r["grounded"] else "[red]否[/red]"
         quality_color = {
-            "excellent": "green",
-            "acceptable": "yellow",
-            "poor": "red",
+            "优秀": "green",
+            "合格": "yellow",
+            "较差": "red",
         }.get(r["quality"], "dim")
 
         table.add_row(
@@ -283,51 +282,51 @@ def main() -> None:
 
     console.print(table)
 
-    # Trace summary
+    # 追踪汇总
     console.print(
-        f"\n[bold]Traces collected:[/bold] {len(langfuse_client.traces)}\n"
-        f"[bold]Total scores:[/bold] "
+        f"\n[bold]已收集追踪数：[/bold] {len(langfuse_client.traces)}\n"
+        f"[bold]评分总数：[/bold] "
         f"{sum(len(t.scores) for t in langfuse_client.traces)}\n"
-        f"[bold]Total spans:[/bold] "
+        f"[bold]跨度总数：[/bold] "
         f"{sum(len(t.spans) for t in langfuse_client.traces)}"
     )
 
-    # Score type breakdown
+    # 评分类型明细
     score_types = {"NUMERIC": 0, "BOOLEAN": 0, "CATEGORICAL": 0}
     for trace in langfuse_client.traces:
         for score in trace.scores:
             score_types[score["data_type"]] = score_types.get(score["data_type"], 0) + 1
 
-    console.print("\n[bold]Score types used:[/bold]")
+    console.print("\n[bold]使用的评分类型：[/bold]")
     for dtype, count in score_types.items():
         console.print(f"  {dtype}: {count}")
 
-    # Show Langfuse code patterns
-    console.print("\n[bold]Langfuse SDK Patterns:[/bold]\n")
+    # 展示 Langfuse 代码模式
+    console.print("\n[bold]Langfuse SDK 模式：[/bold]\n")
     from rich.syntax import Syntax
 
     decorator_code = (
         "from langfuse import observe, get_client\n\n"
-        "@observe()  # Automatically creates a trace\n"
+        "@observe()  # 自动创建追踪\n"
         "def my_agent(question: str) -> str:\n"
         "    result = search_and_answer(question)\n"
         "    return result\n\n"
         '@observe(name="llm-call", as_type="generation")\n'
         "def search_and_answer(question: str) -> str:\n"
-        "    # Nested spans are captured automatically\n"
+        "    # 自动捕获嵌套跨度\n"
         "    return call_llm(question)\n"
     )
     console.print(Syntax(decorator_code, "python", theme="monokai", line_numbers=True))
 
     scoring_code = (
         "langfuse = get_client()\n\n"
-        "# Score after execution\n"
+        "# 执行完成后评分\n"
         "langfuse.create_score(\n"
         "    trace_id=trace_id,\n"
         '    name="correctness",\n'
         "    value=0.95,\n"
         '    data_type="NUMERIC",\n'
-        '    comment="Factually accurate",\n'
+        '    comment="事实准确",\n'
         ")\n"
     )
     console.print(Syntax(scoring_code, "python", theme="monokai", line_numbers=True))

@@ -1,146 +1,146 @@
 {
     "version": "1.0",
-    "description": "Golden dataset for research assistant evaluation",
+    "description": "用于评估研究助手的黄金数据集",
     "tasks": [
         {
             "id": "task_001",
-            "question": "What are the key benefits of microservices architecture?",
-            "expected_keywords": ["scalability", "fault isolation", "independent"],
+            "question": "微服务架构有哪些主要优势？",
+            "expected_keywords": ["可扩展性", "故障隔离", "独立部署"],
             "expected_source_ids": ["doc_001"],
-            "difficulty": "easy",
-            "category": "architecture",
+            "difficulty": "简单",
+            "category": "架构",
             "eval_type": "regression",
-            "reference_answer": "Key benefits include scalability, fault isolation, and independent deployment of services (doc_001)."
+            "reference_answer": "主要优势包括可扩展性、故障隔离以及服务的独立部署（doc_001）。"
         },
         {
             "id": "task_002",
-            "question": "What are the best practices for REST API design?",
-            "expected_keywords": ["nouns", "endpoints", "HTTP methods", "status codes"],
+            "question": "REST API 设计有哪些最佳实践？",
+            "expected_keywords": ["名词", "端点", "HTTP 方法", "状态码"],
             "expected_source_ids": ["doc_002"],
-            "difficulty": "easy",
-            "category": "api",
+            "difficulty": "简单",
+            "category": "API",
             "eval_type": "regression",
-            "reference_answer": "Use nouns for endpoints, HTTP methods for actions, proper status codes, versioning, and pagination (doc_002)."
+            "reference_answer": "端点使用名词，操作使用 HTTP 方法，并采用恰当的状态码、版本控制和分页（doc_002）。"
         },
         {
             "id": "task_003",
-            "question": "How do database indexes improve query performance?",
-            "expected_keywords": ["B-tree", "lookup", "query"],
+            "question": "数据库索引如何提升查询性能？",
+            "expected_keywords": ["B 树", "查找", "查询"],
             "expected_source_ids": ["doc_003"],
-            "difficulty": "easy",
-            "category": "database",
+            "difficulty": "简单",
+            "category": "数据库",
             "eval_type": "regression",
-            "reference_answer": "Indexes use B-tree structures for efficient lookup, reducing full table scans and speeding up queries (doc_003)."
+            "reference_answer": "索引使用 B 树结构进行高效查找，减少全表扫描并加快查询速度（doc_003）。"
         },
         {
             "id": "task_004",
-            "question": "What is the difference between authentication and authorization?",
-            "expected_keywords": ["identity", "access", "authentication", "authorization"],
+            "question": "身份认证与授权有什么区别？",
+            "expected_keywords": ["身份", "访问", "认证", "授权"],
             "expected_source_ids": ["doc_004"],
-            "difficulty": "easy",
-            "category": "security",
+            "difficulty": "简单",
+            "category": "安全",
             "eval_type": "regression",
-            "reference_answer": "Authentication verifies identity; authorization controls access permissions. Use JWT and hash passwords with bcrypt (doc_004)."
+            "reference_answer": "身份认证用于验证身份，授权用于控制访问权限。使用 JWT，并用 bcrypt 对密码进行哈希处理（doc_004）。"
         },
         {
             "id": "task_005",
-            "question": "What are the key practices in CI/CD pipelines?",
-            "expected_keywords": ["continuous", "build", "test", "deploy"],
+            "question": "CI/CD 流水线有哪些关键实践？",
+            "expected_keywords": ["持续", "构建", "测试", "部署"],
             "expected_source_ids": ["doc_005"],
-            "difficulty": "easy",
-            "category": "devops",
+            "difficulty": "简单",
+            "category": "DevOps",
             "eval_type": "regression",
-            "reference_answer": "CI automatically builds and tests on every commit; CD deploys passing builds. Use fast feedback loops (doc_005)."
+            "reference_answer": "CI 在每次提交时自动构建和测试；CD 部署通过测试的构建。应采用快速反馈循环（doc_005）。"
         },
         {
             "id": "task_006",
-            "question": "What are the core concepts of Kubernetes?",
-            "expected_keywords": ["pods", "services", "deployments"],
+            "question": "Kubernetes 有哪些核心概念？",
+            "expected_keywords": ["Pod", "Service", "Deployment"],
             "expected_source_ids": ["doc_006"],
-            "difficulty": "easy",
-            "category": "devops",
-            "reference_answer": "Core concepts are pods (smallest unit), services (networking), and deployments (declarative updates) (doc_006)."
+            "difficulty": "简单",
+            "category": "DevOps",
+            "reference_answer": "核心概念包括 Pod（最小单元）、Service（网络）和 Deployment（声明式更新）（doc_006）。"
         },
         {
             "id": "task_007",
-            "question": "What caching strategies are available and when should you use Redis?",
-            "expected_keywords": ["cache-aside", "write-through", "Redis"],
+            "question": "有哪些缓存策略？何时应使用 Redis？",
+            "expected_keywords": ["旁路缓存", "写穿", "Redis"],
             "expected_source_ids": ["doc_008"],
-            "difficulty": "easy",
-            "category": "performance",
-            "reference_answer": "Strategies include cache-aside and write-through. Redis suits high-throughput, low-latency scenarios (doc_008)."
+            "difficulty": "简单",
+            "category": "性能",
+            "reference_answer": "缓存策略包括旁路缓存和写穿。Redis 适合高吞吐、低延迟场景（doc_008）。"
         },
         {
             "id": "task_008",
-            "question": "Compare event-driven architecture patterns like event sourcing and CQRS.",
-            "expected_keywords": ["event sourcing", "CQRS", "pub/sub"],
+            "question": "比较事件溯源和 CQRS 等事件驱动架构模式。",
+            "expected_keywords": ["事件溯源", "CQRS", "发布/订阅"],
             "expected_source_ids": ["doc_007"],
-            "difficulty": "medium",
-            "category": "architecture",
-            "reference_answer": "Event sourcing stores state as events; CQRS separates reads and writes. Pub/sub enables loose coupling (doc_007)."
+            "difficulty": "中等",
+            "category": "架构",
+            "reference_answer": "事件溯源以事件形式存储状态；CQRS 将读写分离；发布/订阅实现松耦合（doc_007）。"
         },
         {
             "id": "task_009",
-            "question": "How should I secure my API with authentication? Include best practices for passwords and tokens.",
-            "expected_keywords": ["JWT", "OAuth", "hash", "bcrypt"],
+            "question": "应如何通过身份认证保护 API？请包含密码和令牌的最佳实践。",
+            "expected_keywords": ["JWT", "OAuth", "哈希", "bcrypt"],
             "expected_source_ids": ["doc_004"],
-            "difficulty": "medium",
-            "category": "security",
-            "reference_answer": "Use JWT or OAuth for tokens, hash passwords with bcrypt or argon2, and enforce HTTPS (doc_004)."
+            "difficulty": "中等",
+            "category": "安全",
+            "reference_answer": "令牌使用 JWT 或 OAuth，密码使用 bcrypt 或 argon2 进行哈希处理，并强制使用 HTTPS（doc_004）。"
         },
         {
             "id": "task_010",
-            "question": "What are the challenges of microservices and how does event-driven architecture help with loose coupling?",
-            "expected_keywords": ["distributed", "complexity", "loose coupling", "events"],
+            "question": "微服务面临哪些挑战？事件驱动架构如何帮助实现松耦合？",
+            "expected_keywords": ["分布式", "复杂性", "松耦合", "事件"],
             "expected_source_ids": ["doc_001", "doc_007"],
-            "difficulty": "hard",
-            "category": "architecture",
-            "reference_answer": "Microservices add distributed complexity; event-driven patterns like pub/sub enable loose coupling between services (doc_001, doc_007)."
+            "difficulty": "困难",
+            "category": "架构",
+            "reference_answer": "微服务增加了分布式系统的复杂性；发布/订阅等事件驱动模式可实现服务间的松耦合（doc_001、doc_007）。"
         },
         {
             "id": "task_011",
-            "question": "How can I improve my application performance using both caching and database indexing?",
-            "expected_keywords": ["cache", "index", "latency", "performance"],
+            "question": "如何结合缓存和数据库索引提升应用性能？",
+            "expected_keywords": ["缓存", "索引", "延迟", "性能"],
             "expected_source_ids": ["doc_003", "doc_008"],
-            "difficulty": "hard",
-            "category": "performance",
-            "reference_answer": "Combine database indexes for query optimization with caching (cache-aside/Redis) to reduce latency (doc_003, doc_008)."
+            "difficulty": "困难",
+            "category": "性能",
+            "reference_answer": "结合数据库索引优化查询，并使用缓存（旁路缓存/Redis）降低延迟（doc_003、doc_008）。"
         },
         {
             "id": "task_012",
-            "question": "Describe a complete DevOps pipeline from CI/CD to container orchestration with Kubernetes.",
-            "expected_keywords": ["CI", "CD", "Kubernetes", "containers", "deploy"],
+            "question": "描述一条从 CI/CD 到 Kubernetes 容器编排的完整 DevOps 流水线。",
+            "expected_keywords": ["CI", "CD", "Kubernetes", "容器", "部署"],
             "expected_source_ids": ["doc_005", "doc_006"],
-            "difficulty": "hard",
-            "category": "devops",
-            "reference_answer": "CI/CD builds, tests, and deploys automatically; Kubernetes orchestrates containers via pods and deployments (doc_005, doc_006)."
+            "difficulty": "困难",
+            "category": "DevOps",
+            "reference_answer": "CI/CD 自动完成构建、测试和部署；Kubernetes 通过 Pod 和 Deployment 编排容器（doc_005、doc_006）。"
         },
         {
             "id": "task_013",
-            "question": "What is the best programming language to use for machine learning?",
-            "expected_keywords": ["no relevant", "not found", "no information"],
+            "question": "哪种编程语言最适合机器学习？",
+            "expected_keywords": ["没有相关", "未找到", "没有信息"],
             "expected_source_ids": [],
-            "difficulty": "easy",
-            "category": "out-of-scope",
-            "reference_answer": "The knowledge base does not contain information about machine learning programming languages."
+            "difficulty": "简单",
+            "category": "超出范围",
+            "reference_answer": "知识库不包含有关机器学习编程语言的信息。"
         },
         {
             "id": "task_014",
-            "question": "How do I set up a React frontend with TypeScript?",
-            "expected_keywords": ["no relevant", "not found", "no information"],
+            "question": "如何使用 TypeScript 搭建 React 前端？",
+            "expected_keywords": ["没有相关", "未找到", "没有信息"],
             "expected_source_ids": [],
-            "difficulty": "easy",
-            "category": "out-of-scope",
-            "reference_answer": "The knowledge base does not cover React or TypeScript frontend setup."
+            "difficulty": "简单",
+            "category": "超出范围",
+            "reference_answer": "知识库不包含 React 或 TypeScript 前端搭建方面的内容。"
         },
         {
             "id": "task_015",
-            "question": "What are the risks of over-indexing a database and how does composite index column order matter?",
-            "expected_keywords": ["over-indexing", "writes", "column order", "composite"],
+            "question": "数据库索引过多有什么风险？复合索引的列顺序为何重要？",
+            "expected_keywords": ["索引过多", "写入", "列顺序", "复合索引"],
             "expected_source_ids": ["doc_003"],
-            "difficulty": "medium",
-            "category": "database",
-            "reference_answer": "Over-indexing slows writes and wastes storage. Composite index column order must match query patterns (doc_003)."
+            "difficulty": "中等",
+            "category": "数据库",
+            "reference_answer": "索引过多会降低写入速度并浪费存储空间。复合索引的列顺序必须与查询模式相匹配（doc_003）。"
         }
     ]
 }

@@ -1,7 +1,7 @@
 """
-Shared tracing primitives: Span dataclass and TraceCollector.
+共享追踪原语：Span 数据类和 TraceCollector。
 
-Provides the core span-based tracing infrastructure used across all tracing tutorials.
+提供所有追踪教程共用的基于跨度的核心追踪基础设施。
 """
 
 import json
@@ -19,10 +19,10 @@ logger = setup_logging(__name__)
 
 @dataclass
 class Span:
-    """A single traced operation."""
+    """单个被追踪的操作。"""
 
     name: str
-    span_type: str  # "llm_call", "tool_call", "agent_step", "search"
+    span_type: str  # “LLM 调用”“工具调用”“智能体步骤”“搜索”
     start_time: float
     end_time: float | None = None
     inputs: dict[str, Any] = field(default_factory=dict)
@@ -34,13 +34,13 @@ class Span:
 
     @property
     def duration_ms(self) -> float:
-        """Duration in milliseconds."""
+        """以毫秒为单位的持续时间。"""
         if self.end_time is None:
             return 0.0
         return (self.end_time - self.start_time) * 1000
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert span to a serializable dictionary."""
+        """将跨度转换为可序列化的字典。"""
         return {
             "name": self.name,
             "span_type": self.span_type,
@@ -57,7 +57,7 @@ class Span:
 
 
 class TraceCollector:
-    """Collects execution traces with hierarchical spans."""
+    """使用分层跨度收集执行追踪。"""
 
     def __init__(self) -> None:
         self.trace_id: str = str(uuid.uuid4())[:8]
@@ -68,7 +68,7 @@ class TraceCollector:
     def span(
         self, name: str, span_type: str, inputs: dict[str, Any] | None = None
     ) -> Generator[Span, None, None]:
-        """Context manager for creating traced spans."""
+        """用于创建追踪跨度的上下文管理器。"""
         new_span = Span(
             name=name,
             span_type=span_type,
@@ -76,7 +76,7 @@ class TraceCollector:
             inputs=inputs or {},
         )
 
-        # Nest under current parent, or add as root
+        # 嵌套到当前父跨度下；没有父跨度时添加为根跨度
         if self._span_stack:
             self._span_stack[-1].children.append(new_span)
         else:
@@ -93,7 +93,7 @@ class TraceCollector:
             self._span_stack.pop()
 
     def traced(self, name: str, span_type: str) -> Callable:
-        """Decorator for tracing function calls."""
+        """用于追踪函数调用的装饰器。"""
 
         def decorator(func: Callable) -> Callable:
             def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -107,23 +107,23 @@ class TraceCollector:
         return decorator
 
     def to_dict(self) -> dict[str, Any]:
-        """Export trace as a serializable dictionary."""
+        """将追踪导出为可序列化的字典。"""
         return {
             "trace_id": self.trace_id,
             "spans": [span.to_dict() for span in self.root_spans],
         }
 
     def save(self, path: str) -> None:
-        """Save trace to JSON file."""
+        """将追踪保存到 JSON 文件。"""
         from pathlib import Path
 
         with Path(path).open("w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2, default=str)
-        logger.info("Trace saved to %s", path)
+        logger.info("追踪已保存到 %s", path)
 
 
 def collect_all_spans(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Flatten a span tree into a list (depth-first)."""
+    """按深度优先顺序将跨度树展平为列表。"""
     result: list[dict[str, Any]] = []
     for span in spans:
         result.append(span)

@@ -1,4 +1,4 @@
-"""Shared modules for benchmarking tutorials."""
+"""基准测试教程的共享模块。"""
 
 from shared.knowledge_base import (
     BENCHMARK_TASKS,

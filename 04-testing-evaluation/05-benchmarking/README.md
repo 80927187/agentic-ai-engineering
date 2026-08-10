@@ -1,115 +1,116 @@
 <!-- ---
-title: "Benchmarking"
-description: "Systematic head-to-head comparison of models, prompts, and architectures"
+title: "基准测试"
+description: "对模型、提示词和架构进行系统化的正面对比"
 icon: "bar-chart-2"
 --- -->
 
-# Benchmarking
+# 基准测试
 
-When you need to decide between Claude Sonnet vs. GPT-4o-mini, or between two prompt strategies, benchmarking gives you **data instead of vibes**. Systematic head-to-head comparison across dimensions that matter: accuracy, latency, cost, and reliability.
+当你需要在 Claude Sonnet 与 GPT-4o-mini 之间，或在两种提示词策略之间做出选择时，基准测试能为你提供**数据，而不是凭感觉判断**。你可以围绕准确率、延迟、成本和可靠性等重要维度进行系统化的正面对比。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Compare models on accuracy, latency, token usage, and cost
-- Evaluate prompt strategies: zero-shot, few-shot, chain-of-thought
-- Build configuration matrices (model × prompt) and run controlled experiments
-- Find **Pareto-optimal** configurations (best accuracy for a given cost budget)
-- Make data-driven model selection decisions
+- 比较不同模型的准确率、延迟、Token 用量和成本
+- 评估零样本、少样本和思维链等提示词策略
+- 构建配置矩阵（模型 × 提示词）并开展受控实验
+- 找出**帕累托最优**配置（在给定成本预算下准确率最高的配置）
+- 根据数据选择模型
 
-## 📦 Available Examples
+## 📦 示例一览
 
-| Script | File | Description |
-| ------ | ---- | ----------- |
-| Model Comparison | [01_model_comparison.py](01_model_comparison.py) | Same tasks across Claude Sonnet, Haiku, GPT-4.1 mini |
-| Prompt Comparison | [02_prompt_comparison.py](02_prompt_comparison.py) | Zero-shot vs. few-shot vs. chain-of-thought |
-| Benchmark Suite | [03_benchmark_suite.py](03_benchmark_suite.py) | Full matrix, Pareto analysis, report generation |
+| 示例 | 文件 | 说明 |
+| ---- | ---- | ---- |
+| 模型对比 | [01_model_comparison.py](01_model_comparison.py) | 使用相同任务比较 Claude Sonnet、Haiku 和 GPT-4.1 mini |
+| 提示词对比 | [02_prompt_comparison.py](02_prompt_comparison.py) | 比较零样本、少样本与思维链策略 |
+| 基准测试套件 | [03_benchmark_suite.py](03_benchmark_suite.py) | 完整配置矩阵、帕累托分析与报告生成 |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+, API keys, and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+、API 密钥和 uv。完整配置说明请参阅 [SETUP.md](../../SETUP.md)。
 
 ```bash
 uv run --directory 04-testing-evaluation/05-benchmarking python 01_model_comparison.py
 
-# Example
+# 示例
 uv run --directory 04-testing-evaluation/05-benchmarking python 03_benchmark_suite.py
 ```
 
-All scripts include **simulated results** and work without API keys. Live mode activates when `ANTHROPIC_API_KEY` (and optionally `OPENAI_API_KEY`) is set.
+所有脚本都内置了**模拟结果**，无需 API 密钥也能运行。设置 `ANTHROPIC_API_KEY`（以及可选的 `OPENAI_API_KEY`）后，将启用实时模式。
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+你也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，一键运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
-### 1. Controlled Experimentation
+### 1. 受控实验
 
-Change one variable, hold others constant:
+每次只改变一个变量，其余条件保持不变：
 
-| Benchmark Type | Variable | Constant |
-|---------------|----------|----------|
-| Model comparison | Model | Same tasks, same prompt, same graders |
-| Prompt comparison | Prompt strategy | Same model, same tasks, same graders |
-| Full matrix | Model × Prompt | Same tasks, same graders |
+| 基准测试类型 | 变量 | 保持不变的条件 |
+| ------------ | ---- | -------------- |
+| 模型对比 | 模型 | 相同任务、相同提示词、相同评分器 |
+| 提示词对比 | 提示词策略 | 相同模型、相同任务、相同评分器 |
+| 完整矩阵 | 模型 × 提示词 | 相同任务、相同评分器 |
 
-### 2. Multi-Dimensional Evaluation
+### 2. 多维评估
 
-Accuracy alone is not enough:
+仅看准确率并不足够：
 
 ```python
 @dataclass
 class BenchmarkResult:
-    keyword_score: float   # Quality: did the answer contain expected info?
-    latency_ms: float      # Speed: how fast was the response?
-    input_tokens: int      # Efficiency: how many tokens consumed?
-    cost_usd: float        # Cost: what did this run cost?
-    tool_calls: int        # Behavior: how many tool calls needed?
+    keyword_score: float   # 质量：回答是否包含预期信息？
+    latency_ms: float      # 速度：响应有多快？
+    input_tokens: int      # 效率：消耗了多少 Token？
+    cost_usd: float        # 成本：本次运行花费多少？
+    tool_calls: int        # 行为：需要调用多少次工具？
 ```
 
-### 3. Pareto Optimality
+### 3. 帕累托最优
 
-A configuration is **Pareto-optimal** if no other configuration is better on ALL dimensions:
+如果不存在另一个配置在所有维度上都更优，那么该配置就是**帕累托最优**配置：
 
 ```
-Accuracy ↑
-    │   ★ Sonnet+CoT (best quality, highest cost)
+准确率 ↑
+    │   ★ Sonnet+思维链（质量最高、成本最高）
     │
-    │       ★ Sonnet+ZeroShot (good balance)
+    │       ★ Sonnet+零样本（均衡性好）
     │
-    │           ★ Haiku+FewShot (cheapest good option)
+    │           ★ Haiku+少样本（优质选项中成本最低）
     │
-    └──────────────────────────── Cost →
+    └──────────────────────────── 成本 →
 ```
 
-The Pareto frontier helps answer: "What's the best I can get for $X per task?"
+帕累托前沿可以帮助回答：“每个任务预算为 X 美元时，我能获得的最佳效果是什么？”
 
-### 4. Prompt Strategy Impact
+### 4. 提示词策略的影响
 
-Different prompt strategies trade quality for cost:
+不同提示词策略会在质量和成本之间做出不同权衡：
 
-| Strategy | Accuracy | Cost | Use When |
-|----------|----------|------|----------|
-| Zero-shot | Baseline | Lowest | Simple, well-defined tasks |
-| Few-shot | +10-15% | Medium | Tasks with clear patterns |
-| Chain-of-thought | +15-25% | Highest | Complex reasoning tasks |
+| 策略 | 准确率 | 成本 | 适用场景 |
+| ---- | ------ | ---- | -------- |
+| 零样本 | 基准水平 | 最低 | 简单且定义明确的任务 |
+| 少样本 | +10–15% | 中等 | 模式清晰的任务 |
+| 思维链 | +15–25% | 最高 | 复杂推理任务 |
 
-## ⚠️ Important Considerations
+## ⚠️ 重要注意事项
 
-- **Run multiple trials** — 1 trial is not a benchmark; run 3-5 minimum per configuration
-- **Account for variance** — non-deterministic outputs mean results vary between runs
-- **Cost adds up fast** — a full matrix benchmark can be expensive; start with simulated mode
-- **Token pricing changes** — update `cost_per_input_token` and `cost_per_output_token` as providers update pricing
+- **进行多次试验**——一次试验不能称为基准测试；每个配置至少运行 3～5 次
+- **考虑方差**——输出具有非确定性，因此不同运行之间的结果会有差异
+- **成本会迅速累积**——完整矩阵基准测试可能很昂贵，建议先从模拟模式开始
+- **Token 定价会变化**——服务商更新价格后，及时调整 `cost_per_input_token` 和 `cost_per_output_token`
 
-## 🔗 Resources
+## 🔗 参考资料
 
-- [Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference — Chiang et al., 2024](https://arxiv.org/abs/2403.04132) — Elo-rated human preference benchmarking methodology and the open leaderboard approach
-- [Holistic Evaluation of Language Models (HELM) — Liang et al., 2022](https://arxiv.org/abs/2211.09110) — Multi-dimensional evaluation across accuracy, robustness, fairness, and efficiency
-- [Chain-of-Thought Prompting Elicits Reasoning in Large Language Models — Wei et al., 2022](https://arxiv.org/abs/2201.11903) — The foundational CoT prompting paper showing significant accuracy gains on reasoning tasks
-- [Language Models are Few-Shot Learners — Brown et al., 2020](https://arxiv.org/abs/2005.14165) — GPT-3 paper establishing few-shot in-context learning as a prompting paradigm
-- [AI Agent Benchmarks — Evidently AI](https://www.evidentlyai.com/blog/ai-agent-benchmarks) — Overview of the benchmark landscape for AI agents
+- [Chatbot Arena：基于人类偏好评估大语言模型的开放平台——Chiang 等，2024](https://arxiv.org/abs/2403.04132)——介绍基于 Elo 评分的人类偏好基准测试方法与开放排行榜方案
+- [语言模型的整体评估（HELM）——Liang 等，2022](https://arxiv.org/abs/2211.09110)——从准确率、稳健性、公平性和效率等维度进行综合评估
+- [思维链提示激发大语言模型的推理能力——Wei 等，2022](https://arxiv.org/abs/2201.11903)——思维链提示领域的奠基论文，展示其对推理任务准确率的显著提升
+- [语言模型是少样本学习器——Brown 等，2020](https://arxiv.org/abs/2005.14165)——提出以少样本上下文学习作为提示范式的 GPT-3 论文
+- [AI 智能体基准测试——Evidently AI](https://www.evidentlyai.com/blog/ai-agent-benchmarks)——AI 智能体基准测试生态概览
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-Once you've mastered benchmarking, continue to:
-- **[Eval Harness](../07-eval-harness/)** — The capstone that combines all 5 techniques into a unified pipeline
-- **Experiment** — Add your own models and prompt strategies to the benchmark
-- **Explore** — Combine benchmark results with eval scores from [Tutorial 02](../02-evals/)
+掌握基准测试后，可以继续：
+
+- **[评估工具链](../07-eval-harness/)**——把全部 5 种技术整合到统一流水线中的综合项目
+- **动手实验**——把你自己的模型和提示词策略添加到基准测试中
+- **继续探索**——将基准结果与[教程 02](../02-evals/) 的评估分数结合起来

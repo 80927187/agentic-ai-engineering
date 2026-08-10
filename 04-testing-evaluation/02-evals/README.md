@@ -1,128 +1,129 @@
 <!-- ---
-title: "Evals"
-description: "Build evaluation suites that measure accuracy, quality, and regression over time"
+title: "评估"
+description: "构建用于持续衡量准确性、质量和回归情况的评估套件"
 icon: "bar-chart"
 --- -->
 
-# Evals
+# 评估
 
-Move beyond deterministic assertions to **statistical evaluation** of agent quality. Following Anthropic's eval-driven development methodology: define success criteria as eval tasks, score with multiple grader types, track quality over time, and catch regressions automatically.
+超越确定性断言，对智能体质量进行**统计评估**。本教程遵循 Anthropic 的评估驱动开发方法：将成功标准定义为评估任务，使用多种评分器打分，持续跟踪质量，并自动发现回归。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Build code-based graders: keyword matching, regex, source citation, tool-call verification
-- Implement the **LLM-as-judge** pattern with structured rubrics and chain-of-thought judging
-- Design **golden datasets** — curated input/output pairs for regression testing
-- Build end-to-end eval pipelines with multi-grader scoring
-- Detect regressions by comparing pass rates against baselines
-- Understand Anthropic's eval vocabulary: task, trial, transcript, outcome, grader
+- 构建基于代码的评分器：关键词匹配、正则表达式、来源引用和工具调用验证
+- 使用结构化评分标准和思维链评判实现 **LLM 充当评委**模式
+- 设计**黄金数据集**——用于回归测试的精选输入/输出对
+- 构建使用多评分器打分的端到端评估流水线
+- 通过比较当前通过率与基线来检测回归
+- 理解 Anthropic 的评估术语：任务、试验、轨迹、结果和评分器
 
-## 📦 Available Examples
+## 📦 示例
 
-| Script | File | Description |
-| ------ | ---- | ----------- |
-| Code-Based Graders | [01_code_based_graders.py](01_code_based_graders.py) | Keyword, regex, citation, and tool-call graders |
-| LLM-as-Judge | [02_llm_as_judge.py](02_llm_as_judge.py) | Structured rubric scoring with chain-of-thought |
-| Eval Pipeline | [03_eval_pipeline.py](03_eval_pipeline.py) | End-to-end: dataset → trials → grading → regression detection |
+| 脚本 | 文件 | 说明 |
+| ---- | ---- | ---- |
+| 基于代码的评分器 | [01_code_based_graders.py](01_code_based_graders.py) | 关键词、正则表达式、引用和工具调用评分器 |
+| LLM 充当评委 | [02_llm_as_judge.py](02_llm_as_judge.py) | 使用思维链和结构化评分标准打分 |
+| 评估流水线 | [03_eval_pipeline.py](03_eval_pipeline.py) | 端到端流程：数据集 → 试验 → 评分 → 回归检测 |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+, API keys, and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+、API 密钥和 uv。完整配置说明请参阅 [SETUP.md](../../SETUP.md)。
 
 ```bash
 uv run --directory 04-testing-evaluation/02-evals python 01_code_based_graders.py
 
-# Example
+# 示例
 uv run --directory 04-testing-evaluation/02-evals python 03_eval_pipeline.py
 ```
 
-All scripts work in **simulated mode** without API keys (using pre-defined responses) and in **live mode** with an `ANTHROPIC_API_KEY`.
+所有脚本均可在没有 API 密钥时以**模拟模式**运行（使用预定义响应），也可在配置 `ANTHROPIC_API_KEY` 后以**在线模式**运行。
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+你也可以安装 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，单击即可运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
-### 1. Eval Vocabulary (from Anthropic)
+### 1. 评估术语（来自 Anthropic）
 
-| Term | Definition |
-|------|-----------|
-| **Task** | A test case with inputs and success criteria |
-| **Trial** | One stochastic run of a task (run multiple to capture variance) |
-| **Transcript** | Complete record of the agent's actions |
-| **Outcome** | Final environment state after the agent finishes |
-| **Grader** | Logic that scores some aspect of agent performance |
-| **pass@k** | Probability of at least one success in k trials |
-| **pass^k** | All k trials must succeed (tests consistency) |
+| 术语 | 定义 |
+| ---- | ---- |
+| **任务（Task）** | 包含输入和成功标准的测试用例 |
+| **试验（Trial）** | 对一个任务的一次随机运行（通过多次运行捕捉差异） |
+| **轨迹（Transcript）** | 智能体所有操作的完整记录 |
+| **结果（Outcome）** | 智能体完成后的最终环境状态 |
+| **评分器（Grader）** | 对智能体表现的某一方面进行评分的逻辑 |
+| **pass@k** | k 次试验中至少成功一次的概率 |
+| **pass^k** | k 次试验必须全部成功（用于检验一致性） |
 
-### 2. Three Grader Types
+### 2. 三种评分器
 
 ```python
-# Code-based: fast, deterministic, cheap
+# 基于代码：快速、确定、成本低
 class KeywordGrader:
     def grade(self, answer, expected_keywords) -> GraderResult: ...
 
-# Model-based: flexible, nuanced, expensive
+# 基于模型：灵活、细致、成本高
 class LLMJudge:
     def evaluate(self, question, answer, reference) -> JudgeResult: ...
 
-# Human: gold standard, very expensive, not scalable
-# (Referenced but not implemented — use for calibrating automated graders)
+# 人工：黄金标准，成本很高，难以规模化
+# （这里只提及而未实现——可用于校准自动评分器）
 ```
 
-### 3. LLM-as-Judge with Structured Output
+### 3. 通过结构化输出让 LLM 充当评委
 
-Force structured scoring using tool_choice:
+使用 `tool_choice` 强制模型输出结构化评分：
 
 ```python
 JUDGE_TOOLS = [{
     "name": "submit_evaluation",
     "input_schema": {
         "properties": {
-            "reasoning": {"type": "string"},       # Chain-of-thought first
-            "accuracy_score": {"type": "integer"},  # Then score
+            "reasoning": {"type": "string"},        # 先推理
+            "accuracy_score": {"type": "integer"}, # 再评分
             "completeness_score": {"type": "integer"},
             "grounding_score": {"type": "integer"},
         }
     }
 }]
-# Use tool_choice={"type": "tool", "name": "submit_evaluation"}
+# 使用 tool_choice={"type": "tool", "name": "submit_evaluation"}
 ```
 
-### 4. Golden Dataset Design
+### 4. 黄金数据集设计
 
-Start with 15-20 curated tasks (Anthropic recommends starting with 20-50):
+从 15～20 个精选任务开始（Anthropic 建议初期准备 20～50 个）：
 
 ```json
 {
     "id": "task_001",
-    "question": "What are the key benefits of microservices?",
-    "expected_keywords": ["scalability", "fault isolation"],
+    "question": "微服务有哪些主要优势？",
+    "expected_keywords": ["可扩展性", "故障隔离"],
     "expected_source_ids": ["doc_001"],
-    "difficulty": "easy",
-    "category": "architecture"
+    "difficulty": "简单",
+    "category": "架构"
 }
 ```
 
-Include a mix of: easy single-document tasks, hard cross-document synthesis, and out-of-scope questions that should be refused.
+任务应兼顾：简单的单文档任务、困难的跨文档综合任务，以及应当拒答的超出范围问题。
 
-## ⚠️ Important Considerations
+## ⚠️ 重要事项
 
-- **Start small** — 15-20 well-curated tasks beat 1000 generic ones
-- **Calibrate your graders** — compare automated scores against human judgment
-- **LLM-as-judge is not free** — each evaluation costs tokens; use code-based graders first
-- **Track pass rates over time** — a 5% drop signals a regression worth investigating
+- **从小规模开始**——15～20 个精心挑选的任务胜过 1000 个泛化任务
+- **校准评分器**——将自动评分结果与人工判断进行比较
+- **LLM 充当评委并非零成本**——每次评估都会消耗 token；应优先使用基于代码的评分器
+- **持续跟踪通过率**——下降 5% 就表示出现了值得调查的回归
 
-## 🔗 Resources
+## 🔗 资源
 
-- [Demystifying Evals for AI Agents — Anthropic](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) — Core eval vocabulary (task, trial, grader), grader taxonomy, and 8-step eval roadmap used throughout this tutorial
-- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena — Zheng et al., 2023](https://arxiv.org/abs/2306.05685) — Systematic study of LLM judges: agreement rates with humans, position bias, and the structured rubric approach
-- [Holistic Evaluation of Language Models (HELM) — Liang et al., 2022](https://arxiv.org/abs/2211.09110) — Multi-metric evaluation framework covering accuracy, calibration, robustness, fairness, and efficiency
-- [OpenAI Evaluation Best Practices](https://platform.openai.com/docs/guides/evaluation-best-practices) — Practical guidance on eval design, golden datasets, and grading strategies
-- [Eval-Driven Development](https://evaldriven.org/) — The discipline of building evals before features
+- [揭开 AI 智能体评估的神秘面纱 — Anthropic](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) — 本教程使用的核心评估术语（任务、试验、评分器）、评分器分类和八步评估路线图
+- [使用 MT-Bench 和 Chatbot Arena 评判 LLM 评委 — Zheng 等，2023](https://arxiv.org/abs/2306.05685) — 系统研究 LLM 评委与人工的一致率、位置偏差和结构化评分标准方法
+- [语言模型整体评估（HELM）— Liang 等，2022](https://arxiv.org/abs/2211.09110) — 涵盖准确性、校准、稳健性、公平性和效率的多指标评估框架
+- [OpenAI 评估最佳实践](https://platform.openai.com/docs/guides/evaluation-best-practices) — 关于评估设计、黄金数据集和评分策略的实用指南
+- [评估驱动开发](https://evaldriven.org/) — 在开发功能前先构建评估的工程方法
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-Once you've mastered evals, continue to:
-- **[Tracing & Debugging](../03-tracing-debugging/)** — When an eval fails, traces show exactly *why*
-- **Experiment** — Add tasks to the golden dataset from your own agent failures
-- **Explore** — Try different rubric designs and compare judge consistency
+掌握评估后，可以继续：
+
+- **[追踪与调试](../03-tracing-debugging/)**——评估失败时，追踪信息会准确显示失败原因
+- **动手实验**——将你自己的智能体失败案例加入黄金数据集
+- **深入探索**——尝试不同的评分标准设计，并比较评委的一致性

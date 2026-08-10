@@ -1,7 +1,7 @@
 [project]
 name = "lesson-evals"
 version = "0.1.0"
-description = "Lesson: Evals - Golden datasets, LLM-as-judge, automated scoring pipelines"
+description = "课程：评估——黄金数据集、LLM 充当评委和自动评分流水线"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

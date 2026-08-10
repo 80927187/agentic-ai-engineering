@@ -1,18 +1,18 @@
 """
-Custom Promptfoo assertion for keyword coverage grading.
+用于评定关键词覆盖率的自定义 Promptfoo 断言。
 
-Promptfoo calls get_assert() for each assertion of type 'python'.
-Returns a dict with pass, score, and reason.
+Promptfoo 会为每个 `python` 类型的断言调用 get_assert()。
+返回包含 pass、score 和 reason 的字典。
 """
 
 
 def get_assert(output, context):
-    """Check keyword coverage in the agent output."""
+    """检查智能体输出的关键词覆盖率。"""
     metadata = context.get("test", {}).get("metadata", {})
     keywords = metadata.get("keywords", [])
 
     if not keywords:
-        return {"pass": True, "score": 1.0, "reason": "No keywords to check"}
+        return {"pass": True, "score": 1.0, "reason": "没有需要检查的关键词"}
 
     output_lower = output.lower()
     found = [kw for kw in keywords if kw.lower() in output_lower]
@@ -21,8 +21,8 @@ def get_assert(output, context):
     score = len(found) / len(keywords)
     passed = score >= 0.5
 
-    reason = f"Found {len(found)}/{len(keywords)} keywords"
+    reason = f"找到 {len(found)}/{len(keywords)} 个关键词"
     if missing:
-        reason += f" (missing: {', '.join(missing)})"
+        reason += f"（缺少：{', '.join(missing)}）"
 
     return {"pass": passed, "score": score, "reason": reason}

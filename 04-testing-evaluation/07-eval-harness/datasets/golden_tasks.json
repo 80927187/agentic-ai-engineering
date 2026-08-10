@@ -1,139 +1,139 @@
 {
     "version": "1.0",
-    "description": "Golden dataset for eval harness capstone",
+    "description": "评测工具综合项目的黄金数据集",
     "tasks": [
         {
             "id": "task_001",
-            "question": "What are the key benefits of microservices architecture?",
-            "expected_keywords": ["scalability", "fault isolation", "independent"],
+            "question": "微服务架构有哪些主要优势？",
+            "expected_keywords": ["可扩展性", "故障隔离", "独立"],
             "expected_source_ids": ["doc_001"],
             "difficulty": "easy",
             "category": "architecture"
         },
         {
             "id": "task_002",
-            "question": "What are the best practices for REST API design?",
-            "expected_keywords": ["nouns", "endpoints", "HTTP methods", "status codes"],
+            "question": "REST API 设计有哪些最佳实践？",
+            "expected_keywords": ["名词", "端点", "HTTP 方法", "状态码"],
             "expected_source_ids": ["doc_002"],
             "difficulty": "easy",
             "category": "api"
         },
         {
             "id": "task_003",
-            "question": "How do database indexes improve query performance?",
-            "expected_keywords": ["B-tree", "lookup", "query"],
+            "question": "数据库索引如何提高查询性能？",
+            "expected_keywords": ["B 树", "查找", "查询"],
             "expected_source_ids": ["doc_003"],
             "difficulty": "easy",
             "category": "database"
         },
         {
             "id": "task_004",
-            "question": "What is the difference between authentication and authorization?",
-            "expected_keywords": ["identity", "access", "authentication", "authorization"],
+            "question": "身份认证与授权有何区别？",
+            "expected_keywords": ["身份", "访问", "身份认证", "授权"],
             "expected_source_ids": ["doc_004"],
             "difficulty": "easy",
             "category": "security"
         },
         {
             "id": "task_005",
-            "question": "What are the key practices in CI/CD pipelines?",
-            "expected_keywords": ["continuous", "build", "test", "deploy"],
+            "question": "CI/CD 流水线有哪些关键实践？",
+            "expected_keywords": ["持续", "构建", "测试", "部署"],
             "expected_source_ids": ["doc_005"],
             "difficulty": "easy",
             "category": "devops"
         },
         {
             "id": "task_006",
-            "question": "What are the core concepts of Kubernetes?",
-            "expected_keywords": ["pods", "services", "deployments"],
+            "question": "Kubernetes 的核心概念有哪些？",
+            "expected_keywords": ["Pod", "服务", "Deployment"],
             "expected_source_ids": ["doc_006"],
             "difficulty": "easy",
             "category": "devops"
         },
         {
             "id": "task_007",
-            "question": "What caching strategies are available and when should you use Redis?",
-            "expected_keywords": ["cache-aside", "write-through", "Redis"],
+            "question": "有哪些缓存策略？应在何时使用 Redis？",
+            "expected_keywords": ["旁路缓存", "写穿", "Redis"],
             "expected_source_ids": ["doc_008"],
             "difficulty": "easy",
             "category": "performance"
         },
         {
             "id": "task_008",
-            "question": "Compare event-driven architecture patterns like event sourcing and CQRS.",
-            "expected_keywords": ["event sourcing", "CQRS", "pub/sub"],
+            "question": "比较事件溯源和 CQRS 等事件驱动架构模式。",
+            "expected_keywords": ["事件溯源", "CQRS", "发布/订阅"],
             "expected_source_ids": ["doc_007"],
             "difficulty": "medium",
             "category": "architecture"
         },
         {
             "id": "task_009",
-            "question": "How should I secure my API with authentication? Include best practices for passwords and tokens.",
-            "expected_keywords": ["JWT", "OAuth", "hash", "bcrypt"],
+            "question": "如何通过身份认证保护 API？请包括密码和令牌方面的最佳实践。",
+            "expected_keywords": ["JWT", "OAuth", "哈希", "bcrypt"],
             "expected_source_ids": ["doc_004"],
             "difficulty": "medium",
             "category": "security"
         },
         {
             "id": "task_010",
-            "question": "What are the challenges of microservices and how does event-driven architecture help with loose coupling?",
-            "expected_keywords": ["distributed", "complexity", "loose coupling", "events", "pub/sub"],
+            "question": "微服务面临哪些挑战？事件驱动架构如何帮助实现松耦合？",
+            "expected_keywords": ["分布式", "复杂性", "松耦合", "事件", "发布/订阅"],
             "expected_source_ids": ["doc_001", "doc_007"],
             "difficulty": "hard",
             "category": "architecture"
         },
         {
             "id": "task_011",
-            "question": "How can I improve my application performance using both caching and database indexing?",
-            "expected_keywords": ["cache", "index", "latency", "performance"],
+            "question": "如何同时使用缓存和数据库索引来提升应用性能？",
+            "expected_keywords": ["缓存", "索引", "延迟", "性能"],
             "expected_source_ids": ["doc_003", "doc_008"],
             "difficulty": "hard",
             "category": "performance"
         },
         {
             "id": "task_012",
-            "question": "Describe a complete DevOps pipeline from CI/CD to container orchestration with Kubernetes.",
-            "expected_keywords": ["CI", "CD", "Kubernetes", "containers", "deploy", "feature flags"],
+            "question": "描述一条从 CI/CD 到使用 Kubernetes 编排容器的完整 DevOps 流水线。",
+            "expected_keywords": ["CI", "CD", "Kubernetes", "容器", "部署", "功能开关"],
             "expected_source_ids": ["doc_005", "doc_006"],
             "difficulty": "hard",
             "category": "devops"
         },
         {
             "id": "task_013",
-            "question": "What is the best programming language to use for machine learning?",
-            "expected_keywords": ["no relevant", "not found", "no information"],
+            "question": "机器学习最适合使用哪种编程语言？",
+            "expected_keywords": ["没有相关", "未找到", "没有信息"],
             "expected_source_ids": [],
             "difficulty": "easy",
             "category": "out-of-scope"
         },
         {
             "id": "task_014",
-            "question": "How do I set up a React frontend with TypeScript?",
-            "expected_keywords": ["no relevant", "not found", "no information"],
+            "question": "如何使用 TypeScript 搭建 React 前端？",
+            "expected_keywords": ["没有相关", "未找到", "没有信息"],
             "expected_source_ids": [],
             "difficulty": "easy",
             "category": "out-of-scope"
         },
         {
             "id": "task_015",
-            "question": "What are the risks of over-indexing a database and how does composite index column order matter?",
-            "expected_keywords": ["over-indexing", "writes", "column order", "composite"],
+            "question": "数据库索引过多有哪些风险？复合索引的列顺序为何重要？",
+            "expected_keywords": ["索引过多", "写入", "列顺序", "复合"],
             "expected_source_ids": ["doc_003"],
             "difficulty": "medium",
             "category": "database"
         },
         {
             "id": "task_016",
-            "question": "Design a secure microservices system with event-driven communication. What authentication, API structure, and messaging patterns should you use?",
-            "expected_keywords": ["JWT", "microservices", "REST", "event sourcing", "CQRS", "OAuth", "endpoints"],
+            "question": "设计一个通过事件驱动通信的安全微服务系统。应采用哪些身份认证方式、API 结构和消息传递模式？",
+            "expected_keywords": ["JWT", "微服务", "REST", "事件溯源", "CQRS", "OAuth", "端点"],
             "expected_source_ids": ["doc_001", "doc_002", "doc_004", "doc_007"],
             "difficulty": "hard",
             "category": "cross-cutting"
         },
         {
             "id": "task_017",
-            "question": "Compare write-through and write-behind caching strategies. What are the tradeoffs, and how do TTL and cache invalidation factor in?",
-            "expected_keywords": ["write-through", "write-behind", "TTL", "invalidation", "latency"],
+            "question": "比较写穿和写回缓存策略。二者如何权衡？TTL 和缓存失效在其中有什么影响？",
+            "expected_keywords": ["写穿", "写回", "TTL", "失效", "延迟"],
             "expected_source_ids": ["doc_008"],
             "difficulty": "medium",
             "category": "performance"

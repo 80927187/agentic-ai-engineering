@@ -1,15 +1,14 @@
 """
-Trace Debugging
+追踪调试
 
-Demonstrates a trace-based debugging workflow: given a failing agent execution,
-walk the recorded trace to find the failure point, extract the decision path,
-suggest fixes, and replay from a checkpoint.
+演示基于追踪的调试工作流：给定一次失败的智能体执行，逐步检查已记录的追踪，
+找出故障点、提取决策路径、提出修复建议，并从检查点重放。
 
-Key concepts:
-- Failure-point detection: walk the span tree to find the first error or unexpected output
-- Decision-path extraction: reconstruct the sequence of choices the agent made
-- Fix suggestions: map failure types to actionable remediation steps
-- Trace replay: list checkpoints and simulate re-execution from a chosen point
+核心概念：
+- 故障点检测：遍历跨度树，找到第一个错误或异常输出
+- 决策路径提取：重建智能体所做的一系列选择
+- 修复建议：将故障类型映射到可执行的修复步骤
+- 追踪重放：列出检查点，并模拟从选定位置重新执行
 """
 
 import json
@@ -35,13 +34,13 @@ MODEL = "claude-sonnet-4-5-20250929"
 
 
 # ---------------------------------------------------------------------------
-# Sample failing traces
+# 失败追踪示例
 # ---------------------------------------------------------------------------
 
-# Failure 1: Agent searched wrong terms, found no results
+# 故障 1：智能体使用了错误的搜索词，未找到结果
 TRACE_WRONG_SEARCH = {
     "trace_id": "fail_wrong_search",
-    "question": "How does Kubernetes handle auto-scaling?",
+    "question": "Kubernetes 如何处理自动扩缩容？",
     "expected_answer_contains": "auto-scaling",
     "spans": [
         {
@@ -50,8 +49,8 @@ TRACE_WRONG_SEARCH = {
             "start_time": 1000.0,
             "end_time": 1005.0,
             "duration_ms": 5000.0,
-            "inputs": {"question": "How does Kubernetes handle auto-scaling?"},
-            "outputs": {"answer": "I could not find relevant information."},
+            "inputs": {"question": "Kubernetes 如何处理自动扩缩容？"},
+            "outputs": {"answer": "我找不到相关信息。"},
             "tokens": {},
             "error": None,
             "children": [
@@ -79,7 +78,7 @@ TRACE_WRONG_SEARCH = {
                     },
                     "outputs": {"result": "[]"},
                     "tokens": {},
-                    "error": "No results found for overly specific query",
+                    "error": "查询过于具体，未找到结果",
                     "children": [],
                 },
                 {
@@ -106,7 +105,7 @@ TRACE_WRONG_SEARCH = {
                     },
                     "outputs": {"result": "[]"},
                     "tokens": {},
-                    "error": "No results — query too specific for knowledge base",
+                    "error": "未找到结果——对于该知识库而言，查询过于具体",
                     "children": [],
                 },
                 {
@@ -126,10 +125,10 @@ TRACE_WRONG_SEARCH = {
     ],
 }
 
-# Failure 2: Agent found results but hallucinated information not in the documents
+# 故障 2：智能体找到了结果，但捏造了文档中不存在的信息
 TRACE_HALLUCINATION = {
     "trace_id": "fail_hallucination",
-    "question": "What caching strategies are available?",
+    "question": "有哪些可用的缓存策略？",
     "expected_answer_contains": "cache-aside",
     "spans": [
         {
@@ -138,16 +137,15 @@ TRACE_HALLUCINATION = {
             "start_time": 2000.0,
             "end_time": 2004.0,
             "duration_ms": 4000.0,
-            "inputs": {"question": "What caching strategies are available?"},
+            "inputs": {"question": "有哪些可用的缓存策略？"},
             "outputs": {
                 "answer": (
-                    "The main caching strategies are cache-aside, write-through, write-behind, "
-                    "and distributed caching with consistent hashing. You should also consider "
-                    "CDN-level caching with Cloudflare for static assets."
+                    "主要缓存策略包括旁路缓存、写穿、写回，以及采用一致性哈希的分布式缓存。"
+                    "对于静态资源，还应考虑使用 Cloudflare 进行 CDN 级缓存。"
                 ),
             },
             "tokens": {},
-            "error": "hallucination_detected",
+            "error": "检测到幻觉",
             "children": [
                 {
                     "name": "llm_call_1",
@@ -169,9 +167,9 @@ TRACE_HALLUCINATION = {
                     "duration_ms": 20.0,
                     "inputs": {
                         "tool": "search_knowledge_base",
-                        "input": {"query": "caching strategies"},
+                        "input": {"query": "缓存策略"},
                     },
-                    "outputs": {"result": "[{'id': 'doc_008', 'title': 'Caching Strategies'}]"},
+                    "outputs": {"result": "[{'id': 'doc_008', 'title': '缓存策略'}]"},
                     "tokens": {},
                     "error": None,
                     "children": [],
@@ -197,8 +195,8 @@ TRACE_HALLUCINATION = {
                     "inputs": {"tool": "get_document", "input": {"doc_id": "doc_008"}},
                     "outputs": {
                         "result": (
-                            "Caching reduces latency... Strategies: cache-aside, write-through, "
-                            "write-behind. Use Redis or Memcached."
+                            "缓存可以降低延迟……策略包括旁路缓存、写穿和写回。"
+                            "可以使用 Redis 或 Memcached。"
                         ),
                     },
                     "tokens": {},
@@ -216,12 +214,12 @@ TRACE_HALLUCINATION = {
                         "stop_reason": "end_turn",
                         "answer_includes_hallucination": True,
                         "hallucinated_claims": [
-                            "distributed caching with consistent hashing",
-                            "CDN-level caching with Cloudflare",
+                            "采用一致性哈希的分布式缓存",
+                            "使用 Cloudflare 的 CDN 级缓存",
                         ],
                     },
                     "tokens": {"input": 500, "output": 150},
-                    "error": "LLM added claims not present in retrieved documents",
+                    "error": "LLM 添加了检索文档中不存在的说法",
                     "children": [],
                 },
             ],
@@ -229,11 +227,11 @@ TRACE_HALLUCINATION = {
     ],
 }
 
-# Failure 3: Agent got stuck in a loop making repeated calls
+# 故障 3：智能体因重复调用而陷入循环
 TRACE_LOOP = {
     "trace_id": "fail_loop",
-    "question": "Compare microservices and event-driven architecture",
-    "expected_answer_contains": "microservices",
+    "question": "比较微服务架构和事件驱动架构",
+    "expected_answer_contains": "微服务",
     "spans": [
         {
             "name": "answer_question",
@@ -241,10 +239,10 @@ TRACE_LOOP = {
             "start_time": 3000.0,
             "end_time": 3020.0,
             "duration_ms": 20000.0,
-            "inputs": {"question": "Compare microservices and event-driven architecture"},
-            "outputs": {"answer": "Max iterations reached"},
+            "inputs": {"question": "比较微服务架构和事件驱动架构"},
+            "outputs": {"answer": "已达到最大迭代次数"},
             "tokens": {},
-            "error": "Max iterations reached",
+            "error": "已达到最大迭代次数",
             "children": [
                 {
                     "name": f"llm_call_{i}",
@@ -269,7 +267,7 @@ TRACE_LOOP = {
                     "duration_ms": 20.0,
                     "inputs": {
                         "tool": "search_knowledge_base",
-                        "input": {"query": "microservices" if i % 2 == 0 else "event-driven"},
+                        "input": {"query": "微服务" if i % 2 == 0 else "事件驱动"},
                     },
                     "outputs": {
                         "result": ("[{'id': 'doc_001'}]" if i % 2 == 0 else "[{'id': 'doc_007'}]"),
@@ -290,23 +288,29 @@ ALL_FAILING_TRACES = {
     "loop": TRACE_LOOP,
 }
 
+TRACE_NAME_LABELS = {
+    "wrong_search": "错误搜索",
+    "hallucination": "幻觉",
+    "loop": "循环",
+}
+
 
 # ---------------------------------------------------------------------------
-# Debugging tools
+# 调试工具
 # ---------------------------------------------------------------------------
 
 
 class TraceDebugger:
-    """Debug agent failures using execution traces."""
+    """使用执行追踪调试智能体故障。"""
 
     def find_failure_point(self, trace: dict[str, Any]) -> dict[str, Any] | None:
-        """Walk the trace to find the first span with an error."""
+        """遍历追踪，找到第一个发生错误的跨度。"""
         all_spans = collect_all_spans(trace.get("spans", []))
         for span in all_spans:
             if span.get("error"):
                 return {
                     "span_name": span["name"],
-                    "span_type": span.get("span_type", "unknown"),
+                    "span_type": span.get("span_type", "未知"),
                     "error": span["error"],
                     "inputs": span.get("inputs", {}),
                     "outputs": span.get("outputs", {}),
@@ -315,14 +319,14 @@ class TraceDebugger:
         return None
 
     def get_decision_path(self, trace: dict[str, Any]) -> list[dict[str, Any]]:
-        """Extract the sequence of decisions the agent made."""
+        """提取智能体所做的一系列决策。"""
         all_spans = collect_all_spans(trace.get("spans", []))
         decisions: list[dict[str, Any]] = []
 
         for span in all_spans:
             span_type = span.get("span_type", "")
             if span_type == "agent_step":
-                continue  # Skip the root wrapper
+                continue  # 跳过根包装跨度
 
             decision: dict[str, Any] = {
                 "step": len(decisions) + 1,
@@ -332,14 +336,14 @@ class TraceDebugger:
             }
 
             if span_type == "llm_call":
-                decision["action"] = "LLM decision"
-                decision["outcome"] = span.get("outputs", {}).get("stop_reason", "unknown")
+                decision["action"] = "LLM 决策"
+                decision["outcome"] = span.get("outputs", {}).get("stop_reason", "未知")
             elif span_type == "tool_call":
-                tool_name = span.get("inputs", {}).get("tool", "unknown")
+                tool_name = span.get("inputs", {}).get("tool", "未知")
                 tool_input = span.get("inputs", {}).get("input", {})
-                decision["action"] = f"Called {tool_name}"
-                decision["detail"] = json.dumps(tool_input)
-                decision["outcome"] = "error" if span.get("error") else "success"
+                decision["action"] = f"调用了 {tool_name}"
+                decision["detail"] = json.dumps(tool_input, ensure_ascii=False)
+                decision["outcome"] = "错误" if span.get("error") else "成功"
 
             if span.get("error"):
                 decision["error"] = span["error"]
@@ -349,59 +353,58 @@ class TraceDebugger:
         return decisions
 
     def suggest_fixes(self, failure: dict[str, Any]) -> list[str]:
-        """Suggest possible fixes based on the failure type."""
+        """根据故障类型提出可能的修复建议。"""
         suggestions: list[str] = []
         error = failure.get("error", "")
         span_type = failure.get("span_type", "")
 
-        # Wrong search / no results
-        if "no results" in error.lower() or "not found" in error.lower():
-            suggestions.append("Broaden the search query — use fewer, more general terms")
-            suggestions.append("Add fallback logic: retry with simpler keywords on empty results")
-            suggestions.append("Expand the knowledge base to cover more topics")
+        # 搜索错误或无结果
+        if "未找到结果" in error or "未找到" in error:
+            suggestions.append("扩大搜索范围——使用更少、更通用的词语")
+            suggestions.append("添加回退逻辑：结果为空时使用更简单的关键词重试")
+            suggestions.append("扩充知识库以覆盖更多主题")
 
-        # Hallucination
-        if "hallucin" in error.lower() or "not present" in error.lower():
+        # 幻觉
+        if "幻觉" in error or "不存在" in error:
             suggestions.append(
-                "Add explicit grounding instruction: "
-                "'Only use information from retrieved documents'"
+                "添加明确的依据约束：‘只能使用检索到的文档中的信息’"
             )
             suggestions.append(
-                "Implement a post-generation check that verifies claims against source docs"
+                "实现生成后检查，对照源文档验证各项说法"
             )
-            suggestions.append("Lower the temperature to reduce creative generation")
+            suggestions.append("降低 temperature，减少创造性生成")
 
-        # Loop / max iterations
-        if "max iterations" in error.lower() or "loop" in error.lower():
-            suggestions.append("Add a seen-queries set to prevent repeated identical searches")
-            suggestions.append("Reduce max_iterations and add a summarize-what-you-have fallback")
+        # 循环或达到最大迭代次数
+        if "最大迭代次数" in error or "循环" in error:
+            suggestions.append("添加已查询集合，防止重复执行相同搜索")
+            suggestions.append("降低 max_iterations，并添加‘汇总已有信息’的回退逻辑")
             suggestions.append(
-                "Improve the system prompt to instruct the agent to synthesize after 2-3 searches"
+                "改进系统提示词，要求智能体在搜索 2～3 次后综合已有信息"
             )
 
-        # Slow span
+        # 缓慢跨度
         if span_type == "llm_call" and failure.get("duration_ms", 0) > 10000:
-            suggestions.append("Check if the prompt is too long — summarize earlier context")
-            suggestions.append("Consider using a faster model for intermediate steps")
+            suggestions.append("检查提示词是否过长——汇总之前的上下文")
+            suggestions.append("考虑在中间步骤使用速度更快的模型")
 
-        # Tool execution error
+        # 工具执行错误
         if span_type == "tool_call" and error:
-            suggestions.append("Add retry logic with exponential backoff for transient errors")
-            suggestions.append("Validate tool inputs before execution")
+            suggestions.append("为临时错误添加指数退避重试逻辑")
+            suggestions.append("执行前验证工具输入")
 
-        # Generic
+        # 通用建议
         if not suggestions:
-            suggestions.append("Review the full decision path to understand the agent's reasoning")
-            suggestions.append("Add more detailed logging around the failing span")
+            suggestions.append("检查完整决策路径，以理解智能体的推理过程")
+            suggestions.append("在失败跨度周围添加更详细的日志")
 
         return suggestions
 
 
 class TraceReplay:
-    """Replay agent execution from a checkpoint in a recorded trace."""
+    """从已记录追踪中的检查点重放智能体执行过程。"""
 
     def list_checkpoints(self, trace: dict[str, Any]) -> list[dict[str, Any]]:
-        """List available checkpoints (decision points) in the trace."""
+        """列出追踪中可用的检查点（决策点）。"""
         all_spans = collect_all_spans(trace.get("spans", []))
         checkpoints: list[dict[str, Any]] = []
 
@@ -426,16 +429,16 @@ class TraceReplay:
         checkpoint_index: int,
         client: anthropic.Anthropic | None = None,
     ) -> dict[str, Any]:
-        """Replay from a specific checkpoint, optionally with a live LLM."""
+        """从指定检查点重放，也可以选择使用实时 LLM。"""
         checkpoints = self.list_checkpoints(trace)
 
         if checkpoint_index < 0 or checkpoint_index >= len(checkpoints):
-            return {"error": f"Invalid checkpoint index: {checkpoint_index}"}
+            return {"error": f"无效的检查点索引：{checkpoint_index}"}
 
         checkpoint = checkpoints[checkpoint_index]
         preceding = checkpoints[:checkpoint_index]
 
-        # Build context from preceding steps
+        # 根据之前的步骤构建上下文
         context: list[dict[str, Any]] = []
         for cp in preceding:
             context.append(
@@ -453,22 +456,21 @@ class TraceReplay:
         }
 
         if client is not None:
-            # Live replay: re-run the LLM call with the context up to the checkpoint
-            logger.info("Live replay from checkpoint %d: %s", checkpoint_index, checkpoint["name"])
+            # 实时重放：使用截至检查点的上下文重新运行 LLM 调用
+            logger.info("从检查点 %d 实时重放：%s", checkpoint_index, checkpoint["name"])
             question = trace.get("question", "")
 
             system_prompt = (
-                "You are a research assistant. The previous agent execution failed. "
-                "You are replaying from a checkpoint. Answer the original question using "
-                "the context provided. Be concise and grounded in facts."
+                "你是一名研究助手。上一次智能体执行失败了。现在你正从某个检查点重放。"
+                "请使用所提供的上下文回答原始问题，回答应简洁并以事实为依据。"
             )
 
-            context_text = f"Original question: {question}\n\n"
-            context_text += "Execution context before failure:\n"
+            context_text = f"原始问题：{question}\n\n"
+            context_text += "失败前的执行上下文：\n"
             for step in context:
-                context_text += f"- {step['step']}: {json.dumps(step['inputs'])}\n"
-            context_text += f"\nFailed at: {checkpoint['name']}\n"
-            context_text += "Please provide a corrected response."
+                context_text += f"- {step['step']}：{json.dumps(step['inputs'], ensure_ascii=False)}\n"
+            context_text += f"\n失败位置：{checkpoint['name']}\n"
+            context_text += "请提供修正后的回答。"
 
             token_tracker = AnthropicTokenTracker()
             start = time.time()
@@ -494,29 +496,29 @@ class TraceReplay:
             }
         else:
             result["replayed_answer"] = (
-                f"[Dry run] Would re-execute from '{checkpoint['name']}' "
-                f"with {len(preceding)} preceding steps as context"
+                f"[试运行] 将从“{checkpoint['name']}”重新执行，"
+                f"并使用之前的 {len(preceding)} 个步骤作为上下文"
             )
 
         return result
 
 
 # ---------------------------------------------------------------------------
-# Visualization helpers
+# 可视化辅助函数
 # ---------------------------------------------------------------------------
 
 
 def _build_decision_tree(decisions: list[dict[str, Any]], tree: Tree) -> None:
-    """Add decision steps to a Rich tree."""
+    """将决策步骤添加到 Rich 树。"""
     for d in decisions:
-        label = f"[bold]Step {d['step']}:[/bold] {d['name']}"
+        label = f"[bold]步骤 {d['step']}：[/bold] {d['name']}"
         if d.get("action"):
             label += f" — {d['action']}"
         if d.get("outcome"):
-            style = "red" if d["outcome"] == "error" else "green"
+            style = "red" if d["outcome"] == "错误" else "green"
             label += f" [{style}]({d['outcome']})[/{style}]"
         if d.get("error"):
-            label += f"\n  [red]Error: {d['error']}[/red]"
+            label += f"\n  [red]错误：{d['error']}[/red]"
         if d.get("detail"):
             label += f"\n  [dim]{d['detail']}[/dim]"
         tree.add(label)
@@ -528,16 +530,16 @@ def _build_decision_tree(decisions: list[dict[str, Any]], tree: Tree) -> None:
 
 
 def main() -> None:
-    """Demonstrate the trace-based debugging workflow."""
+    """演示基于追踪的调试工作流。"""
     console = Console()
 
     console.print(
         Panel(
-            "[bold cyan]Trace Debugging[/bold cyan]\n\n"
-            "Given a failing agent execution, walk the trace to find the failure point,\n"
-            "extract the decision path, suggest fixes, and list replay checkpoints.\n\n"
-            "Concepts: failure detection, decision paths, fix suggestions, trace replay",
-            title="03 - Trace Debugging",
+            "[bold cyan]追踪调试[/bold cyan]\n\n"
+            "针对失败的智能体执行，逐步检查追踪以找出故障点、\n"
+            "提取决策路径、提出修复建议并列出重放检查点。\n\n"
+            "概念：故障检测、决策路径、修复建议、追踪重放",
+            title="03 - 追踪调试",
         )
     )
 
@@ -547,49 +549,49 @@ def main() -> None:
     for trace_name, trace in ALL_FAILING_TRACES.items():
         console.print(f"\n{'=' * 80}")
         console.print(
-            f"\n[bold magenta]Debugging trace: {trace_name}[/bold magenta]"
-            f"\n[dim]Question: {trace.get('question', 'N/A')}[/dim]\n"
+            f"\n[bold magenta]正在调试追踪：{TRACE_NAME_LABELS[trace_name]}[/bold magenta]"
+            f"\n[dim]问题：{trace.get('question', '不适用')}[/dim]\n"
         )
 
-        # Step 1: Find the failure point
+        # 步骤 1：查找故障点
         failure = debugger.find_failure_point(trace)
         if failure:
             console.print(
                 Panel(
-                    f"[bold red]Failure Point[/bold red]\n\n"
-                    f"Span: {failure['span_name']} ({failure['span_type']})\n"
-                    f"Error: {failure['error']}\n"
-                    f"Duration: {failure['duration_ms']:.0f}ms",
-                    title="Failure Detected",
+                    f"[bold red]故障点[/bold red]\n\n"
+                    f"跨度：{failure['span_name']}（{failure['span_type']}）\n"
+                    f"错误：{failure['error']}\n"
+                    f"耗时：{failure['duration_ms']:.0f} 毫秒",
+                    title="检测到故障",
                     border_style="red",
                 )
             )
         else:
-            console.print("[green]No explicit failure found in trace[/green]")
+            console.print("[green]追踪中未找到明确故障[/green]")
 
-        # Step 2: Show the decision path
+        # 步骤 2：显示决策路径
         decisions = debugger.get_decision_path(trace)
-        decision_tree = Tree(f"[bold]Decision Path ({len(decisions)} steps)[/bold]")
+        decision_tree = Tree(f"[bold]决策路径（{len(decisions)} 个步骤）[/bold]")
         _build_decision_tree(decisions, decision_tree)
         console.print(decision_tree)
 
-        # Step 3: Suggest fixes
+        # 步骤 3：提出修复建议
         if failure:
             suggestions = debugger.suggest_fixes(failure)
-            console.print("\n[bold yellow]Suggested Fixes:[/bold yellow]")
+            console.print("\n[bold yellow]修复建议：[/bold yellow]")
             for i, suggestion in enumerate(suggestions, 1):
                 console.print(f"  {i}. {suggestion}")
 
-        # Step 4: List replay checkpoints
+        # 步骤 4：列出重放检查点
         checkpoints = replayer.list_checkpoints(trace)
         if checkpoints:
-            cp_table = Table(title="Replay Checkpoints")
-            cp_table.add_column("Index", justify="center")
-            cp_table.add_column("Name")
-            cp_table.add_column("Type")
-            cp_table.add_column("Had Error", justify="center")
+            cp_table = Table(title="重放检查点")
+            cp_table.add_column("索引", justify="center")
+            cp_table.add_column("名称")
+            cp_table.add_column("类型")
+            cp_table.add_column("是否出错", justify="center")
             for cp in checkpoints:
-                error_marker = "[red]Yes[/red]" if cp["had_error"] else "[green]No[/green]"
+                error_marker = "[red]是[/red]" if cp["had_error"] else "[green]否[/green]"
                 cp_table.add_row(
                     str(cp["index"]),
                     cp["name"],
@@ -599,11 +601,11 @@ def main() -> None:
             console.print()
             console.print(cp_table)
 
-        # Step 5: Dry-run replay from the first errored checkpoint
+        # 步骤 5：从第一个出错的检查点开始试运行重放
         errored_cps = [cp for cp in checkpoints if cp["had_error"]]
         if errored_cps:
             first_error_cp = errored_cps[0]["index"]
-            console.print(f"\n[bold]Dry-run replay from checkpoint {first_error_cp}:[/bold]")
+            console.print(f"\n[bold]从检查点 {first_error_cp} 开始试运行重放：[/bold]")
 
             has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
             client = anthropic.Anthropic() if has_api_key else None
@@ -614,12 +616,12 @@ def main() -> None:
             if replay_result.get("replay_tokens"):
                 tokens = replay_result["replay_tokens"]
                 console.print(
-                    f"  [dim]Replay tokens: {tokens['input']}in / {tokens['output']}out, "
-                    f"duration: {replay_result.get('replay_duration_ms', 0):.0f}ms[/dim]"
+                    f"  [dim]重放令牌：{tokens['input']} 入 / {tokens['output']} 出，"
+                    f"耗时：{replay_result.get('replay_duration_ms', 0):.0f} 毫秒[/dim]"
                 )
 
     console.print(f"\n{'=' * 80}")
-    console.print("\n[bold green]Debugging workflow complete.[/bold green]")
+    console.print("\n[bold green]调试工作流已完成。[/bold green]")
 
 
 if __name__ == "__main__":

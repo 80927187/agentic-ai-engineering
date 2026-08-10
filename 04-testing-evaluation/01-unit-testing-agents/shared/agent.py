@@ -1,8 +1,8 @@
 """
-Tool-use agent with dependency injection for testability.
+通过依赖注入实现可测试性的工具调用代理。
 
-Encapsulates the core agent loop: send message to LLM, parse tool calls,
-execute tools, send results back, repeat until text response or max iterations.
+封装代理的核心循环：向大语言模型发送消息、解析工具调用、执行工具并返回结果，
+不断重复，直至收到文本响应或达到最大迭代次数。
 """
 
 import json
@@ -16,7 +16,7 @@ logger = setup_logging(__name__)
 
 
 class ToolUseAgent:
-    """Tool-use agent with dependency injection and iteration limits."""
+    """支持依赖注入和迭代次数限制的工具调用代理。"""
 
     def __init__(
         self,
@@ -33,20 +33,20 @@ class ToolUseAgent:
         self.token_tracker = AnthropicTokenTracker()
 
     def send_message(self, user_message: str) -> str:
-        """Send a message and process the agent loop until a text response."""
+        """发送消息并执行代理循环，直至收到文本响应。"""
         self.messages.append({"role": "user", "content": user_message})
         iterations = 0
 
         while iterations < self.max_iterations:
             iterations += 1
             logger.info(
-                "Iteration %d/%d (messages: %d)",
+                "第 %d/%d 次迭代（消息数：%d）",
                 iterations,
                 self.max_iterations,
                 len(self.messages),
             )
 
-            # KEY CONCEPT: The injected client is called here — easy to mock
+            # 核心概念：在此调用注入的客户端，因此很容易进行模拟
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=4096,
@@ -70,7 +70,7 @@ class ToolUseAgent:
             if response.stop_reason != "tool_use" or not tool_uses:
                 return "\n".join(text_content) if text_content else ""
 
-            # Execute each tool and send results back
+            # 执行每个工具并返回结果
             tool_results = []
             for tool_use in tool_uses:
                 result = execute_tool(tool_use.name, tool_use.input)
@@ -84,6 +84,6 @@ class ToolUseAgent:
 
             self.messages.append({"role": "user", "content": tool_results})
 
-        # CONTRACT: max_iterations reached — agent must stop
-        logger.warning("Max iterations (%d) reached, stopping agent", self.max_iterations)
-        return "[Agent stopped: maximum iterations reached]"
+        # 契约：达到 max_iterations 后，代理必须停止
+        logger.warning("已达到最大迭代次数（%d），正在停止代理", self.max_iterations)
+        return "[代理已停止：达到最大迭代次数]"

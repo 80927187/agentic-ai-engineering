@@ -1,7 +1,7 @@
 [project]
 name = "lesson-eval-harness"
 version = "0.1.0"
-description = "Lesson: Eval Harness - Capstone evaluation pipeline combining all testing techniques"
+description = "课程：评测工具——融合所有测试技术的综合评测流水线"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

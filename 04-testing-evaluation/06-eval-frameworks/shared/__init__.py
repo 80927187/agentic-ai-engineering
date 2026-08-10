@@ -1,4 +1,4 @@
-"""Shared modules for eval framework tutorials."""
+"""评测框架教程的共用模块。"""
 
 from shared.knowledge_base import (
     EVAL_TASKS,

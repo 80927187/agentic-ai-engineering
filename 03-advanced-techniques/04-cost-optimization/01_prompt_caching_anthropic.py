@@ -26,7 +26,7 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 # 模型配置
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 
 # Anthropic 定价（美元/百万词元）——截至 2025 年
 PRICING = {
@@ -255,7 +255,7 @@ class CachedSupportAgent:
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=1024,
+                max_tokens=21333,
                 system=self._build_system(),
                 messages=self.messages,
             )
@@ -289,7 +289,14 @@ class CachedSupportAgent:
             cache_read,
         )
 
-        assistant_message = str(response.content[0].text)
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
+        assistant_message = "\n\n".join(text_parts)
         self.messages.append({"role": "assistant", "content": assistant_message})
 
         return assistant_message, usage_dict

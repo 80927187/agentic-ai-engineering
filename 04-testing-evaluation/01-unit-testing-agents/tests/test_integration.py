@@ -1,14 +1,14 @@
 """
-Integration Testing with Response Cassettes
+使用响应录制文件进行集成测试
 
-Tests the full agent loop using recorded API responses instead of mocks.
-By replaying pre-recorded responses from cassette files, you get deterministic tests that
-exercise the real response parsing path — no MagicMock shapes to maintain.
+使用已记录的 API 响应而不是模拟对象来测试完整的代理循环。
+通过重放录制文件中的响应，可以进行确定性测试并覆盖真实的响应解析路径，
+无需维护 MagicMock 的数据结构。
 
-Key testing concepts:
-- Full loop testing: test multi-turn agent conversations with recorded responses
-- Snapshot regression: compare agent output against golden baselines, detect drift
-- Cassette exhaustion: catches divergent agent behavior automatically
+核心测试概念：
+- 完整循环测试：使用已记录的响应测试代理的多轮对话
+- 快照回归：将代理输出与黄金基准比较，发现偏移
+- 录制响应耗尽：自动发现代理行为偏离
 """
 
 import json
@@ -30,170 +30,164 @@ from tests.conftest import (
 
 
 # ---------------------------------------------------------------------------
-# Tests — full agent loop with cassette replay
+# 测试——通过重放录制响应测试完整代理循环
 # ---------------------------------------------------------------------------
 
 
 class TestCassetteReplay:
-    """Integration tests using pre-recorded API responses."""
+    """使用预先录制的 API 响应进行集成测试。"""
 
     def test_text_only_response(self, cassette_dir: Path) -> None:
-        """Agent returns text directly when no tools are needed."""
+        """不需要工具时，代理直接返回文本。"""
         path = write_cassette(cassette_dir, "text_only", CASSETTE_TEXT_ONLY)
         client = CassetteClient(path)
         agent = ToolUseAgent(client=client)
 
-        result = agent.send_message("Hi there")
+        result = agent.send_message("你好")
 
-        assert result == "Hello! I'm ready to help you with calculations."
+        assert result == "你好！我可以帮你进行计算。"
         assert client.calls_remaining == 0
 
     def test_single_tool_call(self, cassette_dir: Path) -> None:
-        """Agent executes a calculator tool and returns the final answer."""
+        """代理执行计算器工具并返回最终答案。"""
         path = write_cassette(cassette_dir, "calculator", CASSETTE_CALCULATOR)
         client = CassetteClient(path)
         agent = ToolUseAgent(client=client)
 
-        result = agent.send_message("What is 12 * 15?")
+        result = agent.send_message("12 * 15 等于多少？")
 
         assert "180" in result
         assert client.calls_remaining == 0
-        # Verify the tool was actually executed — result should be in message history
+        # 验证工具确实已执行——结果应出现在消息历史中
         tool_result_msg = agent.messages[2]
         tool_result_data = json.loads(tool_result_msg["content"][0]["content"])
         assert tool_result_data["result"] == 180
 
     def test_multi_turn_tool_use(self, cassette_dir: Path) -> None:
-        """Agent handles multiple sequential tool calls across turns."""
+        """代理能够跨轮次处理多个连续的工具调用。"""
         path = write_cassette(cassette_dir, "multi_tool", CASSETTE_MULTI_TOOL)
         client = CassetteClient(path)
         agent = ToolUseAgent(client=client)
 
-        result = agent.send_message("Add 100 + 200, then multiply by 2")
+        result = agent.send_message("先计算 100 + 200，再乘以 2")
 
         assert "600" in result
         assert client.calls_remaining == 0
-        # 6 messages: user, assistant(tool), user(result), assistant(tool), user(result), assistant
+        # 6 条消息：用户、助手（工具）、用户（结果）、助手（工具）、用户（结果）、助手
         assert len(agent.messages) == 6
 
     def test_blocked_command_integration(self, cassette_dir: Path) -> None:
-        """Full integration: LLM requests dangerous command, agent blocks it, LLM recovers."""
+        """完整集成流程：模型请求危险命令，代理阻止该命令，模型恢复响应。"""
         path = write_cassette(cassette_dir, "blocked", CASSETTE_BLOCKED_COMMAND)
         client = CassetteClient(path)
         agent = ToolUseAgent(client=client)
 
-        result = agent.send_message("Delete the temp data")
+        result = agent.send_message("删除临时数据")
 
-        assert "blocked" in result.lower() or "safety" in result.lower()
-        # Verify the tool result contains the block error
+        assert "阻止" in result or "安全" in result
+        # 验证工具结果包含阻止执行的错误
         tool_result_msg = agent.messages[2]
         tool_result_data = json.loads(tool_result_msg["content"][0]["content"])
         assert "error" in tool_result_data
-        assert "blocked" in tool_result_data["error"].lower()
+        assert "阻止" in tool_result_data["error"]
 
 
 class TestCassetteExhaustion:
-    """Verify the cassette system catches divergent agent behavior."""
+    """验证响应录制系统能够发现代理行为偏离。"""
 
     def test_cassette_exhausted_raises_error(self, cassette_dir: Path) -> None:
-        """If the agent makes more API calls than recorded, the cassette raises an error."""
-        # Use text-only cassette (1 response) but set up agent to make 2 calls
+        """如果代理的 API 调用次数超过记录数量，录制系统将引发错误。"""
+        # 使用只有 1 条响应的纯文本录制数据，但让客户端发起 2 次调用
         path = write_cassette(cassette_dir, "short", CASSETTE_TEXT_ONLY)
         client = CassetteClient(path)
 
-        # First call succeeds
+        # 第一次调用成功
         response = client.create(model="test", max_tokens=100, tools=[], messages=[])
         assert response.stop_reason == "end_turn"
 
-        # Second call should fail — cassette is exhausted
-        with pytest.raises(RuntimeError, match="Cassette exhausted"):
+        # 第二次调用应失败——录制响应已用尽
+        with pytest.raises(RuntimeError, match="录制响应已用尽"):
             client.create(model="test", max_tokens=100, tools=[], messages=[])
 
 
 # ---------------------------------------------------------------------------
-# Tests — snapshot regression testing
+# 测试——快照回归测试
 # ---------------------------------------------------------------------------
 
 
 class TestSnapshotRegression:
-    """Compare agent output against golden snapshots to detect regressions."""
+    """将代理输出与黄金快照比较，以发现回归。"""
 
     def test_calculator_output_matches_snapshot(self, cassette_dir: Path) -> None:
-        """Agent output for a known input must match the recorded golden snapshot."""
+        """已知输入的代理输出必须与记录的黄金快照一致。"""
         path = write_cassette(cassette_dir, "calculator", CASSETTE_CALCULATOR)
 
-        # Golden snapshot — the expected output for "What is 12 * 15?"
-        golden_snapshot = "12 multiplied by 15 equals 180."
+        # 黄金快照——“12 * 15 等于多少？”的预期输出
+        golden_snapshot = "12 乘以 15 等于 180。"
 
         client = CassetteClient(path)
         agent = ToolUseAgent(client=client)
-        result = agent.send_message("What is 12 * 15?")
+        result = agent.send_message("12 * 15 等于多少？")
 
         assert result == golden_snapshot, (
-            f"Output has drifted from snapshot.\n"
-            f"  Expected: {golden_snapshot!r}\n"
-            f"  Got:      {result!r}"
+            f"输出已偏离快照。\n  预期：{golden_snapshot!r}\n  实际：{result!r}"
         )
 
     def test_message_history_shape_matches_snapshot(self, cassette_dir: Path) -> None:
-        """The shape of the message history must match the expected pattern."""
+        """消息历史的结构必须符合预期模式。"""
         path = write_cassette(cassette_dir, "calculator", CASSETTE_CALCULATOR)
         client = CassetteClient(path)
         agent = ToolUseAgent(client=client)
-        agent.send_message("What is 12 * 15?")
+        agent.send_message("12 * 15 等于多少？")
 
-        # Snapshot of expected message roles in order
+        # 按顺序记录预期消息角色的快照
         expected_roles = ["user", "assistant", "user", "assistant"]
         actual_roles = [msg["role"] for msg in agent.messages]
 
         assert actual_roles == expected_roles, (
-            f"Message history shape has changed.\n"
-            f"  Expected: {expected_roles}\n"
-            f"  Got:      {actual_roles}"
+            f"消息历史结构已发生变化。\n  预期：{expected_roles}\n  实际：{actual_roles}"
         )
 
     def test_token_usage_within_budget(self, cassette_dir: Path) -> None:
-        """Total token usage must stay within the expected budget."""
+        """令牌总用量必须保持在预期预算内。"""
         path = write_cassette(cassette_dir, "multi_tool", CASSETTE_MULTI_TOOL)
         client = CassetteClient(path)
         agent = ToolUseAgent(client=client)
-        agent.send_message("Add 100 + 200, then multiply by 2")
+        agent.send_message("先计算 100 + 200，再乘以 2")
 
-        # Budget snapshot — if token usage spikes, something changed
+        # 预算快照——令牌用量激增意味着某些行为发生了变化
         max_input_tokens = 1000
         max_output_tokens = 200
 
         assert agent.token_tracker.total_input_tokens <= max_input_tokens, (
-            f"Input token budget exceeded: "
-            f"{agent.token_tracker.total_input_tokens} > {max_input_tokens}"
+            f"超出输入令牌预算：{agent.token_tracker.total_input_tokens} > {max_input_tokens}"
         )
         assert agent.token_tracker.total_output_tokens <= max_output_tokens, (
-            f"Output token budget exceeded: "
-            f"{agent.token_tracker.total_output_tokens} > {max_output_tokens}"
+            f"超出输出令牌预算：{agent.token_tracker.total_output_tokens} > {max_output_tokens}"
         )
 
 
 # ---------------------------------------------------------------------------
-# Tests — serialization round-trip
+# 测试——序列化往返
 # ---------------------------------------------------------------------------
 
 
 class TestCassetteSerialization:
-    """Verify that response serialization and deserialization are lossless."""
+    """验证响应的序列化和反序列化不会丢失数据。"""
 
     def test_text_response_round_trip(self) -> None:
-        """A text-only response survives serialize -> deserialize without data loss."""
+        """纯文本响应经过序列化和反序列化后不会丢失数据。"""
         original_data = CASSETTE_TEXT_ONLY[0]["response"]
         response = CassetteResponse(original_data)
         serialized = serialize_response(response)
 
         assert serialized["stop_reason"] == "end_turn"
         assert len(serialized["content"]) == 1
-        assert serialized["content"][0]["text"] == "Hello! I'm ready to help you with calculations."
+        assert serialized["content"][0]["text"] == "你好！我可以帮你进行计算。"
         assert serialized["usage"]["input_tokens"] == 120
 
     def test_tool_use_response_round_trip(self) -> None:
-        """A tool-use response survives serialize -> deserialize without data loss."""
+        """工具调用响应经过序列化和反序列化后不会丢失数据。"""
         original_data = CASSETTE_CALCULATOR[0]["response"]
         response = CassetteResponse(original_data)
         serialized = serialize_response(response)

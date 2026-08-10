@@ -1,8 +1,8 @@
 """
-Mock response factories for testing Anthropic API interactions.
+用于测试 Anthropic API 交互的模拟响应工厂。
 
-Provides helpers to create mock Anthropic API responses, text blocks,
-and tool-use blocks without depending on the real SDK types.
+提供用于创建模拟 Anthropic API 响应、文本块和工具调用块的辅助函数，
+且不依赖真实的 SDK 类型。
 """
 
 from typing import Any
@@ -15,11 +15,11 @@ def create_mock_response(
     input_tokens: int = 100,
     output_tokens: int = 50,
 ) -> MagicMock:
-    """Create a mock Anthropic API response."""
+    """创建模拟的 Anthropic API 响应。"""
     response = MagicMock()
     response.content = content
     response.stop_reason = stop_reason
-    # Mock the usage object to match Anthropic's structure
+    # 模拟 usage 对象，使其结构与 Anthropic 保持一致
     response.usage = MagicMock()
     response.usage.input_tokens = input_tokens
     response.usage.output_tokens = output_tokens
@@ -29,10 +29,10 @@ def create_mock_response(
 
 
 def make_text_block(text: str) -> Mock:
-    """Create a mock TextBlock."""
+    """创建模拟的 TextBlock。"""
     block = Mock()
     block.text = text
-    # Ensure it does NOT look like a tool use block
+    # 确保它不会被识别为工具调用块
     block.name = None
     block.input = None
     del block.name
@@ -41,12 +41,12 @@ def make_text_block(text: str) -> Mock:
 
 
 def make_tool_use_block(tool_id: str, name: str, tool_input: dict[str, Any]) -> Mock:
-    """Create a mock ToolUseBlock."""
+    """创建模拟的 ToolUseBlock。"""
     block = Mock()
     block.id = tool_id
     block.name = name
     block.input = tool_input
-    # Ensure it does NOT look like a text block
+    # 确保它不会被识别为文本块
     block.text = None
     del block.text
     return block

@@ -1,11 +1,10 @@
 """
-Unit Testing Agents — Test Runner
+代理单元测试——测试运行器
 
-Runs the full test suite for the unit testing tutorial. Demonstrates four layers
-of agent testing: mock LLM responses, tool isolation, behavioral contracts,
-and integration tests with response cassettes.
+运行单元测试教程的完整测试套件，演示代理测试的四个层级：模拟大语言模型响应、
+隔离测试工具、行为契约，以及使用响应录制文件的集成测试。
 
-Tests live in tests/ and can also be run directly via pytest:
+测试位于 tests/，也可以直接通过 pytest 运行：
   pytest tests/ -v
 """
 
@@ -22,65 +21,65 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
-# Test modules and their descriptions
+# 测试模块及其说明
 TEST_SUITES = [
-    ("tests/test_mock_llm.py", "Mock LLM Testing", "Mock API responses, test agent loop logic"),
-    ("tests/test_tools.py", "Tool Testing", "Test tool functions in isolation with edge cases"),
+    ("tests/test_mock_llm.py", "模拟大语言模型测试", "模拟 API 响应，测试代理循环逻辑"),
+    ("tests/test_tools.py", "工具测试", "隔离测试工具函数及其边界情况"),
     (
         "tests/test_behavioral_contracts.py",
-        "Behavioral Contracts",
-        "Verify agent invariants (safety, termination, history)",
+        "行为契约",
+        "验证代理不变量（安全、终止和历史记录）",
     ),
     (
         "tests/test_integration.py",
-        "Integration Testing",
-        "Record/replay API responses, snapshot regression",
+        "集成测试",
+        "记录/重放 API 响应，执行快照回归测试",
     ),
 ]
 
 
 def main() -> None:
-    """Show test suite overview and run tests with human confirmation."""
+    """显示测试套件概览，并在用户确认后运行测试。"""
     console = Console()
 
     console.print(
         Panel(
-            "[bold cyan]Unit Testing Agents[/bold cyan]\n\n"
-            "Tests the tool-use agent loop using four complementary strategies:\n"
-            "  1. Mock LLM responses — deterministic agent loop testing\n"
-            "  2. Tool isolation — pure function testing with edge cases\n"
-            "  3. Behavioral contracts — safety, termination, history invariants\n"
-            "  4. Integration — full loop with response cassettes\n\n"
-            "No API keys required — everything is simulated.",
-            title="01 — Unit Testing Agents",
+            "[bold cyan]代理单元测试[/bold cyan]\n\n"
+            "使用四种互补策略测试工具调用代理循环：\n"
+            "  1. 模拟大语言模型响应——确定性的代理循环测试\n"
+            "  2. 隔离工具——涵盖边界情况的纯函数测试\n"
+            "  3. 行为契约——安全、终止和历史记录不变量\n"
+            "  4. 集成测试——使用响应录制文件测试完整循环\n\n"
+            "无需 API 密钥——所有内容均为模拟。",
+            title="01——代理单元测试",
         )
     )
 
-    # Show available test suites
-    table = Table(title="Test Suites", show_lines=True)
+    # 显示可用的测试套件
+    table = Table(title="测试套件", show_lines=True)
     table.add_column("#", width=3, justify="center")
-    table.add_column("Suite", style="cyan", width=24)
-    table.add_column("Description", width=50)
+    table.add_column("套件", style="cyan", width=24)
+    table.add_column("说明", width=50)
 
     for i, (_, name, desc) in enumerate(TEST_SUITES, 1):
         table.add_row(str(i), name, desc)
 
     console.print(table)
 
-    # Human confirmation before executing
-    console.print("\n[bold]This will run all test suites listed above.[/bold]")
+    # 执行前请求用户确认
+    console.print("\n[bold]即将运行上面列出的全部测试套件。[/bold]")
     try:
-        answer = console.input("[dim]Press Enter to run, or type 'q' to quit: [/dim]")
+        answer = console.input("[dim]按 Enter 运行，或输入“q”退出：[/dim]")
     except (EOFError, KeyboardInterrupt):
-        console.print("\n[yellow]Cancelled.[/yellow]")
+        console.print("\n[yellow]已取消。[/yellow]")
         return
 
     if answer.strip().lower() in ("q", "quit", "exit"):
-        console.print("[yellow]Cancelled.[/yellow]")
+        console.print("[yellow]已取消。[/yellow]")
         return
 
-    # Run tests
-    console.print("\n[bold]Running tests...[/bold]\n")
+    # 运行测试
+    console.print("\n[bold]正在运行测试……[/bold]\n")
 
     output_dir = Path(__file__).parent / "output"
     output_dir.mkdir(exist_ok=True)
@@ -98,11 +97,11 @@ def main() -> None:
     )
 
     if exit_code == 0:
-        console.print("\n[bold green]All tests passed![/bold green]")
+        console.print("\n[bold green]全部测试通过！[/bold green]")
     else:
-        console.print(f"\n[bold red]Some tests failed (exit code: {exit_code})[/bold red]")
+        console.print(f"\n[bold red]部分测试失败（退出码：{exit_code}）[/bold red]")
 
-    console.print(f"[dim]Test report saved to {report_path}[/dim]")
+    console.print(f"[dim]测试报告已保存至 {report_path}[/dim]")
 
 
 if __name__ == "__main__":

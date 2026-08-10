@@ -1,14 +1,13 @@
 """
-Trace Analysis
+追踪分析
 
-Demonstrates how to load recorded traces and compute aggregate metrics, detect
-anti-patterns, and compare traces. Works entirely offline using sample trace data —
-no API keys required.
+演示如何加载已记录的追踪、计算汇总指标、检测反模式并比较追踪。
+使用示例追踪数据即可完全离线运行，无需 API 密钥。
 
-Key concepts:
-- Aggregate metrics: total tokens, cost estimation, latency breakdown by span type
-- Anti-pattern detection: excessive calls, repeated searches, high token usage, errors
-- Trace comparison: diff two traces of the same task to spot regressions
+核心概念：
+- 汇总指标：令牌总数、成本估算、按跨度类型拆分的延迟
+- 反模式检测：调用过多、重复搜索、令牌用量过高和错误
+- 追踪比较：比较同一任务的两次追踪，以发现性能退化
 """
 
 import json
@@ -26,18 +25,18 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
-# Cost per token (approximate, for educational purposes)
-COST_PER_INPUT_TOKEN = 3.0 / 1_000_000  # $3 per 1M input tokens
-COST_PER_OUTPUT_TOKEN = 15.0 / 1_000_000  # $15 per 1M output tokens
+# 每个令牌的成本（近似值，仅用于教学）
+COST_PER_INPUT_TOKEN = 3.0 / 1_000_000  # 每 100 万个输入令牌 3 美元
+COST_PER_OUTPUT_TOKEN = 15.0 / 1_000_000  # 每 100 万个输出令牌 15 美元
 
 
 # ---------------------------------------------------------------------------
-# Sample traces — self-contained, no API key needed
+# 示例追踪——内容自包含，无需 API 密钥
 # ---------------------------------------------------------------------------
 
 SAMPLE_TRACE_GOOD = {
     "trace_id": "trace_good",
-    "question": "What are the benefits of microservices?",
+    "question": "微服务有哪些优势？",
     "spans": [
         {
             "name": "answer_question",
@@ -45,8 +44,8 @@ SAMPLE_TRACE_GOOD = {
             "start_time": 1000.0,
             "end_time": 1003.5,
             "duration_ms": 3500.0,
-            "inputs": {"question": "What are the benefits of microservices?"},
-            "outputs": {"answer": "Microservices offer scalability, fault isolation..."},
+            "inputs": {"question": "微服务有哪些优势？"},
+            "outputs": {"answer": "微服务具有可扩展性和故障隔离能力……"},
             "tokens": {},
             "error": None,
             "children": [
@@ -70,7 +69,7 @@ SAMPLE_TRACE_GOOD = {
                     "duration_ms": 20.0,
                     "inputs": {
                         "tool": "search_knowledge_base",
-                        "input": {"query": "microservices benefits"},
+                        "input": {"query": "微服务 优势"},
                     },
                     "outputs": {"result": "[{'id': 'doc_001'}]"},
                     "tokens": {},
@@ -96,7 +95,7 @@ SAMPLE_TRACE_GOOD = {
                     "end_time": 1002.51,
                     "duration_ms": 10.0,
                     "inputs": {"tool": "get_document", "input": {"doc_id": "doc_001"}},
-                    "outputs": {"result": "{'id': 'doc_001', 'title': 'Microservices'}"},
+                    "outputs": {"result": "{'id': 'doc_001', 'title': '微服务架构'}"},
                     "tokens": {},
                     "error": None,
                     "children": [],
@@ -120,7 +119,7 @@ SAMPLE_TRACE_GOOD = {
 
 SAMPLE_TRACE_ANTI_PATTERNS = {
     "trace_id": "trace_anti",
-    "question": "Tell me about caching",
+    "question": "介绍一下缓存",
     "spans": [
         {
             "name": "answer_question",
@@ -128,8 +127,8 @@ SAMPLE_TRACE_ANTI_PATTERNS = {
             "start_time": 2000.0,
             "end_time": 2018.0,
             "duration_ms": 18000.0,
-            "inputs": {"question": "Tell me about caching"},
-            "outputs": {"answer": "Caching is..."},
+            "inputs": {"question": "介绍一下缓存"},
+            "outputs": {"answer": "缓存是……"},
             "tokens": {},
             "error": None,
             "children": [
@@ -151,7 +150,7 @@ SAMPLE_TRACE_ANTI_PATTERNS = {
                     "start_time": 2001.5,
                     "end_time": 2001.52,
                     "duration_ms": 20.0,
-                    "inputs": {"tool": "search_knowledge_base", "input": {"query": "caching"}},
+                    "inputs": {"tool": "search_knowledge_base", "input": {"query": "缓存"}},
                     "outputs": {"result": "[{'id': 'doc_008'}]"},
                     "tokens": {},
                     "error": None,
@@ -169,14 +168,14 @@ SAMPLE_TRACE_ANTI_PATTERNS = {
                     "error": None,
                     "children": [],
                 },
-                # Repeated search — same query again (anti-pattern)
+                # 重复搜索——再次使用同一查询（反模式）
                 {
                     "name": "tool_search_knowledge_base",
                     "span_type": "tool_call",
                     "start_time": 2003.0,
                     "end_time": 2003.02,
                     "duration_ms": 20.0,
-                    "inputs": {"tool": "search_knowledge_base", "input": {"query": "caching"}},
+                    "inputs": {"tool": "search_knowledge_base", "input": {"query": "缓存"}},
                     "outputs": {"result": "[{'id': 'doc_008'}]"},
                     "tokens": {},
                     "error": None,
@@ -218,14 +217,14 @@ SAMPLE_TRACE_ANTI_PATTERNS = {
                     "error": None,
                     "children": [],
                 },
-                # Repeated search — third time (anti-pattern)
+                # 重复搜索——第三次使用同一查询（反模式）
                 {
                     "name": "tool_search_knowledge_base",
                     "span_type": "tool_call",
                     "start_time": 2007.0,
                     "end_time": 2007.02,
                     "duration_ms": 20.0,
-                    "inputs": {"tool": "search_knowledge_base", "input": {"query": "caching"}},
+                    "inputs": {"tool": "search_knowledge_base", "input": {"query": "缓存"}},
                     "outputs": {"result": "[{'id': 'doc_008'}]"},
                     "tokens": {},
                     "error": None,
@@ -255,7 +254,7 @@ SAMPLE_TRACE_ANTI_PATTERNS = {
                     "error": None,
                     "children": [],
                 },
-                # Slow LLM call (anti-pattern: >10s)
+                # 缓慢的 LLM 调用（反模式：超过 10 秒）
                 {
                     "name": "llm_call_6",
                     "span_type": "llm_call",
@@ -275,7 +274,7 @@ SAMPLE_TRACE_ANTI_PATTERNS = {
 
 SAMPLE_TRACE_ERROR = {
     "trace_id": "trace_error",
-    "question": "What is GraphQL?",
+    "question": "什么是 GraphQL？",
     "spans": [
         {
             "name": "answer_question",
@@ -283,10 +282,10 @@ SAMPLE_TRACE_ERROR = {
             "start_time": 3000.0,
             "end_time": 3004.0,
             "duration_ms": 4000.0,
-            "inputs": {"question": "What is GraphQL?"},
+            "inputs": {"question": "什么是 GraphQL？"},
             "outputs": {},
             "tokens": {},
-            "error": "No relevant documents found",
+            "error": "未找到相关文档",
             "children": [
                 {
                     "name": "llm_call_1",
@@ -309,7 +308,7 @@ SAMPLE_TRACE_ERROR = {
                     "inputs": {"tool": "search_knowledge_base", "input": {"query": "GraphQL"}},
                     "outputs": {"result": "[]"},
                     "tokens": {},
-                    "error": "No results found",
+                    "error": "未找到结果",
                     "children": [],
                 },
                 {
@@ -335,17 +334,37 @@ ALL_SAMPLE_TRACES = {
     "error": SAMPLE_TRACE_ERROR,
 }
 
+TRACE_NAME_LABELS = {
+    "good": "良好",
+    "anti_patterns": "含反模式",
+    "error": "错误",
+}
+
+PATTERN_LABELS = {
+    "excessive_llm_calls": "LLM 调用过多",
+    "repeated_tool_call": "重复工具调用",
+    "high_token_usage": "令牌用量过高",
+    "unretried_failure": "失败后未重试",
+    "slow_span": "跨度过慢",
+}
+
+SEVERITY_LABELS = {
+    "error": "错误",
+    "warning": "警告",
+    "info": "信息",
+}
+
 
 # ---------------------------------------------------------------------------
-# Trace analysis
+# 追踪分析
 # ---------------------------------------------------------------------------
 
 
 class TraceAnalyzer:
-    """Analyzes execution traces to detect patterns and compute metrics."""
+    """分析执行追踪，以检测模式并计算指标。"""
 
     def load_trace(self, path: str) -> dict[str, Any]:
-        """Load a trace from a JSON file."""
+        """从 JSON 文件加载追踪。"""
         from pathlib import Path
 
         with Path(path).open(encoding="utf-8") as f:
@@ -353,11 +372,11 @@ class TraceAnalyzer:
             return result
 
     def load_trace_from_dict(self, trace_data: dict[str, Any]) -> dict[str, Any]:
-        """Load a trace from an in-memory dictionary."""
+        """从内存字典加载追踪。"""
         return trace_data
 
     def compute_metrics(self, trace: dict[str, Any]) -> dict[str, Any]:
-        """Compute aggregate metrics: total tokens, cost, step count, latency breakdown."""
+        """计算汇总指标：令牌总数、成本、步骤数和延迟明细。"""
         all_spans = collect_all_spans(trace.get("spans", []))
 
         total_input_tokens = 0
@@ -391,7 +410,7 @@ class TraceAnalyzer:
             total_input_tokens * COST_PER_INPUT_TOKEN + total_output_tokens * COST_PER_OUTPUT_TOKEN
         )
 
-        # Total duration from root spans
+        # 根据根跨度计算总耗时
         total_duration_ms = sum(s.get("duration_ms", 0.0) for s in trace.get("spans", []))
 
         return {
@@ -409,22 +428,22 @@ class TraceAnalyzer:
         }
 
     def detect_anti_patterns(self, trace: dict[str, Any]) -> list[dict[str, str]]:
-        """Detect anti-patterns like excessive tool calls, loops, failed tools."""
+        """检测工具调用过多、循环和工具失败等反模式。"""
         issues: list[dict[str, str]] = []
         all_spans = collect_all_spans(trace.get("spans", []))
 
-        # Check 1: Excessive LLM calls (>5 for a single question)
+        # 检查 1：LLM 调用过多（单个问题超过 5 次）
         llm_calls = [s for s in all_spans if s.get("span_type") == "llm_call"]
         if len(llm_calls) > 5:
             issues.append(
                 {
                     "pattern": "excessive_llm_calls",
                     "severity": "warning",
-                    "message": f"Found {len(llm_calls)} LLM calls — consider simplifying the prompt",
+                    "message": f"发现 {len(llm_calls)} 次 LLM 调用——请考虑简化提示词",
                 }
             )
 
-        # Check 2: Repeated identical tool calls
+        # 检查 2：重复的相同工具调用
         tool_calls = [s for s in all_spans if s.get("span_type") == "tool_call"]
         seen_calls: dict[str, int] = {}
         for tc in tool_calls:
@@ -438,11 +457,11 @@ class TraceAnalyzer:
                     {
                         "pattern": "repeated_tool_call",
                         "severity": "warning",
-                        "message": f"Tool call '{key}' repeated {count} times — agent may be looping",
+                        "message": f"工具调用“{key}”重复了 {count} 次——智能体可能陷入循环",
                     }
                 )
 
-        # Check 3: High token consumption (>2000 total for a simple task)
+        # 检查 3：令牌消耗过高（简单任务总计超过 2000 个）
         total_tokens = sum(
             s.get("tokens", {}).get("input", 0) + s.get("tokens", {}).get("output", 0)
             for s in all_spans
@@ -452,11 +471,11 @@ class TraceAnalyzer:
                 {
                     "pattern": "high_token_usage",
                     "severity": "info",
-                    "message": f"Total token usage is {total_tokens} — review if the task warrants it",
+                    "message": f"令牌总用量为 {total_tokens}——请检查任务是否确实需要这么多令牌",
                 }
             )
 
-        # Check 4: Failed tool calls that weren't retried
+        # 检查 4：失败后未重试的工具调用
         failed_tools = [s for s in tool_calls if s.get("error")]
         for ft in failed_tools:
             tool_name = ft.get("inputs", {}).get("tool", "unknown")
@@ -470,11 +489,11 @@ class TraceAnalyzer:
                     {
                         "pattern": "unretried_failure",
                         "severity": "error",
-                        "message": f"Tool '{tool_name}' failed but was not retried",
+                        "message": f"工具“{tool_name}”调用失败，但未重试",
                     }
                 )
 
-        # Check 5: Very long spans (>10s for a single operation)
+        # 检查 5：跨度耗时过长（单个操作超过 10 秒）
         for span in all_spans:
             duration = span.get("duration_ms", 0.0)
             if duration > 10000 and span.get("span_type") != "agent_step":
@@ -483,7 +502,7 @@ class TraceAnalyzer:
                         "pattern": "slow_span",
                         "severity": "warning",
                         "message": (
-                            f"Span '{span['name']}' took {duration:.0f}ms (>{10000}ms threshold)"
+                            f"跨度“{span['name']}”耗时 {duration:.0f} 毫秒（超过 10000 毫秒阈值）"
                         ),
                     }
                 )
@@ -491,7 +510,7 @@ class TraceAnalyzer:
         return issues
 
     def compare_traces(self, trace_a: dict[str, Any], trace_b: dict[str, Any]) -> dict[str, Any]:
-        """Compare two traces of the same task."""
+        """比较同一任务的两次追踪。"""
         metrics_a = self.compute_metrics(trace_a)
         metrics_b = self.compute_metrics(trace_b)
 
@@ -518,45 +537,45 @@ class TraceAnalyzer:
 
 
 def main() -> None:
-    """Analyze sample traces: compute metrics, detect anti-patterns, compare."""
+    """分析示例追踪：计算指标、检测反模式并进行比较。"""
     console = Console()
 
     console.print(
         Panel(
-            "[bold cyan]Trace Analysis[/bold cyan]\n\n"
-            "Loads recorded traces and computes aggregate metrics, detects\n"
-            "anti-patterns, and compares traces. Works entirely offline.\n\n"
-            "Concepts: metrics aggregation, anti-pattern detection, trace comparison",
-            title="02 - Trace Analysis",
+            "[bold cyan]追踪分析[/bold cyan]\n\n"
+            "加载已记录的追踪、计算汇总指标、检测反模式并比较追踪。\n"
+            "完全支持离线运行。\n\n"
+            "概念：指标汇总、反模式检测、追踪比较",
+            title="02 - 追踪分析",
         )
     )
 
     analyzer = TraceAnalyzer()
 
-    # --- Metrics table ---
-    console.print("\n[bold]Trace Metrics[/bold]\n")
+    # --- 指标表 ---
+    console.print("\n[bold]追踪指标[/bold]\n")
 
-    metrics_table = Table(title="Metrics by Trace")
-    metrics_table.add_column("Metric", style="cyan")
+    metrics_table = Table(title="各追踪的指标")
+    metrics_table.add_column("指标", style="cyan")
     for name in ALL_SAMPLE_TRACES:
-        metrics_table.add_column(name, justify="right")
+        metrics_table.add_column(TRACE_NAME_LABELS[name], justify="right")
 
     all_metrics: dict[str, dict[str, Any]] = {}
     for name, trace in ALL_SAMPLE_TRACES.items():
         all_metrics[name] = analyzer.compute_metrics(trace)
 
     metric_labels = {
-        "total_tokens": "Total Tokens",
-        "total_input_tokens": "Input Tokens",
-        "total_output_tokens": "Output Tokens",
-        "estimated_cost_usd": "Est. Cost (USD)",
-        "llm_call_count": "LLM Calls",
-        "tool_call_count": "Tool Calls",
-        "error_count": "Errors",
-        "total_duration_ms": "Total Duration (ms)",
-        "llm_latency_ms": "LLM Latency (ms)",
-        "tool_latency_ms": "Tool Latency (ms)",
-        "total_spans": "Total Spans",
+        "total_tokens": "令牌总数",
+        "total_input_tokens": "输入令牌",
+        "total_output_tokens": "输出令牌",
+        "estimated_cost_usd": "估算成本（美元）",
+        "llm_call_count": "LLM 调用次数",
+        "tool_call_count": "工具调用次数",
+        "error_count": "错误数",
+        "total_duration_ms": "总耗时（毫秒）",
+        "llm_latency_ms": "LLM 延迟（毫秒）",
+        "tool_latency_ms": "工具延迟（毫秒）",
+        "total_spans": "跨度总数",
     }
 
     for key, label in metric_labels.items():
@@ -573,39 +592,39 @@ def main() -> None:
 
     console.print(metrics_table)
 
-    # --- Anti-pattern detection ---
-    console.print("\n[bold]Anti-Pattern Detection[/bold]\n")
+    # --- 反模式检测 ---
+    console.print("\n[bold]反模式检测[/bold]\n")
 
     for name, trace in ALL_SAMPLE_TRACES.items():
         issues = analyzer.detect_anti_patterns(trace)
         if issues:
-            issue_table = Table(title=f"Issues in '{name}'")
-            issue_table.add_column("Severity", style="bold")
-            issue_table.add_column("Pattern")
-            issue_table.add_column("Message")
+            issue_table = Table(title=f"“{TRACE_NAME_LABELS[name]}”追踪中的问题")
+            issue_table.add_column("严重程度", style="bold")
+            issue_table.add_column("模式")
+            issue_table.add_column("消息")
             for issue in issues:
                 severity = issue["severity"]
                 style = {"error": "red", "warning": "yellow", "info": "blue"}.get(severity, "")
                 issue_table.add_row(
-                    f"[{style}]{severity.upper()}[/{style}]",
-                    issue["pattern"],
+                    f"[{style}]{SEVERITY_LABELS[severity]}[/{style}]",
+                    PATTERN_LABELS.get(issue["pattern"], issue["pattern"]),
                     issue["message"],
                 )
             console.print(issue_table)
         else:
-            console.print(f"  [green]No issues detected in '{name}'[/green]")
+            console.print(f"  [green]在“{TRACE_NAME_LABELS[name]}”追踪中未检测到问题[/green]")
         console.print()
 
-    # --- Trace comparison ---
-    console.print("[bold]Trace Comparison: good vs anti_patterns[/bold]\n")
+    # --- 追踪比较 ---
+    console.print("[bold]追踪比较：良好追踪与含反模式追踪[/bold]\n")
 
     comparison = analyzer.compare_traces(SAMPLE_TRACE_GOOD, SAMPLE_TRACE_ANTI_PATTERNS)
-    comp_table = Table(title="Comparison")
-    comp_table.add_column("Metric", style="cyan")
-    comp_table.add_column("Good", justify="right")
-    comp_table.add_column("Anti-Patterns", justify="right")
-    comp_table.add_column("Diff", justify="right")
-    comp_table.add_column("% Change", justify="right")
+    comp_table = Table(title="比较结果")
+    comp_table.add_column("指标", style="cyan")
+    comp_table.add_column("良好追踪", justify="right")
+    comp_table.add_column("含反模式追踪", justify="right")
+    comp_table.add_column("差值", justify="right")
+    comp_table.add_column("变化百分比", justify="right")
 
     for key, vals in comparison.items():
         label = metric_labels.get(key, key)

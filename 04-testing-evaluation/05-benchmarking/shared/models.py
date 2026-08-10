@@ -1,7 +1,7 @@
 """
-Shared data classes and model configurations for benchmark scripts.
+基准测试脚本共享的数据类和模型配置。
 
-Defines ModelConfig, BenchmarkResult, BenchmarkConfig, and default model configs.
+定义 ModelConfig、BenchmarkResult、BenchmarkConfig 和默认模型配置。
 """
 
 from dataclasses import dataclass
@@ -9,23 +9,23 @@ from dataclasses import dataclass
 
 @dataclass
 class ModelConfig:
-    """Configuration for a model to benchmark."""
+    """待基准测试模型的配置。"""
 
     name: str
-    provider: str  # "anthropic" or "openai"
+    provider: str  # "anthropic" 或 "openai"
     model_id: str
-    cost_per_input_token: float  # dollars per 1M tokens
-    cost_per_output_token: float  # dollars per 1M tokens
+    cost_per_input_token: float  # 每 100 万输入 Token 的美元价格
+    cost_per_output_token: float  # 每 100 万输出 Token 的美元价格
 
 
 @dataclass
 class BenchmarkResult:
-    """Result from running one benchmark task."""
+    """单个基准测试任务的运行结果。"""
 
     task_id: str
     config_name: str
     answer: str
-    keyword_score: float  # 0.0-1.0 based on expected keywords found
+    keyword_score: float  # 根据命中的预期关键词计算，范围为 0.0～1.0
     latency_ms: float
     input_tokens: int
     output_tokens: int
@@ -35,7 +35,7 @@ class BenchmarkResult:
 
 @dataclass
 class BenchmarkConfig:
-    """A single benchmark configuration (model + prompt combination)."""
+    """单个基准测试配置（模型与提示词的组合）。"""
 
     name: str
     model: ModelConfig
@@ -43,7 +43,7 @@ class BenchmarkConfig:
     system_prompt: str
 
 
-# Default model configurations
+# 默认模型配置
 MODEL_CONFIGS = [
     ModelConfig("Claude Sonnet", "anthropic", "claude-sonnet-4-5-20250929", 3.0, 15.0),
     ModelConfig("Claude Haiku", "anthropic", "claude-haiku-4-5-20251001", 0.80, 4.0),

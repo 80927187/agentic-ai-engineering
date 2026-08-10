@@ -1,4 +1,4 @@
-"""Shared modules for tracing and debugging tutorials."""
+"""追踪与调试教程的共享模块。"""
 
 from shared.agent import TracedResearchAssistant
 from shared.knowledge_base import (

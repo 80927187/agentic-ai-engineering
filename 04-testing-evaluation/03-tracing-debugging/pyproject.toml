@@ -1,7 +1,7 @@
 [project]
 name = "lesson-tracing-debugging"
 version = "0.1.0"
-description = "Lesson: Tracing & Debugging - Observability, execution traces, failure analysis"
+description = "课程：追踪与调试——可观测性、执行追踪和故障分析"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

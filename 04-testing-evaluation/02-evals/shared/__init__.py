@@ -1,4 +1,4 @@
-"""Shared modules for evaluation tutorials."""
+"""评估教程共用模块。"""
 
 from shared.agent import ResearchAssistant
 from shared.graders import (

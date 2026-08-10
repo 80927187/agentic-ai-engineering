@@ -1,4 +1,4 @@
-"""Model benchmarking with Pareto analysis for the eval harness."""
+"""评测工具的模型基准测试与帕累托分析。"""
 
 import logging
 import random
@@ -8,7 +8,7 @@ from eval_harness.models import BenchmarkEntry, EvalTask
 
 logger = logging.getLogger(__name__)
 
-# Simulated model configurations with realistic performance characteristics
+# 具有现实性能特征的模拟模型配置
 DEFAULT_CONFIGS: list[dict[str, Any]] = [
     {
         "name": "claude-haiku",
@@ -38,7 +38,7 @@ DEFAULT_CONFIGS: list[dict[str, Any]] = [
 
 
 class BenchmarkRunner:
-    """Runs benchmarks across model configurations."""
+    """针对多种模型配置运行基准测试。"""
 
     def __init__(self, configs: list[dict[str, Any]] | None = None) -> None:
         self.configs = configs or DEFAULT_CONFIGS
@@ -46,39 +46,39 @@ class BenchmarkRunner:
     def run_benchmark(
         self, tasks: list[EvalTask], configs: list[dict[str, Any]] | None = None
     ) -> list[BenchmarkEntry]:
-        """Run simulated benchmarks across model configurations and tasks."""
+        """针对多种模型配置和任务运行模拟基准测试。"""
         configs = configs or self.configs
         entries: list[BenchmarkEntry] = []
 
         for config in configs:
-            logger.info("Benchmarking config: %s", config["name"])
+            logger.info("正在对配置进行基准测试：%s", config["name"])
             for task in tasks:
                 entry = self._simulate_benchmark(task, config)
                 entries.append(entry)
 
         logger.info(
-            "Benchmark complete: %d entries across %d configs",
+            "基准测试完成：%d 条结果，涉及 %d 项配置",
             len(entries),
             len(configs),
         )
         return entries
 
     def _simulate_benchmark(self, task: EvalTask, config: dict[str, Any]) -> BenchmarkEntry:
-        """Simulate a benchmark run for one task + config combination."""
-        # Simulate latency with variance
+        """模拟一个任务与配置组合的基准测试运行。"""
+        # 模拟带波动的延迟
         base_latency = config["avg_latency_ms"]
         latency = base_latency + random.uniform(-base_latency * 0.2, base_latency * 0.2)
 
-        # Simulate accuracy based on task difficulty and model capability
+        # 根据任务难度和模型能力模拟准确率
         difficulty_modifier = {"easy": 1.0, "medium": 0.85, "hard": 0.7}.get(task.difficulty, 0.85)
         accuracy = min(1.0, config["accuracy_modifier"] * difficulty_modifier)
 
-        # Simulate token usage
+        # 模拟 token 用量
         input_tokens = random.randint(200, 400)
         output_tokens = random.randint(80, 200)
         total_tokens = input_tokens + output_tokens
 
-        # Calculate cost
+        # 计算成本
         cost = (
             input_tokens / 1000 * config["cost_per_1k_input"]
             + output_tokens / 1000 * config["cost_per_1k_output"]
@@ -94,8 +94,8 @@ class BenchmarkRunner:
         )
 
     def find_pareto_optimal(self, entries: list[BenchmarkEntry]) -> list[str]:
-        """Find Pareto-optimal configs balancing accuracy, latency, and cost."""
-        # Aggregate metrics per config
+        """找出在准确率、延迟和成本之间取得平衡的帕累托最优配置。"""
+        # 按配置汇总指标
         config_metrics: dict[str, dict[str, float]] = {}
         for entry in entries:
             if entry.config_name not in config_metrics:
@@ -111,7 +111,7 @@ class BenchmarkRunner:
             metrics["cost_sum"] += entry.cost_usd
             metrics["count"] += 1
 
-        # Compute averages
+        # 计算平均值
         averages: dict[str, dict[str, float]] = {}
         for name, metrics in config_metrics.items():
             count = metrics["count"]
@@ -121,7 +121,7 @@ class BenchmarkRunner:
                 "cost": metrics["cost_sum"] / count,
             }
 
-        # Find Pareto-optimal: a config is dominated if another config is better on all axes
+        # 查找帕累托最优解：如果另一配置在所有维度上都更好，则当前配置被支配
         pareto: list[str] = []
         config_names = list(averages.keys())
 
@@ -132,7 +132,7 @@ class BenchmarkRunner:
                     continue
                 other = averages[other_name]
                 current = averages[name]
-                # Other dominates if it has higher accuracy, lower latency, and lower cost
+                # 如果另一配置准确率更高、延迟更低且成本更低，则它支配当前配置
                 if (
                     other["accuracy"] >= current["accuracy"]
                     and other["latency"] <= current["latency"]
@@ -148,5 +148,5 @@ class BenchmarkRunner:
             if not dominated:
                 pareto.append(name)
 
-        logger.info("Pareto-optimal configs: %s", pareto)
+        logger.info("帕累托最优配置：%s", pareto)
         return pareto

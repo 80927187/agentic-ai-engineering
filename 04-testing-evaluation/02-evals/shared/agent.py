@@ -1,8 +1,7 @@
-"""
-Research assistant agent for evaluation tutorials.
+"""评估教程使用的研究助手智能体。
 
-Implements a tool-use agent that searches a knowledge base and synthesizes
-answers with source citations. Used as the system under test in eval pipelines.
+实现一个能够搜索知识库、综合答案并引用来源的工具调用智能体，
+作为评估流水线中的被测系统。
 """
 
 import json
@@ -17,7 +16,7 @@ logger = setup_logging(__name__)
 
 
 class ResearchAssistant:
-    """Research assistant that searches a knowledge base and synthesizes answers."""
+    """搜索知识库并综合答案的研究助手。"""
 
     def __init__(
         self,
@@ -31,7 +30,7 @@ class ResearchAssistant:
         self.token_tracker = AnthropicTokenTracker()
 
     def answer(self, question: str) -> dict[str, Any]:
-        """Answer a question using the knowledge base."""
+        """使用知识库回答问题。"""
         messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
         tool_calls_made: list[dict[str, Any]] = []
 
@@ -56,7 +55,7 @@ class ResearchAssistant:
                     "sources": [tc["results"] for tc in tool_calls_made],
                 }
 
-            # Process tool calls
+            # 处理工具调用
             messages.append({"role": "assistant", "content": response.content})
             tool_results: list[dict[str, Any]] = []
             for block in response.content:
@@ -69,7 +68,7 @@ class ResearchAssistant:
                         {
                             "type": "tool_result",
                             "tool_use_id": block.id,
-                            "content": json.dumps(result),
+                            "content": json.dumps(result, ensure_ascii=False),
                         }
                     )
             messages.append({"role": "user", "content": tool_results})

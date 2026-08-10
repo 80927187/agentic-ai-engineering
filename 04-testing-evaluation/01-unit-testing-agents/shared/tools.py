@@ -1,9 +1,8 @@
 """
-Shared tool definitions, implementations, and dispatch.
+共享的工具定义、实现与分发逻辑。
 
-Provides the calculator, read_file, and run_bash tools used across all
-unit-testing tutorial scripts. Includes safety guardrails (blocked commands)
-and a generic execute_tool dispatcher.
+提供所有单元测试教程脚本共用的 calculator、read_file 和 run_bash 工具，
+其中包括安全防护措施（禁止的命令）以及通用的 execute_tool 分发器。
 """
 
 import subprocess
@@ -15,13 +14,13 @@ from common import setup_logging
 logger = setup_logging(__name__)
 
 # ---------------------------------------------------------------------------
-# Tool definitions (Anthropic tool-use format)
+# 工具定义（Anthropic 工具调用格式）
 # ---------------------------------------------------------------------------
 
 TOOLS = [
     {
         "name": "calculator",
-        "description": "Performs basic arithmetic operations.",
+        "description": "执行基本算术运算。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -37,7 +36,7 @@ TOOLS = [
     },
     {
         "name": "read_file",
-        "description": "Reads the contents of a file at the specified path.",
+        "description": "读取指定路径的文件内容。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -49,7 +48,7 @@ TOOLS = [
     },
     {
         "name": "run_bash",
-        "description": "Executes a bash command and returns the output.",
+        "description": "执行 Bash 命令并返回输出。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -65,34 +64,34 @@ BLOCKED_COMMANDS = ["rm", "sudo", "chmod", "chown", "mkfs", "dd", "shutdown", "r
 
 
 # ---------------------------------------------------------------------------
-# Tool implementations
+# 工具实现
 # ---------------------------------------------------------------------------
 
 
 def calculator(operation: str, a: float, b: float) -> dict[str, Any]:
-    """Execute calculator tool."""
+    """执行计算器工具。"""
     operations = {
         "add": lambda x, y: x + y,
         "subtract": lambda x, y: x - y,
         "multiply": lambda x, y: x * y,
-        "divide": lambda x, y: x / y if y != 0 else "Error: Division by zero",
+        "divide": lambda x, y: x / y if y != 0 else "错误：除数不能为零",
     }
     if operation not in operations:
-        return {"error": f"Unknown operation: {operation}"}
+        return {"error": f"未知运算：{operation}"}
     result = operations[operation](a, b)
-    logger.info("Calculator: %s %s %s = %s", a, operation, b, result)
+    logger.info("计算器：%s %s %s = %s", a, operation, b, result)
     return {"result": result, "operation": operation, "operands": [a, b]}
 
 
 def read_file(path: str, max_lines: int = 100) -> dict[str, Any]:
-    """Read the contents of a file."""
+    """读取文件内容。"""
     try:
         with Path(path).open(encoding="utf-8") as f:
             lines = f.readlines()
         total_lines = len(lines)
         content = "".join(lines[:max_lines])
         truncated = total_lines > max_lines
-        logger.info("Read file: %s (%d lines)", path, total_lines)
+        logger.info("读取文件：%s（%d 行）", path, total_lines)
         return {
             "path": path,
             "content": content,
@@ -100,19 +99,19 @@ def read_file(path: str, max_lines: int = 100) -> dict[str, Any]:
             "truncated": truncated,
         }
     except FileNotFoundError:
-        return {"error": f"File not found: {path}"}
+        return {"error": f"找不到文件：{path}"}
     except PermissionError:
-        return {"error": f"Permission denied: {path}"}
+        return {"error": f"权限不足：{path}"}
 
 
 def run_bash(command: str, timeout: int = 30) -> dict[str, Any]:
-    """Execute a bash command and return the output."""
+    """执行 Bash 命令并返回输出。"""
     cmd_lower = command.lower().strip()
     for blocked in BLOCKED_COMMANDS:
         if blocked in cmd_lower:
-            logger.warning("Blocked dangerous command: %s", command)
-            return {"error": f"Command blocked for safety: contains '{blocked}'"}
-    logger.info("Running bash command: %s", command)
+            logger.warning("已阻止危险命令：%s", command)
+            return {"error": f"出于安全考虑，命令已被阻止：包含“{blocked}”"}
+    logger.info("正在运行 Bash 命令：%s", command)
     try:
         result = subprocess.run(
             command, shell=True, capture_output=True, text=True, timeout=timeout
@@ -124,11 +123,11 @@ def run_bash(command: str, timeout: int = 30) -> dict[str, Any]:
             "exit_code": result.returncode,
         }
     except subprocess.TimeoutExpired:
-        return {"error": f"Command timed out after {timeout} seconds"}
+        return {"error": f"命令在 {timeout} 秒后超时"}
 
 
 # ---------------------------------------------------------------------------
-# Tool dispatch
+# 工具分发
 # ---------------------------------------------------------------------------
 
 TOOL_FUNCTIONS: dict[str, Any] = {
@@ -139,14 +138,14 @@ TOOL_FUNCTIONS: dict[str, Any] = {
 
 
 def execute_tool(tool_name: str, tool_input: dict[str, Any]) -> Any:
-    """Execute a tool and return its result."""
+    """执行工具并返回结果。"""
     if tool_name not in TOOL_FUNCTIONS:
-        return {"error": f"Unknown tool: {tool_name}"}
+        return {"error": f"未知工具：{tool_name}"}
     try:
         return TOOL_FUNCTIONS[tool_name](**tool_input)
     except TypeError as e:
-        logger.error("Invalid arguments for tool %s: %s", tool_name, e)
-        return {"error": f"Invalid arguments: {e}"}
+        logger.error("工具 %s 的参数无效：%s", tool_name, e)
+        return {"error": f"参数无效：{e}"}
     except Exception as e:
-        logger.error("Tool execution error: %s", e)
+        logger.error("工具执行错误：%s", e)
         return {"error": str(e)}

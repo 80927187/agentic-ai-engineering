@@ -1,4 +1,4 @@
-"""Shared modules for red teaming and safety tutorials."""
+"""红队测试与安全教程的共享模块。"""
 
 from shared.agent import (
     ATTACK_CATEGORIES,

@@ -24,9 +24,9 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 # 模型配置
-MODEL_CLASSIFIER = "claude-haiku-4-5-20251001"
-MODEL_EASY = "claude-haiku-4-5-20251001"
-MODEL_HARD = "claude-sonnet-4-6"
+MODEL_CLASSIFIER = "deepseek-v4-flash"
+MODEL_EASY = "deepseek-v4-flash"
+MODEL_HARD = "deepseek-v4-flash"
 
 # 定价（美元/百万词元）
 PRICING = {
@@ -71,11 +71,23 @@ class ModelRouter:
         self.results: list[TaskResult] = field(default_factory=list)
         self.results = []
 
+    @staticmethod
+    def _extract_text(response: anthropic.types.Message) -> str:
+        """跳过思考块并合并响应中的所有文本块。"""
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
+        return "\n\n".join(text_parts)
+
     def classify(self, task: str) -> str:
         """使用 Haiku 将任务难度分类为 'easy' 或 'hard'。"""
         response = self.client.messages.create(
             model=MODEL_CLASSIFIER,
-            max_tokens=10,
+            max_tokens=21333,
             system=(
                 "将以下任务分类为 'easy' 或 'hard'。\n"
                 "easy：简单的事实查询、单位换算、基础数学和定义。\n"
@@ -86,7 +98,7 @@ class ModelRouter:
         )
         self.token_tracker.track(response.usage)
 
-        classification = str(response.content[0].text).strip().lower()
+        classification = self._extract_text(response).strip().lower()
         # 分类结果不明确时，默认按困难任务处理
         if classification not in ("easy", "hard"):
             logger.warning("分类结果 '%s' 不明确，默认按 hard 处理", classification)
@@ -99,13 +111,13 @@ class ModelRouter:
         """在指定模型上运行任务，返回（响应, 输入词元数, 输出词元数）。"""
         response = self.client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=21333,
             messages=[{"role": "user", "content": task}],
         )
         self.token_tracker.track(response.usage)
 
         return (
-            str(response.content[0].text),
+            self._extract_text(response),
             response.usage.input_tokens,
             response.usage.output_tokens,
         )

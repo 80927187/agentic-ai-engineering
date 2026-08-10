@@ -1,7 +1,7 @@
 [project]
 name = "lesson-eval-frameworks"
 version = "0.1.0"
-description = "Lesson: Eval Frameworks - Promptfoo, Braintrust AutoEvals, Langfuse"
+description = "课程：评测框架——Promptfoo、Braintrust AutoEvals、Langfuse"
 requires-python = ">=3.11"
 dependencies = [
     "common",

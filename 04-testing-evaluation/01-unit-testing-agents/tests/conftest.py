@@ -1,8 +1,8 @@
 """
-Shared test fixtures and cassette infrastructure for integration tests.
+集成测试共用的测试夹具和响应录制基础设施。
 
-Provides CassetteClient for record/replay testing, pre-built cassette data,
-and fixtures used across test modules.
+提供用于记录/重放测试的 CassetteClient、预构建的录制数据，
+以及各测试模块共用的夹具。
 """
 
 import json
@@ -16,12 +16,12 @@ logger = setup_logging(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Cassette system — record and replay API responses
+# 响应录制系统——记录并重放 API 响应
 # ---------------------------------------------------------------------------
 
 
 class CassetteResponse:
-    """Reconstructed response object that mimics the Anthropic API response shape."""
+    """重建后的响应对象，模拟 Anthropic API 响应的结构。"""
 
     def __init__(self, data: dict[str, Any]) -> None:
         self.stop_reason = data["stop_reason"]
@@ -39,7 +39,7 @@ class CassetteResponse:
 
 
 class _AttrDict:
-    """Lightweight object that exposes dict keys as attributes."""
+    """将字典键公开为属性的轻量对象。"""
 
     def __init__(self, data: dict[str, Any]) -> None:
         self._data = data
@@ -48,7 +48,7 @@ class _AttrDict:
 
 
 class CassetteClient:
-    """A fake Anthropic client that replays responses from a cassette file."""
+    """从录制文件中重放响应的虚假 Anthropic 客户端。"""
 
     def __init__(self, cassette_path: Path) -> None:
         with cassette_path.open(encoding="utf-8") as f:
@@ -57,17 +57,17 @@ class CassetteClient:
         self.messages = self
 
     def create(self, **kwargs: Any) -> CassetteResponse:
-        """Replay the next recorded response."""
+        """重放下一条已记录的响应。"""
         if self._call_index >= len(self._interactions):
             raise RuntimeError(
-                f"Cassette exhausted: expected at most {len(self._interactions)} API calls, "
-                f"but got call #{self._call_index + 1}. "
-                "The agent's behavior has diverged from the recording."
+                f"录制响应已用尽：最多应调用 API {len(self._interactions)} 次，"
+                f"但当前已发起第 {self._call_index + 1} 次调用。"
+                "代理行为已偏离录制内容。"
             )
         interaction = self._interactions[self._call_index]
         self._call_index += 1
         logger.info(
-            "Replaying cassette response %d/%d",
+            "正在重放录制响应 %d/%d",
             self._call_index,
             len(self._interactions),
         )
@@ -75,12 +75,12 @@ class CassetteClient:
 
     @property
     def calls_remaining(self) -> int:
-        """How many recorded responses are left to replay."""
+        """尚未重放的已记录响应数量。"""
         return len(self._interactions) - self._call_index
 
 
 def serialize_response(response: Any) -> dict[str, Any]:
-    """Serialize an Anthropic API response to a JSON-safe dict for recording."""
+    """将 Anthropic API 响应序列化为适合写入 JSON 的字典。"""
     content = []
     for block in response.content:
         if hasattr(block, "text"):
@@ -102,21 +102,21 @@ def serialize_response(response: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Pre-built cassette data
+# 预构建的响应录制数据
 # ---------------------------------------------------------------------------
 
-# Cassette: simple text response (no tool use)
+# 录制数据：简单文本响应（不使用工具）
 CASSETTE_TEXT_ONLY = [
     {
         "response": {
             "stop_reason": "end_turn",
-            "content": [{"text": "Hello! I'm ready to help you with calculations."}],
+            "content": [{"text": "你好！我可以帮你进行计算。"}],
             "usage": {"input_tokens": 120, "output_tokens": 15},
         }
     }
 ]
 
-# Cassette: single tool call (calculator) followed by text response
+# 录制数据：调用一次计算器工具，然后返回文本响应
 CASSETTE_CALCULATOR = [
     {
         "response": {
@@ -134,13 +134,13 @@ CASSETTE_CALCULATOR = [
     {
         "response": {
             "stop_reason": "end_turn",
-            "content": [{"text": "12 multiplied by 15 equals 180."}],
+            "content": [{"text": "12 乘以 15 等于 180。"}],
             "usage": {"input_tokens": 200, "output_tokens": 12},
         }
     },
 ]
 
-# Cassette: multi-turn tool use — two sequential calculator calls
+# 录制数据：多轮工具调用——连续调用两次计算器
 CASSETTE_MULTI_TOOL = [
     {
         "response": {
@@ -171,15 +171,13 @@ CASSETTE_MULTI_TOOL = [
     {
         "response": {
             "stop_reason": "end_turn",
-            "content": [
-                {"text": "First I added 100 + 200 = 300, then multiplied by 2 to get 600."}
-            ],
+            "content": [{"text": "我先计算 100 + 200 = 300，再乘以 2，得到 600。"}],
             "usage": {"input_tokens": 280, "output_tokens": 25},
         }
     },
 ]
 
-# Cassette: blocked command — LLM requests rm, agent blocks it, LLM apologizes
+# 录制数据：被禁止的命令——大语言模型请求执行 rm，代理将其阻止，模型随后致歉
 CASSETTE_BLOCKED_COMMAND = [
     {
         "response": {
@@ -197,7 +195,7 @@ CASSETTE_BLOCKED_COMMAND = [
     {
         "response": {
             "stop_reason": "end_turn",
-            "content": [{"text": "I apologize, but that command was blocked for safety reasons."}],
+            "content": [{"text": "抱歉，出于安全考虑，该命令已被阻止。"}],
             "usage": {"input_tokens": 210, "output_tokens": 18},
         }
     },
@@ -205,20 +203,20 @@ CASSETTE_BLOCKED_COMMAND = [
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# 夹具
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture()
 def cassette_dir(tmp_path: Path) -> Path:
-    """Create a temporary cassette directory."""
+    """创建临时的响应录制目录。"""
     d = tmp_path / "cassettes"
     d.mkdir()
     return d
 
 
 def write_cassette(cassette_dir: Path, name: str, data: list[dict[str, Any]]) -> Path:
-    """Write a cassette file and return its path."""
+    """写入响应录制文件并返回其路径。"""
     path = cassette_dir / f"{name}.json"
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return path

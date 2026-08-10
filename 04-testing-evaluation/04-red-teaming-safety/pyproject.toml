@@ -1,7 +1,7 @@
 [project]
 name = "lesson-red-teaming-safety"
 version = "0.1.0"
-description = "Lesson: Red Teaming & Safety - Adversarial testing, prompt injection, guardrails"
+description = "课程：红队测试与安全——对抗性测试、提示词注入与护栏"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

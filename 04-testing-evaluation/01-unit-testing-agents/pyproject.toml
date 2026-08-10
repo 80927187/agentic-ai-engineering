@@ -1,7 +1,7 @@
 [project]
 name = "lesson-unit-testing-agents"
 version = "0.1.0"
-description = "Lesson: Unit Testing Agents - Mock LLM responses and test agent behavior deterministically"
+description = "课程：代理单元测试——模拟大语言模型响应并以确定性的方式测试代理行为"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

@@ -1,19 +1,19 @@
 """
-Eval Harness — Capstone
+评测工具——综合项目
 
-Complete evaluation pipeline combining unit testing patterns, evals, tracing,
-red teaming, and benchmarking into a unified harness for a research assistant agent.
+这条完整的评测流水线将单元测试模式、评测、追踪、红队测试和基准测试
+整合为一套用于研究助手智能体的统一工具。
 
-This capstone integrates all five techniques from Module 05:
-1. Testable agent design with dependency injection
-2. Golden datasets with code-based and composite grading
-3. Execution tracing linked to eval results
-4. Adversarial safety testing suite
-5. Model benchmarking with Pareto analysis
+本综合项目融合了模块 05 的全部五项技术：
+1. 使用依赖注入实现可测试的智能体设计
+2. 使用基于代码的评分和复合评分评测黄金数据集
+3. 将执行追踪与评测结果关联
+4. 对抗性安全测试套件
+5. 使用帕累托分析进行模型基准测试
 
-Supports two modes:
-- Simulated (default): pre-defined responses, no API calls, instant results
-- Live: real Anthropic API calls with tool-use agent loop
+支持两种模式：
+- 模拟模式（默认）：使用预定义回答，不调用 API，立即得到结果
+- 实时模式：通过工具调用智能体循环发起真实的 Anthropic API 请求
 """
 
 import json
@@ -47,8 +47,8 @@ logger = setup_logging(__name__)
 
 
 MODE_OPTIONS = [
-    "Simulated — pre-defined responses, no API calls",
-    "Live — real Anthropic API calls",
+    "模拟模式——使用预定义回答，不调用 API",
+    "实时模式——发起真实的 Anthropic API 请求",
 ]
 
 AVAILABLE_MODELS = [
@@ -59,18 +59,18 @@ AVAILABLE_MODELS = [
 
 
 def select_mode_and_create_agent(console: Console, header: Panel) -> Any:
-    """Interactive mode and model selection, returns the configured agent."""
-    mode = interactive_menu(console, MODE_OPTIONS, title="Select Run Mode", header=header)
+    """以交互方式选择模式和模型，并返回配置好的智能体。"""
+    mode = interactive_menu(console, MODE_OPTIONS, title="选择运行模式", header=header)
     if mode is None:
         raise SystemExit(0)
 
-    if mode.startswith("Live"):
+    if mode.startswith("实时模式"):
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
-            console.print("[red bold]Live mode requires ANTHROPIC_API_KEY to be set[/red bold]")
+            console.print("[red bold]实时模式要求设置 ANTHROPIC_API_KEY[/red bold]")
             raise SystemExit(1)
 
-        model = interactive_menu(console, AVAILABLE_MODELS, title="Select Model", header=header)
+        model = interactive_menu(console, AVAILABLE_MODELS, title="选择模型", header=header)
         if model is None:
             raise SystemExit(0)
 
@@ -78,22 +78,22 @@ def select_mode_and_create_agent(console: Console, header: Panel) -> Any:
 
         client = anthropic.Anthropic()
         console.print(
-            f"\n[green bold]Running in LIVE mode[/green bold] — real API calls to {model}\n"
-            "[dim]Eval trials and safety tests use the live agent. "
-            "Benchmarks remain simulated (multi-model comparison).[/dim]\n"
+            f"\n[green bold]正在以实时模式运行[/green bold]——向 {model} 发起真实 API 请求\n"
+            "[dim]评测试验和安全测试使用实时智能体。"
+            "基准测试仍为模拟运行（用于多模型比较）。[/dim]\n"
         )
         return ResearchAgent(client=client, model=model)
 
-    console.print("\n[dim]Running in SIMULATED mode — pre-defined responses, no API calls.[/dim]\n")
+    console.print("\n[dim]正在以模拟模式运行——使用预定义回答，不调用 API。[/dim]\n")
     return SimulatedResearchAgent()
 
 
 def load_golden_tasks(path: Path) -> list[EvalTask]:
-    """Load evaluation tasks from a golden dataset JSON file."""
+    """从黄金数据集 JSON 文件加载评测任务。"""
     with Path.open(path, encoding="utf-8") as f:
         data = json.load(f)
     tasks = [EvalTask(**t) for t in data["tasks"]]
-    logger.info("Loaded %d golden tasks (v%s)", len(tasks), data["version"])
+    logger.info("已加载 %d 项黄金任务（v%s）", len(tasks), data["version"])
     return tasks
 
 
@@ -102,14 +102,14 @@ def run_eval_trials(
     tasks: list[EvalTask],
     tracer: SimpleTracer,
 ) -> list[EvalTrial]:
-    """Run the agent on each task and collect trials with tracing."""
+    """让智能体执行每项任务，并在追踪的同时收集试验结果。"""
     trials: list[EvalTrial] = []
 
     for task in tasks:
         question_preview = task.question[:50] + "…" if len(task.question) > 50 else task.question
-        logger.info("Evaluating task %s: %s", task.id, question_preview)
+        logger.info("正在评测任务 %s：%s", task.id, question_preview)
 
-        # Trace the eval execution
+        # 追踪评测执行过程
         span = tracer.start_span(f"eval_{task.id}", "eval_trial")
 
         response = agent.answer(task.question, task_id=task.id)
@@ -135,7 +135,7 @@ def grade_trials(
     tasks: list[EvalTask],
     grader: CompositeGrader,
 ) -> list[EvalResult]:
-    """Grade all trials and produce eval results."""
+    """为所有试验评分并生成评测结果。"""
     task_map = {t.id: t for t in tasks}
     results: list[EvalResult] = []
 
@@ -143,7 +143,7 @@ def grade_trials(
         task = task_map[trial.task_id]
         scores = grader.grade(trial, task)
 
-        # Pass rate based on composite score
+        # 根据复合分数计算通过率
         composite = next((s for s in scores if s.grader_name == "composite"), None)
         pass_rate = 1.0 if (composite and composite.passed) else 0.0
         avg_score = composite.score if composite else 0.0
@@ -161,67 +161,67 @@ def grade_trials(
 
 
 def main() -> None:
-    """Run the full evaluation pipeline."""
+    """运行完整的评测流水线。"""
     console = Console()
     token_tracker = AnthropicTokenTracker()
 
     header = Panel(
-        "[bold cyan]Eval Harness — Capstone[/bold cyan]\n\n"
-        "Complete evaluation pipeline combining:\n"
-        "  1. Testable agent design (dependency injection)\n"
-        "  2. Golden dataset evals (keyword + citation grading)\n"
-        "  3. Execution tracing (spans linked to results)\n"
-        "  4. Adversarial safety testing (red team suite)\n"
-        "  5. Model benchmarking (Pareto analysis)",
-        title="Tutorial 06",
+        "[bold cyan]评测工具——综合项目[/bold cyan]\n\n"
+        "完整的评测流水线融合了：\n"
+        "  1. 可测试的智能体设计（依赖注入）\n"
+        "  2. 黄金数据集评测（关键词评分 + 引用评分）\n"
+        "  3. 执行追踪（将 span 与结果关联）\n"
+        "  4. 对抗性安全测试（红队测试套件）\n"
+        "  5. 模型基准测试（帕累托分析）",
+        title="教程 06",
     )
 
-    # Interactive mode and model selection
+    # 以交互方式选择模式和模型
     agent = select_mode_and_create_agent(console, header)
 
-    # Step 1: Load datasets
+    # 第 1 步：加载数据集
     base_dir = Path(__file__).parent
     tasks = load_golden_tasks(base_dir / "datasets" / "golden_tasks.json")
     adversarial_attacks = load_adversarial_tasks(base_dir / "datasets" / "adversarial_tasks.json")
     console.print(
-        f"[bold]Step 1:[/bold] Loaded {len(tasks)} tasks, {len(adversarial_attacks)} attacks\n"
+        f"[bold]第 1 步：[/bold]已加载 {len(tasks)} 项任务和 {len(adversarial_attacks)} 次攻击\n"
     )
 
-    # Step 2: Initialize components
+    # 第 2 步：初始化组件
     tracer = SimpleTracer()
     grader = CompositeGrader(keyword_weight=0.5, citation_weight=0.5)
-    console.print("[bold]Step 2:[/bold] Initialized tracer and graders\n")
+    console.print("[bold]第 2 步：[/bold]已初始化追踪器和评分器\n")
 
-    # Step 3: Run eval trials with tracing
-    console.print("[bold]Step 3:[/bold] Running eval trials...\n")
+    # 第 3 步：运行评测试验并进行追踪
+    console.print("[bold]第 3 步：[/bold]正在运行评测试验……\n")
     trials = run_eval_trials(agent, tasks, tracer)
-    logger.info("Completed %d trials, %d spans collected", len(trials), tracer.get_span_count())
+    logger.info("已完成 %d 次试验，收集了 %d 个 span", len(trials), tracer.get_span_count())
 
-    # Step 4: Grade with composite graders
-    console.print("[bold]Step 4:[/bold] Grading responses...\n")
+    # 第 4 步：使用复合评分器评分
+    console.print("[bold]第 4 步：[/bold]正在为回答评分……\n")
     eval_results = grade_trials(trials, tasks, grader)
 
-    # Step 5: Run safety tests
-    console.print("[bold]Step 5:[/bold] Running safety tests...\n")
+    # 第 5 步：运行安全测试
+    console.print("[bold]第 5 步：[/bold]正在运行安全测试……\n")
     safety_tester = SafetyTester()
     safety_results = safety_tester.run_safety_suite(agent, adversarial_attacks)
 
-    # Step 6: Run benchmarks (simulated)
-    console.print("[bold]Step 6:[/bold] Running benchmarks...\n")
+    # 第 6 步：运行基准测试（模拟）
+    console.print("[bold]第 6 步：[/bold]正在运行基准测试……\n")
     benchmark_runner = BenchmarkRunner()
-    # Use a subset of tasks for benchmark to keep output concise
+    # 仅使用部分任务进行基准测试，以保持输出简洁
     benchmark_tasks = tasks[:5]
     benchmark_entries = benchmark_runner.run_benchmark(benchmark_tasks)
     pareto_configs = benchmark_runner.find_pareto_optimal(benchmark_entries)
 
-    # Step 7: Assemble and print report
+    # 第 7 步：组装并输出报告
     total_latency = sum(t.latency_ms for t in trials)
     total_cost = sum(e.cost_usd for e in benchmark_entries)
     passed_count = sum(1 for r in eval_results if r.pass_rate >= 0.5)
     blocked_count = sum(1 for r in safety_results if r.blocked)
 
     report = EvalReport(
-        agent_name="Research Assistant",
+        agent_name="研究助手",
         eval_results=eval_results,
         safety_results=safety_results,
         benchmark_entries=benchmark_entries,
@@ -231,24 +231,24 @@ def main() -> None:
         total_latency_ms=total_latency,
     )
 
-    console.print("[bold]Step 7:[/bold] Generating report...\n")
+    console.print("[bold]第 7 步：[/bold]正在生成报告……\n")
     reporter = EvalReporter(console)
     reporter.print_report(report)
 
-    # Pareto analysis summary
+    # 帕累托分析摘要
     console.print(
         Panel(
-            f"[bold]Pareto-optimal configs:[/bold] {', '.join(pareto_configs)}\n\n"
-            "These configurations are not dominated on any axis\n"
-            "(accuracy, latency, cost) by another configuration.",
-            title="Pareto Analysis",
+            f"[bold]帕累托最优配置：[/bold]{', '.join(pareto_configs)}\n\n"
+            "这些配置在任何一个维度（准确率、延迟、成本）上\n"
+            "都未被另一项配置完全支配。",
+            title="帕累托分析",
         )
     )
 
-    # Trace summary
+    # 追踪摘要
     console.print(
-        f"\n[dim]Trace: {tracer.get_span_count()} spans, "
-        f"{tracer.get_total_duration_ms():.0f}ms total duration[/dim]"
+        f"\n[dim]追踪：{tracer.get_span_count()} 个 span，"
+        f"总持续时间 {tracer.get_total_duration_ms():.0f} 毫秒[/dim]"
     )
 
     token_tracker.report()

@@ -1,8 +1,7 @@
 """
-Shared traced research assistant agent.
+带追踪的共享研究助手智能体。
 
-Encapsulates the agent loop with full execution tracing, used by tutorials
-that need a live agent (01, 03).
+封装具有完整执行追踪的智能体循环，供需要实时智能体的教程（01、03）使用。
 """
 
 import json
@@ -20,7 +19,7 @@ MODEL = "claude-sonnet-4-5-20250929"
 
 
 class TracedResearchAssistant:
-    """Research assistant with full execution tracing."""
+    """具有完整执行追踪功能的研究助手。"""
 
     def __init__(
         self,
@@ -32,7 +31,7 @@ class TracedResearchAssistant:
         self.token_tracker = AnthropicTokenTracker()
 
     def answer(self, question: str) -> dict[str, Any]:
-        """Answer a question with full tracing."""
+        """在完整追踪下回答问题。"""
         with self.tracer.span("answer_question", "agent_step", {"question": question}) as root:
             messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
             llm_call_count = 0
@@ -58,7 +57,7 @@ class TracedResearchAssistant:
                     }
                     llm_span.outputs = {"stop_reason": response.stop_reason}
 
-                # Process response
+                # 处理响应
                 tool_uses = []
                 text_parts: list[str] = []
                 for block in response.content:
@@ -78,7 +77,7 @@ class TracedResearchAssistant:
                         "trace": self.tracer.to_dict(),
                     }
 
-                # Execute tools with tracing
+                # 在追踪下执行工具
                 tool_results = []
                 for tool_use in tool_uses:
                     with self.tracer.span(
@@ -100,5 +99,5 @@ class TracedResearchAssistant:
                 messages.append({"role": "user", "content": tool_results})
 
                 if llm_call_count >= 10:
-                    root.error = "Max iterations reached"
-                    return {"answer": "Max iterations reached", "llm_calls": llm_call_count}
+                    root.error = "已达到最大迭代次数"
+                    return {"answer": "已达到最大迭代次数", "llm_calls": llm_call_count}

@@ -1,7 +1,7 @@
 [project]
 name = "lesson-benchmarking"
 version = "0.1.0"
-description = "Lesson: Benchmarking - Model, prompt, and architecture comparison"
+description = "课程：基准测试——模型、提示词和架构对比"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",

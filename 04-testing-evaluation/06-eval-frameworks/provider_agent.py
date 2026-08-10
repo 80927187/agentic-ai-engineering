@@ -1,20 +1,20 @@
 """
-Custom Promptfoo provider wrapping the research assistant.
+封装研究助手的自定义 Promptfoo 提供器。
 
-Promptfoo calls call_api() for each test case. The function receives:
-- prompt: the rendered prompt string
-- options: dict with 'config' from YAML
-- context: dict with 'vars' from the test case
+Promptfoo 会为每个测试用例调用 call_api()。该函数接收：
+- prompt：渲染后的提示词字符串
+- options：包含 YAML 中 `config` 的字典
+- context：包含测试用例中 `vars` 的字典
 """
 
 
 def call_api(prompt, options, context):
-    """Promptfoo provider entry point."""
+    """Promptfoo 提供器入口。"""
     from shared.knowledge_base import get_agent_response, EVAL_TASKS
 
     question = context.get("vars", {}).get("question", prompt)
 
-    # Find matching task by question text
+    # 根据问题文本查找匹配的任务
     task_id = None
     for task in EVAL_TASKS:
         if task["question"] == question:
@@ -22,7 +22,7 @@ def call_api(prompt, options, context):
             break
 
     if task_id is None:
-        return {"output": "No matching task found."}
+        return {"output": "未找到匹配的任务。"}
 
     response = get_agent_response(task_id)
 

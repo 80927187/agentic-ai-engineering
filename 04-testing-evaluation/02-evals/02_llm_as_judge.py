@@ -1,9 +1,8 @@
-"""
-LLM-as-Judge Evaluation
+"""LLM 充当评委的评估示例。
 
-Demonstrates using an LLM to evaluate agent responses with structured rubrics.
-The judge scores accuracy, completeness, and grounding on a 1-5 scale using
-tool_choice to enforce structured output.
+演示如何使用 LLM 按结构化评分标准评估智能体响应。
+评委从准确性、完整性和依据充分性三个维度按 1～5 分评分，
+并使用 tool_choice 强制输出结构化结果。
 """
 
 import json
@@ -28,24 +27,24 @@ logger = setup_logging(__name__)
 
 
 # ---------------------------------------------------------------------------
-# LLM-as-Judge — structured evaluation with rubrics
+# LLM 充当评委——使用评分标准进行结构化评估
 # ---------------------------------------------------------------------------
 
-# The judge uses tool_choice to force structured output
+# 评委使用 tool_choice 强制输出结构化结果
 JUDGE_TOOLS = [
     {
         "name": "submit_evaluation",
-        "description": "Submit structured evaluation scores for an agent response.",
+        "description": "提交对智能体响应的结构化评估分数。",
         "input_schema": {
             "type": "object",
             "properties": {
                 "reasoning": {
                     "type": "string",
-                    "description": "Chain-of-thought reasoning about the response quality",
+                    "description": "对响应质量的思维链推理",
                 },
                 "accuracy_score": {
                     "type": "integer",
-                    "description": "1-5 accuracy score",
+                    "description": "1～5 分的准确性得分",
                     "minimum": 1,
                     "maximum": 5,
                 },
@@ -76,38 +75,38 @@ JUDGE_TOOLS = [
     },
 ]
 
-# Rubric given to the judge for consistent evaluation
-JUDGE_SYSTEM_PROMPT = """You are an expert evaluator for a research assistant agent.
+# 提供给评委的评分标准，用于保持评估一致性
+JUDGE_SYSTEM_PROMPT = """你是一名研究助手智能体评估专家。
 
-Evaluate the agent's response using these rubrics:
+请使用以下标准评估智能体的响应：
 
-**Accuracy (1-5)**
-1: Major factual errors or fabricated information
-2: Several inaccuracies
-3: Mostly accurate with minor errors
-4: Accurate with negligible issues
-5: Perfectly accurate, all facts match the reference documents
+**准确性（1～5 分）**
+1：存在严重事实错误或捏造信息
+2：存在多处不准确之处
+3：大体准确，但有少量错误
+4：准确，只有可忽略不计的问题
+5：完全准确，所有事实都与参考文档一致
 
-**Completeness (1-5)**
-1: Misses most relevant information
-2: Covers less than half of relevant points
-3: Covers the main points but misses some details
-4: Thorough coverage with minor omissions
-5: Comprehensive, covers all relevant aspects
+**完整性（1～5 分）**
+1：遗漏绝大多数相关信息
+2：覆盖的相关要点不足一半
+3：覆盖主要要点，但遗漏部分细节
+4：覆盖全面，仅有少量遗漏
+5：内容完整，覆盖所有相关方面
 
-**Grounding (1-5)**
-1: No source citations at all
-2: Some claims unsupported
-3: Most claims cited but some gaps
-4: Nearly all claims properly cited
-5: Every claim is grounded in cited sources
+**依据充分性（1～5 分）**
+1：完全没有引用来源
+2：部分说法缺乏支持
+3：大多数说法有引用，但仍有缺漏
+4：几乎所有说法都得到恰当引用
+5：每项说法都有引用来源作为依据
 
-Always use the submit_evaluation tool to provide your structured assessment."""
+始终使用 submit_evaluation 工具提供结构化评估结果。"""
 
 
 @dataclass
 class JudgeResult:
-    """Structured result from an LLM judge evaluation."""
+    """LLM 评委返回的结构化评估结果。"""
 
     reasoning: str
     accuracy_score: int
@@ -119,12 +118,12 @@ class JudgeResult:
 
     @property
     def avg_score(self) -> float:
-        """Compute the average score across all dimensions."""
+        """计算所有维度的平均分。"""
         return (self.accuracy_score + self.completeness_score + self.grounding_score) / 3.0
 
 
 class LLMJudge:
-    """Uses an LLM to evaluate agent responses with structured rubrics."""
+    """使用 LLM 按结构化评分标准评估智能体响应。"""
 
     def __init__(
         self,
@@ -142,20 +141,20 @@ class LLMJudge:
         reference_docs: list[dict[str, Any]],
         expected_answer: str | None = None,
     ) -> JudgeResult:
-        """Evaluate an agent response using chain-of-thought judging."""
-        # Build the evaluation prompt with all context the judge needs
-        ref_text = json.dumps(reference_docs, indent=2)
+        """使用思维链评判来评估智能体响应。"""
+        # 构建包含评委所需全部上下文的评估提示词
+        ref_text = json.dumps(reference_docs, indent=2, ensure_ascii=False)
         prompt = (
-            f"## Question\n{question}\n\n"
-            f"## Agent's Answer\n{answer}\n\n"
-            f"## Reference Documents (ground truth)\n{ref_text}"
+            f"## 问题\n{question}\n\n"
+            f"## 智能体答案\n{answer}\n\n"
+            f"## 参考文档（真实标准）\n{ref_text}"
         )
         if expected_answer:
-            prompt += f"\n\n## Expected Answer Summary\n{expected_answer}"
+            prompt += f"\n\n## 预期答案摘要\n{expected_answer}"
 
-        logger.info("LLM judge evaluating answer (question: %s...)", question[:50])
+        logger.info("LLM 评委正在评估答案（问题：%s...）", question[:50])
 
-        # Use tool_choice to force structured output via the submit_evaluation tool
+        # 通过 submit_evaluation 工具和 tool_choice 强制输出结构化结果
         response = self.client.messages.create(
             model=self.model,
             max_tokens=1024,
@@ -166,7 +165,7 @@ class LLMJudge:
         )
         self.token_tracker.track(response.usage)
 
-        # Extract the structured evaluation from the tool call
+        # 从工具调用中提取结构化评估结果
         for block in response.content:
             if block.type == "tool_use" and block.name == "submit_evaluation":
                 return JudgeResult(
@@ -179,123 +178,118 @@ class LLMJudge:
                     grounding_reason=block.input["grounding_reason"],
                 )
 
-        # Fallback if tool call not found (should not happen with tool_choice)
-        logger.warning("Judge did not return structured evaluation")
+        # 未找到工具调用时的后备结果（使用 tool_choice 时不应发生）
+        logger.warning("评委未返回结构化评估结果")
         return JudgeResult(
-            reasoning="Failed to parse",
+            reasoning="解析失败",
             accuracy_score=1,
-            accuracy_reason="Parse error",
+            accuracy_reason="解析错误",
             completeness_score=1,
-            completeness_reason="Parse error",
+            completeness_reason="解析错误",
             grounding_score=1,
-            grounding_reason="Parse error",
+            grounding_reason="解析错误",
         )
 
 
 # ---------------------------------------------------------------------------
-# Simulated judge results for demo mode
+# 演示模式使用的模拟评委结果
 # ---------------------------------------------------------------------------
 
 SIMULATED_JUDGE_RESULTS: dict[str, JudgeResult] = {
     "task_001": JudgeResult(
         reasoning=(
-            "The answer accurately identifies scalability, fault "
-            "isolation, and independent deployment as key benefits, "
-            "matching doc_001."
+            "答案准确指出可扩展性、故障隔离和独立部署是主要优势，与 doc_001 一致。"
         ),
         accuracy_score=5,
-        accuracy_reason="All stated benefits match the reference document exactly.",
+        accuracy_reason="列出的所有优势都与参考文档完全一致。",
         completeness_score=4,
-        completeness_reason="Covers main benefits but omits technology flexibility detail.",
+        completeness_reason="覆盖了主要优势，但遗漏了技术灵活性这一细节。",
         grounding_score=5,
-        grounding_reason="Properly cites doc_001 as the source.",
+        grounding_reason="正确引用 doc_001 作为来源。",
     ),
     "task_002": JudgeResult(
         reasoning=(
-            "The answer covers nouns for endpoints, HTTP methods, "
-            "status codes, versioning, and pagination from doc_002."
+            "答案涵盖了 doc_002 中的端点名词、HTTP 方法、状态码、版本控制和分页。"
         ),
         accuracy_score=5,
-        accuracy_reason="All facts align with doc_002.",
+        accuracy_reason="所有事实都与 doc_002 一致。",
         completeness_score=5,
-        completeness_reason="Covers all key REST API design principles.",
+        completeness_reason="覆盖了 REST API 设计的所有关键原则。",
         grounding_score=4,
-        grounding_reason="Cites doc_002 but some claims lack explicit attribution.",
+        grounding_reason="引用了 doc_002，但部分说法没有明确标注来源。",
     ),
     "task_003": JudgeResult(
         reasoning=(
-            "Mentions B-tree indexes, lookup structures, and "
-            "EXPLAIN, all from doc_003. Misses composite index "
-            "details."
+            "提到了 B 树索引、查找结构和 EXPLAIN，均来自 doc_003，但遗漏了复合索引细节。"
         ),
         accuracy_score=5,
-        accuracy_reason="All stated facts are correct per doc_003.",
+        accuracy_reason="根据 doc_003，所述事实均正确。",
         completeness_score=3,
-        completeness_reason="Omits composite indexes and over-indexing trade-offs.",
+        completeness_reason="遗漏了复合索引和索引过多的权衡。",
         grounding_score=4,
-        grounding_reason="Cites doc_003 but not all claims are explicitly attributed.",
+        grounding_reason="引用了 doc_003，但并非所有说法都明确标注了来源。",
     ),
 }
 
 
 # ---------------------------------------------------------------------------
-# Main
+# 主程序
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    """Run LLM-as-judge evaluation on research assistant responses."""
+    """对研究助手的响应运行 LLM 评委评估。"""
     console = Console()
     console.print(
         Panel(
-            "[bold cyan]LLM-as-Judge Evaluation[/bold cyan]\n\n"
-            "Uses an LLM to evaluate agent responses on three dimensions:\n"
-            "accuracy, completeness, and grounding (1-5 scale each).\n"
-            "Structured output is enforced via tool_choice.",
-            title="Eval Tutorial 2",
+            "[bold cyan]LLM 充当评委的评估[/bold cyan]\n\n"
+            "使用 LLM 从三个维度评估智能体响应：\n"
+            "准确性、完整性和依据充分性（每项 1～5 分）。\n"
+            "通过 tool_choice 强制输出结构化结果。",
+            title="评估教程 2",
         )
     )
 
     has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     if has_api_key:
-        console.print("[green]API key found — running live evaluation[/green]\n")
+        console.print("[green]已找到 API 密钥——正在运行在线评估[/green]\n")
         client = anthropic.Anthropic()
         agent = ResearchAssistant(client, KNOWLEDGE_BASE)
         judge = LLMJudge(client)
     else:
-        console.print("[yellow]No API key — using simulated results for demo[/yellow]\n")
+        console.print("[yellow]未找到 API 密钥——演示将使用模拟结果[/yellow]\n")
         agent = None
         judge = None
 
-    # Load a subset of tasks for this demo
+    # 为本演示加载一部分任务
     dataset_path = Path(__file__).parent / "datasets" / "golden_tasks.json"
     with dataset_path.open(encoding="utf-8") as f:
         data = json.load(f)
     tasks = data["tasks"]
 
-    # Use first 3 tasks for demo (LLM-as-judge is expensive)
+    # 演示仅使用前 3 个任务（LLM 评委成本较高）
     eval_tasks = tasks[:3] if agent is None else tasks[:5]
-    console.print(f"Evaluating {len(eval_tasks)} tasks with LLM-as-judge...\n")
+    console.print(f"正在使用 LLM 评委评估 {len(eval_tasks)} 个任务...\n")
 
-    # Results table
-    table = Table(title="LLM-as-Judge Results", show_lines=True)
-    table.add_column("Task", style="cyan", width=12)
-    table.add_column("Accuracy", width=10, justify="center")
-    table.add_column("Completeness", width=12, justify="center")
-    table.add_column("Grounding", width=10, justify="center")
-    table.add_column("Avg", width=8, justify="center")
-    table.add_column("Reasoning", width=50)
+    # 结果表格
+    table = Table(title="LLM 评委结果", show_lines=True)
+    table.add_column("任务", style="cyan", width=12)
+    table.add_column("准确性", width=10, justify="center")
+    table.add_column("完整性", width=12, justify="center")
+    table.add_column("依据充分性", width=10, justify="center")
+    table.add_column("平均分", width=8, justify="center")
+    table.add_column("推理", width=50)
 
     all_results: list[JudgeResult] = []
 
     for task in eval_tasks:
         task_id = task["id"]
-        logger.info("Evaluating %s with LLM judge", task_id)
+        logger.info("正在使用 LLM 评委评估 %s", task_id)
 
         if agent is not None and judge is not None:
             try:
                 response = agent.answer(task["question"])
-                # Gather reference docs for the judge
+                # 收集提供给评委的参考文档
                 ref_docs = [
                     doc for doc in KNOWLEDGE_BASE if doc["id"] in task["expected_source_ids"]
                 ]
@@ -305,21 +299,21 @@ def main() -> None:
                     reference_docs=ref_docs if ref_docs else KNOWLEDGE_BASE[:2],
                 )
             except Exception as e:
-                logger.error("Error evaluating %s: %s", task_id, e)
+                logger.error("评估 %s 时出错：%s", task_id, e)
                 result = JudgeResult(
-                    reasoning=f"Error: {e}",
+                    reasoning=f"错误：{e}",
                     accuracy_score=1,
-                    accuracy_reason="Error",
+                    accuracy_reason="错误",
                     completeness_score=1,
-                    completeness_reason="Error",
+                    completeness_reason="错误",
                     grounding_score=1,
-                    grounding_reason="Error",
+                    grounding_reason="错误",
                 )
         else:
             result = SIMULATED_JUDGE_RESULTS.get(
                 task_id,
                 JudgeResult(
-                    reasoning="No simulated result",
+                    reasoning="没有模拟结果",
                     accuracy_score=3,
                     accuracy_reason="N/A",
                     completeness_score=3,
@@ -331,7 +325,7 @@ def main() -> None:
 
         all_results.append(result)
 
-        # Color-code scores
+        # 按得分设置颜色
         def score_color(s: int) -> str:
             if s >= 4:
                 return f"[green]{s}/5[/green]"
@@ -339,7 +333,7 @@ def main() -> None:
                 return f"[yellow]{s}/5[/yellow]"
             return f"[red]{s}/5[/red]"
 
-        # Truncate reasoning for table display
+        # 截断推理文本以便在表格中显示
         short_reasoning = (
             result.reasoning[:80] + "..." if len(result.reasoning) > 80 else result.reasoning
         )
@@ -355,42 +349,41 @@ def main() -> None:
 
     console.print(table)
 
-    # Aggregate statistics
+    # 汇总统计
     if all_results:
         avg_accuracy = sum(r.accuracy_score for r in all_results) / len(all_results)
         avg_completeness = sum(r.completeness_score for r in all_results) / len(all_results)
         avg_grounding = sum(r.grounding_score for r in all_results) / len(all_results)
         overall = sum(r.avg_score for r in all_results) / len(all_results)
 
-        console.print("\n[bold]Aggregate Scores[/bold]")
-        console.print(f"  Accuracy:      {avg_accuracy:.2f}/5")
-        console.print(f"  Completeness:  {avg_completeness:.2f}/5")
-        console.print(f"  Grounding:     {avg_grounding:.2f}/5")
-        console.print(f"  Overall:       {overall:.2f}/5")
+        console.print("\n[bold]汇总得分[/bold]")
+        console.print(f"  准确性：      {avg_accuracy:.2f}/5")
+        console.print(f"  完整性：      {avg_completeness:.2f}/5")
+        console.print(f"  依据充分性：  {avg_grounding:.2f}/5")
+        console.print(f"  总体：        {overall:.2f}/5")
 
     # ---------------------------------------------------------------------------
-    # Grader calibration: compare LLM judge scores against a human baseline
-    # Best practice: calibrate LLM-as-judge graders closely with human experts
+    # 评分器校准：将 LLM 评委得分与人工基线进行比较
+    # 最佳实践：使用人类专家的评分仔细校准 LLM 评委
     # ---------------------------------------------------------------------------
-    console.print("\n[bold]Grader Calibration (LLM Judge vs Human Baseline)[/bold]")
+    console.print("\n[bold]评分器校准（LLM 评委与人工基线）[/bold]")
     console.print(
-        "[dim]Simulated human scores for the first 3 tasks — in practice, "
-        "collect these from domain experts.[/dim]\n"
+        "[dim]以下是前 3 个任务的模拟人工分数——实际应用中应向领域专家收集。[/dim]\n"
     )
 
-    # Simulated human expert scores (would come from a labeling session in production)
+    # 模拟的人类专家分数（生产环境中应来自标注环节）
     human_baselines: list[dict[str, int]] = [
         {"accuracy": 5, "completeness": 4, "grounding": 5},
         {"accuracy": 5, "completeness": 5, "grounding": 5},
         {"accuracy": 4, "completeness": 3, "grounding": 4},
     ]
 
-    cal_table = Table(title="Calibration: LLM Judge vs Human Expert", show_lines=True)
-    cal_table.add_column("Task", style="cyan", width=12)
-    cal_table.add_column("Dimension", width=14)
-    cal_table.add_column("Human", width=8, justify="center")
-    cal_table.add_column("LLM Judge", width=10, justify="center")
-    cal_table.add_column("Delta", width=8, justify="center")
+    cal_table = Table(title="校准：LLM 评委与人类专家", show_lines=True)
+    cal_table.add_column("任务", style="cyan", width=12)
+    cal_table.add_column("维度", width=14)
+    cal_table.add_column("人工", width=8, justify="center")
+    cal_table.add_column("LLM 评委", width=10, justify="center")
+    cal_table.add_column("差值", width=8, justify="center")
 
     num_calibration = min(3, len(all_results))
     for i in range(num_calibration):
@@ -399,15 +392,15 @@ def main() -> None:
         human = human_baselines[i]
 
         for dim, human_score, judge_score in [
-            ("Accuracy", human["accuracy"], judge_r.accuracy_score),
-            ("Completeness", human["completeness"], judge_r.completeness_score),
-            ("Grounding", human["grounding"], judge_r.grounding_score),
+            ("准确性", human["accuracy"], judge_r.accuracy_score),
+            ("完整性", human["completeness"], judge_r.completeness_score),
+            ("依据充分性", human["grounding"], judge_r.grounding_score),
         ]:
             delta = judge_score - human_score
             delta_str = f"{delta:+d}"
             delta_color = "green" if delta == 0 else ("yellow" if abs(delta) == 1 else "red")
             cal_table.add_row(
-                task_id if dim == "Accuracy" else "",
+                task_id if dim == "准确性" else "",
                 dim,
                 str(human_score),
                 str(judge_score),
@@ -416,13 +409,13 @@ def main() -> None:
 
     console.print(cal_table)
 
-    # Token usage
+    # token 用量
     if agent is not None:
-        console.print("\n[bold]Token Usage[/bold]")
-        console.print("[dim]Agent:[/dim]")
+        console.print("\n[bold]Token 用量[/bold]")
+        console.print("[dim]智能体：[/dim]")
         agent.token_tracker.report()
     if judge is not None:
-        console.print("[dim]Judge:[/dim]")
+        console.print("[dim]评委：[/dim]")
         judge.token_tracker.report()
 
 

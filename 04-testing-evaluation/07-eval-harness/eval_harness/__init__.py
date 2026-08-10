@@ -1,4 +1,4 @@
-"""Eval Harness — Capstone evaluation pipeline for AI agents."""
+"""评测工具——面向 AI 智能体的综合评测流水线。"""
 
 from eval_harness.agent import ResearchAgent, SimulatedResearchAgent
 from eval_harness.benchmark import BenchmarkRunner

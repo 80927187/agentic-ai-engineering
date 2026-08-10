@@ -1,9 +1,7 @@
-"""
-Code-Based Graders for Agent Evaluation
+"""用于智能体评估的代码评分器。
 
-Demonstrates deterministic evaluation of agent responses using code-based graders:
-keyword matching, regex patterns, source citation verification, and tool-call checks.
-Runs the research assistant against a golden dataset and scores each response.
+演示如何通过关键词匹配、正则表达式、来源引用验证和工具调用检查，
+对智能体响应进行确定性评估。让研究助手运行黄金数据集中的任务，并为每个响应评分。
 """
 
 import json
@@ -33,22 +31,19 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 # ---------------------------------------------------------------------------
-# Simulated responses for demo mode (when no API key is available)
+# 演示模式使用的模拟响应（没有 API 密钥时）
 # ---------------------------------------------------------------------------
 
 SIMULATED_RESPONSES: dict[str, dict[str, Any]] = {
     "task_001": {
         "answer": (
-            "Based on the search results (doc_001), microservices "
-            "architecture offers several key benefits: scalability, "
-            "fault isolation, and technology flexibility. Each "
-            "service can be deployed independently and runs in its "
-            "own process."
+            "根据搜索结果（doc_001），微服务架构的主要优势包括可扩展性、故障隔离和技术灵活性。"
+            "每个服务都可以独立部署，并在自己的进程中运行。"
         ),
         "tool_calls": [
             {
                 "name": "search_knowledge_base",
-                "input": {"query": "microservices benefits"},
+                "input": {"query": "微服务 优势"},
                 "results": [KNOWLEDGE_BASE[0]],
             }
         ],
@@ -56,16 +51,14 @@ SIMULATED_RESPONSES: dict[str, dict[str, Any]] = {
     },
     "task_002": {
         "answer": (
-            "According to doc_002, REST API best practices include: "
-            "use nouns for endpoints like /users and /orders, use "
-            "HTTP methods for actions (GET, POST, PUT, DELETE), use "
-            "proper status codes, implement versioning, and use "
-            "pagination for collections."
+            "根据 doc_002，REST API 的最佳实践包括：/users 和 /orders 等端点使用名词，"
+            "操作使用 HTTP 方法（GET、POST、PUT、DELETE），使用恰当的状态码，实施版本控制，"
+            "并对集合使用分页。"
         ),
         "tool_calls": [
             {
                 "name": "search_knowledge_base",
-                "input": {"query": "REST API design"},
+                "input": {"query": "REST API 设计"},
                 "results": [KNOWLEDGE_BASE[1]],
             }
         ],
@@ -73,15 +66,13 @@ SIMULATED_RESPONSES: dict[str, dict[str, Any]] = {
     },
     "task_003": {
         "answer": (
-            "Per doc_003, database indexes improve query "
-            "performance by creating efficient lookup structures. "
-            "B-tree indexes handle equality and range queries. Use "
-            "EXPLAIN to analyze query plans."
+            "根据 doc_003，数据库索引通过创建高效的查找结构来提升查询性能。B 树索引适用于"
+            "等值查询和范围查询。可以使用 EXPLAIN 分析查询计划。"
         ),
         "tool_calls": [
             {
                 "name": "search_knowledge_base",
-                "input": {"query": "database indexes performance"},
+                "input": {"query": "数据库 索引 性能"},
                 "results": [KNOWLEDGE_BASE[2]],
             }
         ],
@@ -91,15 +82,15 @@ SIMULATED_RESPONSES: dict[str, dict[str, Any]] = {
 
 
 # ---------------------------------------------------------------------------
-# Evaluation runner
+# 评估运行器
 # ---------------------------------------------------------------------------
 
 
 def load_golden_tasks(path: str) -> list[dict[str, Any]]:
-    """Load evaluation tasks from a JSON dataset file."""
+    """从 JSON 数据集文件加载评估任务。"""
     with Path(path).open(encoding="utf-8") as f:
         data = json.load(f)
-    logger.info("Loaded %d tasks from %s (v%s)", len(data["tasks"]), path, data["version"])
+    logger.info("已从 %s 加载 %d 个任务（v%s）", path, len(data["tasks"]), data["version"])
     tasks: list[dict[str, Any]] = data["tasks"]
     return tasks
 
@@ -112,7 +103,7 @@ def evaluate_task(
     tool_grader: ToolCallGrader,
     regex_grader: RegexGrader,
 ) -> dict[str, GraderResult]:
-    """Run all graders on a single task's agent response."""
+    """使用所有评分器评估单个任务的智能体响应。"""
     answer = agent_response["answer"]
     tool_calls = agent_response.get("tool_calls", [])
 
@@ -121,62 +112,62 @@ def evaluate_task(
     results["citations"] = citation_grader.grade(answer, task["expected_source_ids"])
     results["tool_calls"] = tool_grader.grade(tool_calls)
 
-    # Regex check: answers should contain a doc_XXX citation pattern (or a refusal)
+    # 正则检查：答案应包含 doc_XXX 格式的引用（或拒答语句）
     if task["expected_source_ids"]:
         results["regex"] = regex_grader.grade(answer, r"doc_\d{3}")
     else:
         results["regex"] = regex_grader.grade(
-            answer, r"(?:no relevant|not found|no information|cannot)"
+            answer, r"(?:没有相关|未找到|没有信息|无法)"
         )
 
     return results
 
 
 # ---------------------------------------------------------------------------
-# Main
+# 主程序
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    """Run code-based graders against a golden dataset."""
+    """使用代码评分器评估黄金数据集。"""
     console = Console()
     console.print(
         Panel(
-            "[bold cyan]Code-Based Graders[/bold cyan]\n\n"
-            "Evaluates a research assistant using deterministic graders:\n"
-            "keyword matching, regex, source citations, and tool-call verification.",
-            title="Eval Tutorial 1",
+            "[bold cyan]基于代码的评分器[/bold cyan]\n\n"
+            "使用确定性评分器评估研究助手：\n"
+            "关键词匹配、正则表达式、来源引用和工具调用验证。",
+            title="评估教程 1",
         )
     )
 
-    # Determine mode: live API or simulated
+    # 确定运行模式：在线 API 或模拟模式
     has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     if has_api_key:
-        console.print("[green]API key found — running live evaluation[/green]\n")
+        console.print("[green]已找到 API 密钥——正在运行在线评估[/green]\n")
         client = anthropic.Anthropic()
         agent = ResearchAssistant(client, KNOWLEDGE_BASE)
     else:
-        console.print("[yellow]No API key — using simulated responses for demo[/yellow]\n")
+        console.print("[yellow]未找到 API 密钥——演示将使用模拟响应[/yellow]\n")
         agent = None
 
-    # Load golden dataset
+    # 加载黄金数据集
     dataset_path = Path(__file__).parent / "datasets" / "golden_tasks.json"
     tasks = load_golden_tasks(str(dataset_path))
 
-    # Instantiate graders
+    # 创建评分器
     keyword_grader = KeywordGrader()
     citation_grader = SourceCitationGrader()
     tool_grader = ToolCallGrader()
     regex_grader = RegexGrader()
 
-    # Results table
-    table = Table(title="Evaluation Results", show_lines=True)
-    table.add_column("Task", style="cyan", width=12)
-    table.add_column("Difficulty", width=8)
-    table.add_column("Keywords", width=18)
-    table.add_column("Citations", width=18)
-    table.add_column("Tool Calls", width=18)
-    table.add_column("Regex", width=18)
+    # 结果表格
+    table = Table(title="评估结果", show_lines=True)
+    table.add_column("任务", style="cyan", width=12)
+    table.add_column("难度", width=8)
+    table.add_column("关键词", width=18)
+    table.add_column("引用", width=18)
+    table.add_column("工具调用", width=18)
+    table.add_column("正则", width=18)
 
     total_scores: dict[str, list[float]] = {
         "keywords": [],
@@ -185,34 +176,34 @@ def main() -> None:
         "regex": [],
     }
 
-    # Limit to first few tasks in simulated mode for a concise demo
+    # 模拟模式只运行前几个任务，使演示保持简洁
     eval_tasks = tasks[:3] if agent is None else tasks
-    console.print(f"Running {len(eval_tasks)} tasks...\n")
+    console.print(f"正在运行 {len(eval_tasks)} 个任务...\n")
 
     for task in eval_tasks:
-        logger.info("Evaluating task %s: %s", task["id"], task["question"][:60])
+        logger.info("正在评估任务 %s：%s", task["id"], task["question"][:60])
 
-        # Get agent response (live or simulated)
+        # 获取智能体响应（在线或模拟）
         if agent is not None:
             try:
                 response = agent.answer(task["question"])
             except Exception as e:
-                logger.error("Agent error on %s: %s", task["id"], e)
-                response = {"answer": f"Error: {e}", "tool_calls": [], "sources": []}
+                logger.error("智能体处理 %s 时出错：%s", task["id"], e)
+                response = {"answer": f"错误：{e}", "tool_calls": [], "sources": []}
         else:
             response = SIMULATED_RESPONSES.get(
                 task["id"],
-                {"answer": "No simulated response available.", "tool_calls": [], "sources": []},
+                {"answer": "没有可用的模拟响应。", "tool_calls": [], "sources": []},
             )
 
-        # Grade the response
+        # 为响应评分
         grader_results = evaluate_task(
             task, response, keyword_grader, citation_grader, tool_grader, regex_grader
         )
 
-        # Format results for table
+        # 格式化表格结果
         def fmt(result: GraderResult) -> str:
-            icon = "[green]PASS[/green]" if result.passed else "[red]FAIL[/red]"
+            icon = "[green]通过[/green]" if result.passed else "[red]失败[/red]"
             return f"{icon} ({result.score:.0%})"
 
         table.add_row(
@@ -229,14 +220,14 @@ def main() -> None:
 
     console.print(table)
 
-    # Summary
-    console.print("\n[bold]Aggregate Scores[/bold]")
+    # 汇总
+    console.print("\n[bold]汇总得分[/bold]")
     for grader_name, scores in total_scores.items():
         if scores:
             avg = sum(scores) / len(scores)
-            console.print(f"  {grader_name:12s}: {avg:.0%} avg ({len(scores)} tasks)")
+            console.print(f"  {grader_name:12s}：平均 {avg:.0%}（{len(scores)} 个任务）")
 
-    # Token usage report (live mode only)
+    # token 用量报告（仅在线模式）
     if agent is not None:
         console.print()
         agent.token_tracker.report()

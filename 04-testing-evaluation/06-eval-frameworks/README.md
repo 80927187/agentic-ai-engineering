@@ -1,106 +1,106 @@
 <!-- ---
-title: "Eval Frameworks"
-description: "Integrate external eval frameworks: Promptfoo, Braintrust AutoEvals, Langfuse"
+title: "评测框架"
+description: "集成外部评测框架：Promptfoo、Braintrust AutoEvals、Langfuse"
 icon: "puzzle-piece"
 --- -->
 
-# Eval Frameworks
+# 评测框架
 
-Explore **production eval frameworks** recommended in Anthropic's [Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents). Each script demonstrates a different framework's approach to evaluating the same research assistant agent — from YAML-driven configs to pre-built scorers to tracing platforms.
+探索 Anthropic 在[揭秘 AI 智能体评测](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)中推荐的**生产级评测框架**。每个脚本都展示一种评测同一研究助手智能体的方法，涵盖 YAML 驱动配置、预置评分器和链路追踪平台。
 
-## 🎯 What You'll Learn
+## 🎯 你将学到什么
 
-- Define eval suites declaratively using **Promptfoo's YAML configuration**
-- Use **Braintrust AutoEvals** pre-built scorers (string similarity, factuality, custom classifiers)
-- Instrument agents with **Langfuse** tracing and programmatic scoring
-- Compare framework tradeoffs: CLI vs SDK, local vs cloud, string vs LLM-based scoring
+- 使用 **Promptfoo 的 YAML 配置**以声明式方式定义评测套件
+- 使用 **Braintrust AutoEvals** 的预置评分器（字符串相似度、事实性和自定义分类器）
+- 使用 **Langfuse** 为智能体添加链路追踪和程序化评分
+- 比较不同框架的权衡：CLI 与 SDK、本地与云端、字符串评分与基于 LLM 的评分
 
-## 📦 Available Examples
+## 📦 可用示例
 
-| Provider | File | Description |
-| -------- | ---- | ----------- |
-| Promptfoo | [01_promptfoo.py](01_promptfoo.py) | YAML config + custom Python provider and assertions |
-| Braintrust | [02_braintrust_autoevals.py](02_braintrust_autoevals.py) | Pre-built scorers: Levenshtein, Factuality, custom classifiers |
-| Langfuse | [03_langfuse.py](03_langfuse.py) | Decorator-based tracing + multi-type scoring |
+| 提供方 | 文件 | 说明 |
+| ------ | ---- | ---- |
+| Promptfoo | [01_promptfoo.py](01_promptfoo.py) | YAML 配置、自定义 Python 提供器和断言 |
+| Braintrust | [02_braintrust_autoevals.py](02_braintrust_autoevals.py) | 预置评分器：Levenshtein、Factuality 和自定义分类器 |
+| Langfuse | [03_langfuse.py](03_langfuse.py) | 基于装饰器的链路追踪和多类型评分 |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-> **Prerequisites:** Python 3.11+ and uv. See [SETUP.md](../../SETUP.md) for full setup instructions.
+> **前置条件：** Python 3.11+ 和 uv。完整配置说明请参阅 [SETUP.md](../../SETUP.md)。
 
-Each script runs in **simulated mode** without external dependencies. To use the actual frameworks:
+每个脚本都可以在无外部依赖的**模拟模式**下运行。若要使用真实框架：
 
 ```bash
-# Core (all scripts work without these)
+# 核心依赖（无需安装下列可选依赖即可运行所有脚本）
 uv run --directory 04-testing-evaluation/06-eval-frameworks python 01_promptfoo.py
 
-# With framework dependencies
-uv sync --extra promptfoo    # adds pyyaml for YAML generation
-uv sync --extra braintrust   # adds autoevals scorers
-uv sync --extra langfuse     # adds langfuse SDK
-uv sync --extra all           # all frameworks
+# 安装框架依赖
+uv sync --extra promptfoo    # 添加 pyyaml，用于生成 YAML
+uv sync --extra braintrust   # 添加 autoevals 评分器
+uv sync --extra langfuse     # 添加 langfuse SDK
+uv sync --extra all          # 安装所有框架
 ```
 
-Or use the [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) VS Code extension to run the currently open script with a single click.
+也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，一键运行当前打开的脚本。
 
-## 🔑 Key Concepts
+## 🔑 核心概念
 
-### Framework Comparison
+### 框架对比
 
-| Aspect | Promptfoo | Braintrust AutoEvals | Langfuse |
-|--------|-----------|---------------------|----------|
-| **Type** | CLI tool (Node.js) | Python SDK | Python SDK |
-| **Config** | YAML-driven | Code-driven | Code-driven |
-| **Local?** | Yes (fully) | String scorers: yes | Needs server (or self-host) |
-| **API keys** | Only for LLM providers | `OPENAI_API_KEY` for LLM scorers | `LANGFUSE_*` keys |
-| **Best for** | Declarative eval suites | Pre-built scoring | Tracing + scoring |
+| 维度 | Promptfoo | Braintrust AutoEvals | Langfuse |
+| ---- | --------- | -------------------- | -------- |
+| **类型** | CLI 工具（Node.js） | Python SDK | Python SDK |
+| **配置方式** | YAML 驱动 | 代码驱动 | 代码驱动 |
+| **可本地运行？** | 是（完全本地） | 字符串评分器：是 | 需要服务器（或自行托管） |
+| **API 密钥** | 仅 LLM 提供方需要 | LLM 评分器需要 `OPENAI_API_KEY` | `LANGFUSE_*` 密钥 |
+| **最适合** | 声明式评测套件 | 预置评分 | 链路追踪与评分 |
 
-### 1. Promptfoo: Declarative YAML Evals
+### 1. Promptfoo：声明式 YAML 评测
 
-Define providers, prompts, test cases, and assertions in YAML:
+在 YAML 中定义提供器、提示词、测试用例和断言：
 
 ```yaml
 providers:
-  - id: "file://provider_agent.py"    # Custom Python provider
+  - id: "file://provider_agent.py"    # 自定义 Python 提供器
 tests:
   - vars:
-      question: "What are microservices benefits?"
+      question: "微服务有哪些优势？"
     assert:
-      - type: python                   # Custom Python assertion
+      - type: python                   # 自定义 Python 断言
         value: "file://assertion_keywords.py"
-      - type: contains                 # Built-in string check
+      - type: contains                 # 内置字符串检查
         value: "doc_001"
-      - type: llm-rubric              # LLM-as-judge
-        value: "Response should cover scalability and fault isolation."
+      - type: llm-rubric               # LLM 充当裁判
+        value: "回答应涵盖可扩展性和故障隔离。"
 ```
 
-### 2. Braintrust AutoEvals: Pre-Built Scorers
+### 2. Braintrust AutoEvals：预置评分器
 
-Use battle-tested scorers without building from scratch:
+无需从头构建，直接使用经过实践检验的评分器：
 
 ```python
 from autoevals import Factuality, Levenshtein
 
-# Local scorer — no API key needed
+# 本地评分器——无需 API 密钥
 lev = Levenshtein()
-result = lev.eval(output="hello wrld", expected="hello world")
+result = lev.eval(output="你好世届", expected="你好世界")
 
-# LLM scorer — needs OPENAI_API_KEY
+# LLM 评分器——需要 OPENAI_API_KEY
 fact = Factuality()
-result = fact.eval(input="question", output="answer", expected="reference")
+result = fact.eval(input="问题", output="回答", expected="参考答案")
 ```
 
-### 3. Langfuse: Tracing + Scoring
+### 3. Langfuse：链路追踪与评分
 
-Instrument code with decorators and add scores programmatically:
+使用装饰器检测代码，并以编程方式添加评分：
 
 ```python
 from langfuse import observe, get_client
 
-@observe()  # Auto-creates trace with nested spans
+@observe()  # 自动创建包含嵌套跨度的追踪
 def my_agent(question: str) -> str:
     return search_and_answer(question)
 
-# Score the trace
+# 为追踪评分
 langfuse = get_client()
 langfuse.create_score(
     trace_id=trace_id,
@@ -110,22 +110,22 @@ langfuse.create_score(
 )
 ```
 
-## ⚠️ Important Considerations
+## ⚠️ 重要注意事项
 
-- **Pick a framework and iterate** — the blog advises investing energy in high-quality test cases and graders rather than framework selection
-- **Many teams combine tools** — Promptfoo for CI/CD assertions, Langfuse for production tracing, autoevals for quick scoring
-- **All scripts work without external dependencies** — simulated mode demonstrates the patterns; install frameworks when ready to use them for real
-- **LLM-based scorers add cost** — Factuality/ClosedQA scorers call OpenAI; budget accordingly for large eval suites
+- **选定一个框架并持续迭代**——原文建议把精力投入高质量测试用例和评分器，而不是纠结框架选择
+- **许多团队会组合使用工具**——用 Promptfoo 完成 CI/CD 断言，用 Langfuse 追踪生产环境，用 AutoEvals 快速评分
+- **所有脚本都可在无外部依赖时运行**——模拟模式用于演示模式；准备实际使用时再安装对应框架
+- **基于 LLM 的评分器会产生费用**——Factuality/ClosedQA 评分器会调用 OpenAI；大规模评测时应规划好预算
 
-## 🔗 Resources
+## 🔗 资源
 
-- [Promptfoo Python Provider Docs](https://www.promptfoo.dev/docs/providers/python/)
-- [Braintrust AutoEvals GitHub](https://github.com/braintrustdata/autoevals)
+- [Promptfoo Python 提供器文档](https://www.promptfoo.dev/docs/providers/python/)
+- [Braintrust AutoEvals GitHub 仓库](https://github.com/braintrustdata/autoevals)
 - [Langfuse Python SDK](https://langfuse.com/docs/sdk/python/decorators)
-- [Demystifying Evals — Eval Frameworks Appendix](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+- [揭秘评测——评测框架附录](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
 
-## 👉 Next Steps
+## 👉 后续步骤
 
-- **Apply** — Pick the framework that fits your workflow and define eval tasks for your own agent
-- **Combine** — Use Promptfoo for CI assertions + Langfuse for production tracing
-- **Capstone** — See the [Eval Harness](../07-eval-harness/) for a framework-independent eval pipeline combining all techniques
+- **应用**——选择适合工作流的框架，为自己的智能体定义评测任务
+- **组合**——使用 Promptfoo 完成 CI 断言，并使用 Langfuse 追踪生产环境
+- **综合项目**——参阅[评测工具链](../07-eval-harness/)，了解融合所有技术且不依赖特定框架的评测流水线

@@ -1,4 +1,4 @@
-"""Shared modules for unit testing agent tutorials."""
+"""代理单元测试教程使用的共享模块。"""
 
 from shared.agent import ToolUseAgent
 from shared.mock_helpers import create_mock_response, make_text_block, make_tool_use_block

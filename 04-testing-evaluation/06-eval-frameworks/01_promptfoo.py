@@ -1,18 +1,17 @@
 """
-Promptfoo — YAML-Driven Eval Framework
+Promptfoo——YAML 驱动的评测框架。
 
-Demonstrates how to integrate Promptfoo with a Python-based agent. Promptfoo is a
-Node.js CLI tool that supports custom Python providers and assertions, letting you
-define eval suites declaratively in YAML.
+演示如何将 Promptfoo 与基于 Python 的智能体集成。Promptfoo 是一个支持自定义
+Python 提供器和断言的 Node.js CLI 工具，可以使用 YAML 以声明式方式定义评测套件。
 
-This script:
-1. Generates a promptfooconfig.yaml with test cases from our golden dataset
-2. Creates a custom Python provider that wraps our research assistant
-3. Creates a custom Python assertion for keyword grading
-4. Shows how to run the eval via `npx promptfoo eval`
+本脚本将：
+1. 根据黄金数据集中的测试用例生成 promptfooconfig.yaml
+2. 创建封装研究助手的自定义 Python 提供器
+3. 创建用于关键词评分的自定义 Python 断言
+4. 展示如何通过 `npx promptfoo eval` 运行评测
 
-Note: Promptfoo requires Node.js. Install via `npm install -g promptfoo` or use
-`npx promptfoo@latest eval`. The `pip install promptfoo` package wraps the Node binary.
+注意：Promptfoo 需要 Node.js。可通过 `npm install -g promptfoo` 安装，或使用
+`npx promptfoo@latest eval`。`pip install promptfoo` 软件包封装了 Node 二进制文件。
 """
 
 import json
@@ -29,12 +28,12 @@ logger = setup_logging(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Promptfoo YAML configuration generator
+# Promptfoo YAML 配置生成器
 # ---------------------------------------------------------------------------
 
 
 def generate_promptfoo_config(tasks: list[dict], output_dir: Path) -> str:
-    """Generate a promptfooconfig.yaml for our research assistant."""
+    """为研究助手生成 promptfooconfig.yaml。"""
     tests = []
     for task in tasks:
         test_case: dict = {
@@ -42,7 +41,7 @@ def generate_promptfoo_config(tasks: list[dict], output_dir: Path) -> str:
             "assert": [],
         }
 
-        # Code-based assertions: keyword checks via custom Python function
+        # 基于代码的断言：通过自定义 Python 函数检查关键词
         if task["expected_keywords"]:
             test_case["assert"].append(
                 {
@@ -52,15 +51,15 @@ def generate_promptfoo_config(tasks: list[dict], output_dir: Path) -> str:
                 }
             )
         else:
-            # Out-of-scope: should contain a refusal
+            # 超出范围的问题：应包含拒答文本
             test_case["assert"].append(
                 {
                     "type": "icontains",
-                    "value": "unable to find",
+                    "value": "无法在知识库中找到",
                 }
             )
 
-        # Source citation check
+        # 来源引用检查
         for source_id in task.get("expected_source_ids", []):
             test_case["assert"].append(
                 {
@@ -69,15 +68,15 @@ def generate_promptfoo_config(tasks: list[dict], output_dir: Path) -> str:
                 }
             )
 
-        # LLM-as-judge rubric (uses Promptfoo's built-in llm-rubric assertion)
+        # LLM 裁判评分标准（使用 Promptfoo 内置的 llm-rubric 断言）
         if task["expected_keywords"]:
             test_case["assert"].append(
                 {
                     "type": "llm-rubric",
                     "value": (
-                        f"The response should accurately answer: '{task['question']}'. "
-                        f"It should cite sources and cover these topics: "
-                        f"{', '.join(task['expected_keywords'])}."
+                        f"回答应准确解答：‘{task['question']}’。"
+                        f"回答应引用来源并涵盖以下主题："
+                        f"{', '.join(task['expected_keywords'])}。"
                     ),
                 }
             )
@@ -85,11 +84,11 @@ def generate_promptfoo_config(tasks: list[dict], output_dir: Path) -> str:
         tests.append(test_case)
 
     config = {
-        "description": "Research Assistant Eval Suite",
+        "description": "研究助手评测套件",
         "providers": [
             {
                 "id": "file://provider_agent.py",
-                "label": "Research Assistant",
+                "label": "研究助手",
                 "config": {"mode": "simulated"},
             }
         ],
@@ -102,7 +101,7 @@ def generate_promptfoo_config(tasks: list[dict], output_dir: Path) -> str:
         },
     }
 
-    # Write YAML config
+    # 写入 YAML 配置
     import yaml  # type: ignore[import-untyped]
 
     config_path = output_dir / "promptfooconfig.yaml"
@@ -113,25 +112,25 @@ def generate_promptfoo_config(tasks: list[dict], output_dir: Path) -> str:
 
 
 def generate_provider_script(output_dir: Path) -> None:
-    """Generate the custom Python provider script for Promptfoo."""
-    # Promptfoo calls this script's call_api function for each test case
+    """生成 Promptfoo 的自定义 Python 提供器脚本。"""
+    # Promptfoo 会为每个测试用例调用此脚本的 call_api 函数
     provider_code = '''"""
-Custom Promptfoo provider wrapping the research assistant.
+封装研究助手的自定义 Promptfoo 提供器。
 
-Promptfoo calls call_api() for each test case. The function receives:
-- prompt: the rendered prompt string
-- options: dict with 'config' from YAML
-- context: dict with 'vars' from the test case
+Promptfoo 会为每个测试用例调用 call_api()。该函数接收：
+- prompt：渲染后的提示词字符串
+- options：包含 YAML 中 `config` 的字典
+- context：包含测试用例中 `vars` 的字典
 """
 
 
 def call_api(prompt, options, context):
-    """Promptfoo provider entry point."""
+    """Promptfoo 提供器入口。"""
     from shared.knowledge_base import get_agent_response, EVAL_TASKS
 
     question = context.get("vars", {}).get("question", prompt)
 
-    # Find matching task by question text
+    # 根据问题文本查找匹配的任务
     task_id = None
     for task in EVAL_TASKS:
         if task["question"] == question:
@@ -139,7 +138,7 @@ def call_api(prompt, options, context):
             break
 
     if task_id is None:
-        return {"output": "No matching task found."}
+        return {"output": "未找到匹配的任务。"}
 
     response = get_agent_response(task_id)
 
@@ -152,22 +151,22 @@ def call_api(prompt, options, context):
 
 
 def generate_assertion_script(output_dir: Path) -> None:
-    """Generate the custom Python assertion script for keyword grading."""
+    """生成用于关键词评分的自定义 Python 断言脚本。"""
     assertion_code = '''"""
-Custom Promptfoo assertion for keyword coverage grading.
+用于评定关键词覆盖率的自定义 Promptfoo 断言。
 
-Promptfoo calls get_assert() for each assertion of type 'python'.
-Returns a dict with pass, score, and reason.
+Promptfoo 会为每个 `python` 类型的断言调用 get_assert()。
+返回包含 pass、score 和 reason 的字典。
 """
 
 
 def get_assert(output, context):
-    """Check keyword coverage in the agent output."""
+    """检查智能体输出的关键词覆盖率。"""
     metadata = context.get("test", {}).get("metadata", {})
     keywords = metadata.get("keywords", [])
 
     if not keywords:
-        return {"pass": True, "score": 1.0, "reason": "No keywords to check"}
+        return {"pass": True, "score": 1.0, "reason": "没有需要检查的关键词"}
 
     output_lower = output.lower()
     found = [kw for kw in keywords if kw.lower() in output_lower]
@@ -176,9 +175,9 @@ def get_assert(output, context):
     score = len(found) / len(keywords)
     passed = score >= 0.5
 
-    reason = f"Found {len(found)}/{len(keywords)} keywords"
+    reason = f"找到 {len(found)}/{len(keywords)} 个关键词"
     if missing:
-        reason += f" (missing: {', '.join(missing)})"
+        reason += f"（缺少：{', '.join(missing)}）"
 
     return {"pass": passed, "score": score, "reason": reason}
 '''
@@ -186,22 +185,22 @@ def get_assert(output, context):
 
 
 # ---------------------------------------------------------------------------
-# Main — generate config and demonstrate the setup
+# 主程序——生成配置并演示设置方式
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    """Generate Promptfoo configuration and demonstrate the YAML-driven eval pattern."""
+    """生成 Promptfoo 配置并演示 YAML 驱动的评测模式。"""
     console = Console()
     console.print(
         Panel(
-            "[bold cyan]Promptfoo — YAML-Driven Eval Framework[/bold cyan]\n\n"
-            "Generates a Promptfoo eval suite with:\n"
-            "  - Custom Python provider (wraps our research assistant)\n"
-            "  - Custom Python assertion (keyword grading)\n"
-            "  - Built-in assertions (contains, icontains, llm-rubric)\n\n"
-            "Promptfoo is a Node.js CLI with first-class Python support.\n"
-            "Install: npm install -g promptfoo",
+            "[bold cyan]Promptfoo——YAML 驱动的评测框架[/bold cyan]\n\n"
+            "生成包含以下内容的 Promptfoo 评测套件：\n"
+            "  - 自定义 Python 提供器（封装研究助手）\n"
+            "  - 自定义 Python 断言（关键词评分）\n"
+            "  - 内置断言（contains、icontains、llm-rubric）\n\n"
+            "Promptfoo 是原生支持 Python 的 Node.js CLI。\n"
+            "安装：npm install -g promptfoo",
             title="01 - Promptfoo",
         )
     )
@@ -211,25 +210,25 @@ def main() -> None:
         import yaml  # noqa: F401  # type: ignore[import-untyped]
     except ImportError:
         console.print(
-            "[yellow]PyYAML not installed — showing JSON config instead.[/yellow]\n"
-            "[dim]Install with: pip install pyyaml[/dim]\n"
+            "[yellow]未安装 PyYAML——改为显示 JSON 配置。[/yellow]\n"
+            "[dim]安装命令：pip install pyyaml[/dim]\n"
         )
 
-    # Generate Promptfoo files
+    # 生成 Promptfoo 文件
     generate_provider_script(output_dir)
     generate_assertion_script(output_dir)
-    console.print("[green]Generated provider_agent.py and assertion_keywords.py[/green]\n")
+    console.print("[green]已生成 provider_agent.py 和 assertion_keywords.py[/green]\n")
 
-    # Show what the config would look like
-    console.print("[bold]Promptfoo Configuration (promptfooconfig.yaml)[/bold]\n")
+    # 展示配置内容
+    console.print("[bold]Promptfoo 配置（promptfooconfig.yaml）[/bold]\n")
 
-    # Build a sample config to display (avoid yaml dependency for display)
+    # 构建用于展示的示例配置（展示时避免依赖 yaml）
     sample_config = {
-        "description": "Research Assistant Eval Suite",
+        "description": "研究助手评测套件",
         "providers": [
             {
                 "id": "file://provider_agent.py",
-                "label": "Research Assistant",
+                "label": "研究助手",
                 "config": {"mode": "simulated"},
             }
         ],
@@ -246,56 +245,57 @@ def main() -> None:
                     {"type": "contains", "value": "doc_001"},
                     {
                         "type": "llm-rubric",
-                        "value": "The response should accurately cover microservices benefits.",
+                        "value": "回答应准确涵盖微服务的优势。",
                     },
                 ],
             },
             {"vars": {"question": "..."}, "assert": [{"type": "..."}]},
         ],
     }
-    config_yaml = json.dumps(sample_config, indent=2)
+    config_yaml = json.dumps(sample_config, indent=2, ensure_ascii=False)
     console.print(Syntax(config_yaml, "json", theme="monokai", line_numbers=True))
 
-    # Try to generate YAML config if pyyaml is available
+    # 如果 pyyaml 可用，则尝试生成 YAML 配置
     try:
         config_name = generate_promptfoo_config(EVAL_TASKS, output_dir)
-        console.print(f"\n[green]Generated {config_name}[/green]")
+        console.print(f"\n[green]已生成 {config_name}[/green]")
     except ImportError:
-        console.print("\n[yellow]Skipping YAML generation (pyyaml not installed)[/yellow]")
+        console.print("\n[yellow]跳过 YAML 生成（未安装 pyyaml）[/yellow]")
 
-    # Run the assertions locally to demonstrate the grading logic
-    console.print("\n[bold]Running assertions locally (simulated):[/bold]\n")
+    # 在本地运行断言以演示评分逻辑
+    console.print("\n[bold]在本地运行断言（模拟模式）：[/bold]\n")
 
-    # Import the generated assertion logic inline
+    # 内联运行生成的断言逻辑
     for task in EVAL_TASKS:
         response = get_agent_response(task["id"])
         output = response["answer"]
 
-        # Keyword check
+        # 关键词检查
         if task["expected_keywords"]:
             output_lower = output.lower()
             found = [kw for kw in task["expected_keywords"] if kw.lower() in output_lower]
             score = len(found) / len(task["expected_keywords"])
-            status = "[green]PASS[/green]" if score >= 0.5 else "[red]FAIL[/red]"
-            console.print(f"  {task['id']}: {status} keywords={score:.0%}", end="")
+            status = "[green]通过[/green]" if score >= 0.5 else "[red]失败[/red]"
+            console.print(f"  {task['id']}：{status} 关键词={score:.0%}", end="")
         else:
-            has_refusal = "unable to find" in output.lower() or "no relevant" in output.lower()
-            status = "[green]PASS[/green]" if has_refusal else "[red]FAIL[/red]"
-            console.print(f"  {task['id']}: {status} refusal={has_refusal}", end="")
+            has_refusal = "无法在知识库中找到" in output or "没有相关" in output
+            status = "[green]通过[/green]" if has_refusal else "[red]失败[/red]"
+            refusal_text = "是" if has_refusal else "否"
+            console.print(f"  {task['id']}：{status} 拒答={refusal_text}", end="")
 
-        # Source citation check
+        # 来源引用检查
         for sid in task.get("expected_source_ids", []):
             cited = sid in output
-            cite_status = "[green]yes[/green]" if cited else "[red]no[/red]"
+            cite_status = "[green]是[/green]" if cited else "[red]否[/red]"
             console.print(f"  {sid}={cite_status}", end="")
 
         console.print()
 
-    # Show how to run
+    # 展示运行方式
     console.print(
-        "\n[bold]To run with Promptfoo CLI:[/bold]\n"
+        "\n[bold]使用 Promptfoo CLI 运行：[/bold]\n"
         "  [dim]npx promptfoo@latest eval[/dim]\n"
-        "  [dim]npx promptfoo@latest view  # opens web UI with results[/dim]"
+        "  [dim]npx promptfoo@latest view  # 打开网页界面查看结果[/dim]"
     )
 
 

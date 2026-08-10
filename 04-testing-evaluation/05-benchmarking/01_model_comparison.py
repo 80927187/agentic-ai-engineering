@@ -1,9 +1,9 @@
 """
-Model Comparison Benchmark
+模型对比基准测试
 
-Benchmarks the same research assistant tasks across multiple models and providers.
-Measures accuracy (keyword matching), latency, token usage, and cost per query.
-Supports both live API calls and a simulated mode for demo without API keys.
+使用多个模型和服务商对相同的研究助手任务进行基准测试。
+测量准确率（关键词匹配）、延迟、Token 用量和单次查询成本。
+既支持实时 API 调用，也支持无需 API 密钥的演示模拟模式。
 """
 
 import json
@@ -34,15 +34,15 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 # ---------------------------------------------------------------------------
-# Simulated results for demo mode
+# 演示模式的模拟结果
 # ---------------------------------------------------------------------------
 
 SIMULATED_RESULTS = [
-    # bench_001 — Microservices
+    # bench_001——微服务
     BenchmarkResult(
         "bench_001",
         "Claude Sonnet",
-        "Microservices offer scalability, fault isolation, and independent deployment (doc_001).",
+        "微服务提供可扩展性、故障隔离和独立部署能力（doc_001）。",
         0.9,
         1200,
         150,
@@ -53,7 +53,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_001",
         "Claude Haiku",
-        "Benefits include fault isolation and scalability (doc_001).",
+        "其优势包括故障隔离和可扩展性（doc_001）。",
         0.7,
         450,
         130,
@@ -64,7 +64,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_001",
         "GPT-4.1 mini",
-        "Key benefits are scalability, fault isolation, and independent services (doc_001).",
+        "主要优势包括可扩展性、故障隔离和独立服务（doc_001）。",
         0.8,
         800,
         140,
@@ -72,13 +72,13 @@ SIMULATED_RESULTS = [
         0.0003,
         1,
     ),
-    # bench_002 — REST API
+    # bench_002——REST API
     BenchmarkResult(
         "bench_002",
         "Claude Sonnet",
         (
-            "REST APIs use nouns for endpoints, HTTP methods for "
-            "actions, and status codes for results (doc_002)."
+            "REST API 的端点使用名词，操作使用 HTTP 方法，"
+            "结果使用状态码（doc_002）。"
         ),
         1.0,
         1150,
@@ -90,7 +90,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_002",
         "Claude Haiku",
-        "Use nouns and HTTP methods with proper status codes (doc_002).",
+        "使用名词和 HTTP 方法，并配以适当的状态码（doc_002）。",
         0.8,
         420,
         125,
@@ -101,7 +101,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_002",
         "GPT-4.1 mini",
-        "Design endpoints with nouns, use HTTP methods and status codes (doc_002).",
+        "使用名词设计端点，并使用 HTTP 方法和状态码（doc_002）。",
         0.9,
         780,
         135,
@@ -109,13 +109,13 @@ SIMULATED_RESULTS = [
         0.0003,
         1,
     ),
-    # bench_003 — Database Indexing
+    # bench_003——数据库索引
     BenchmarkResult(
         "bench_003",
         "Claude Sonnet",
         (
-            "B-tree indexes handle equality queries, composite indexes "
-            "support multi-column query performance (doc_003)."
+            "B 树索引处理等值查询，复合索引可提升"
+            "多列查询性能（doc_003）。"
         ),
         0.9,
         1300,
@@ -127,7 +127,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_003",
         "Claude Haiku",
-        "Database indexes improve query performance using B-tree structures (doc_003).",
+        "数据库索引使用 B 树结构提高查询性能（doc_003）。",
         0.6,
         440,
         128,
@@ -138,7 +138,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_003",
         "GPT-4.1 mini",
-        "B-tree and composite indexes improve query performance (doc_003).",
+        "B 树索引和复合索引可以提高查询性能（doc_003）。",
         0.8,
         820,
         138,
@@ -146,14 +146,13 @@ SIMULATED_RESULTS = [
         0.0003,
         1,
     ),
-    # bench_004 — Auth
+    # bench_004——身份认证与授权
     BenchmarkResult(
         "bench_004",
         "Claude Sonnet",
         (
-            "Authentication verifies identity while authorization "
-            "controls access. JWT and OAuth 2.0 are key mechanisms "
-            "(doc_004)."
+            "身份认证用于验证身份，而授权用于控制访问权限。"
+            "JWT 和 OAuth 2.0 是关键机制（doc_004）。"
         ),
         0.9,
         1250,
@@ -165,7 +164,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_004",
         "Claude Haiku",
-        "Authentication is identity, authorization is access. Use JWT tokens (doc_004).",
+        "身份认证确认身份，授权控制访问，可使用 JWT 令牌（doc_004）。",
         0.6,
         430,
         122,
@@ -177,8 +176,8 @@ SIMULATED_RESULTS = [
         "bench_004",
         "GPT-4.1 mini",
         (
-            "Authentication verifies identity, authorization controls "
-            "access via JWT and OAuth (doc_004)."
+            "身份认证验证身份，授权则通过 JWT 和 OAuth 控制"
+            "访问权限（doc_004）。"
         ),
         0.8,
         810,
@@ -187,13 +186,13 @@ SIMULATED_RESULTS = [
         0.0003,
         1,
     ),
-    # bench_005 — CI/CD
+    # bench_005——CI/CD
     BenchmarkResult(
         "bench_005",
         "Claude Sonnet",
         (
-            "CI provides continuous integration with automated testing "
-            "and fast feedback loops (doc_005)."
+            "CI 通过自动化测试和快速反馈循环"
+            "实现持续集成（doc_005）。"
         ),
         0.8,
         1180,
@@ -205,7 +204,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_005",
         "Claude Haiku",
-        "Continuous integration with automated builds and fast feedback (doc_005).",
+        "持续集成包括自动构建和快速反馈（doc_005）。",
         0.7,
         460,
         126,
@@ -216,7 +215,7 @@ SIMULATED_RESULTS = [
     BenchmarkResult(
         "bench_005",
         "GPT-4.1 mini",
-        "Key CI/CD practices include continuous automated testing and feedback loops (doc_005).",
+        "CI/CD 的关键实践包括持续自动化测试和反馈循环（doc_005）。",
         0.7,
         790,
         130,
@@ -227,26 +226,26 @@ SIMULATED_RESULTS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Model benchmark class
+# 模型基准测试类
 # ---------------------------------------------------------------------------
 
 
 class ModelBenchmark:
-    """Benchmarks the same tasks across multiple models."""
+    """使用多个模型对相同任务进行基准测试。"""
 
     def __init__(self) -> None:
         self.anthropic_tracker = AnthropicTokenTracker()
         self.openai_tracker = OpenAITokenTracker()
 
     def run_task_anthropic(self, task: dict, config: ModelConfig) -> BenchmarkResult:
-        """Run a single benchmark task using the Anthropic API."""
+        """使用 Anthropic API 运行单个基准测试任务。"""
         client = anthropic.Anthropic()
         messages: list[dict[str, Any]] = [{"role": "user", "content": task["question"]}]
         tool_call_count = 0
 
         start = time.perf_counter()
 
-        # Agent loop — handle tool use until final response
+        # 智能体循环——处理工具调用，直至获得最终响应
         while True:
             response = client.messages.create(
                 model=config.model_id,
@@ -261,7 +260,7 @@ class ModelBenchmark:
                 answer = "".join(b.text for b in response.content if hasattr(b, "text"))
                 break
 
-            # Process tool calls
+            # 处理工具调用
             messages.append({"role": "assistant", "content": response.content})
             tool_results: list[dict[str, Any]] = []
             for block in response.content:
@@ -272,7 +271,7 @@ class ModelBenchmark:
                         {
                             "type": "tool_result",
                             "tool_use_id": block.id,
-                            "content": json.dumps(result),
+                            "content": json.dumps(result, ensure_ascii=False),
                         }
                     )
             messages.append({"role": "user", "content": tool_results})
@@ -297,7 +296,7 @@ class ModelBenchmark:
         )
 
     def run_task_openai(self, task: dict, config: ModelConfig) -> BenchmarkResult:
-        """Run a single benchmark task using the OpenAI API."""
+        """使用 OpenAI API 运行单个基准测试任务。"""
         client = openai.OpenAI()
         messages: list[dict[str, Any]] = [
             {"role": "user", "content": task["question"]},
@@ -306,7 +305,7 @@ class ModelBenchmark:
 
         start = time.perf_counter()
 
-        # Agent loop — handle function calls until final response
+        # 智能体循环——处理函数调用，直至获得最终响应
         while True:
             response = client.responses.create(
                 model=config.model_id,
@@ -323,7 +322,7 @@ class ModelBenchmark:
                 answer = response.output_text or ""
                 break
 
-            # Process function calls
+            # 处理函数调用
             messages.extend(response.output)
             for func_call in function_calls:
                 tool_call_count += 1
@@ -333,7 +332,7 @@ class ModelBenchmark:
                     {
                         "type": "function_call_output",
                         "call_id": func_call.call_id,
-                        "output": json.dumps(result),
+                        "output": json.dumps(result, ensure_ascii=False),
                     }
                 )
 
@@ -357,39 +356,39 @@ class ModelBenchmark:
         )
 
     def run_benchmark(self, tasks: list[dict], configs: list[ModelConfig]) -> list[BenchmarkResult]:
-        """Run all tasks across all model configurations."""
+        """使用所有模型配置运行全部任务。"""
         results: list[BenchmarkResult] = []
         for config in configs:
-            logger.info("Benchmarking model: %s (%s)", config.name, config.model_id)
+            logger.info("正在对模型进行基准测试：%s（%s）", config.name, config.model_id)
             for task in tasks:
-                logger.info("  Task %s: %s", task["id"], task["question"][:50])
+                logger.info("  任务 %s：%s", task["id"], task["question"][:50])
                 try:
                     if config.provider == "anthropic":
                         result = self.run_task_anthropic(task, config)
                     elif config.provider == "openai":
                         result = self.run_task_openai(task, config)
                     else:
-                        logger.error("Unknown provider: %s", config.provider)
+                        logger.error("未知服务商：%s", config.provider)
                         continue
                     results.append(result)
                     logger.info(
-                        "    score=%.2f, latency=%dms, cost=$%.4f",
+                        "    得分=%.2f，延迟=%dms，成本=$%.4f",
                         result.keyword_score,
                         result.latency_ms,
                         result.cost_usd,
                     )
                 except Exception as e:
-                    logger.error("    Error: %s", e)
+                    logger.error("    错误：%s", e)
         return results
 
 
 # ---------------------------------------------------------------------------
-# Aggregation helpers
+# 聚合辅助函数
 # ---------------------------------------------------------------------------
 
 
 def aggregate_by_model(results: list[BenchmarkResult]) -> dict[str, dict[str, float]]:
-    """Compute per-model averages across all tasks."""
+    """计算每个模型在所有任务上的平均值。"""
     model_results: dict[str, list[BenchmarkResult]] = {}
     for r in results:
         model_results.setdefault(r.config_name, []).append(r)
@@ -408,44 +407,44 @@ def aggregate_by_model(results: list[BenchmarkResult]) -> dict[str, dict[str, fl
 
 
 # ---------------------------------------------------------------------------
-# Main
+# 主程序
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    """Run model comparison benchmark and display results."""
+    """运行模型对比基准测试并显示结果。"""
     console = Console()
     console.print(
         Panel(
-            "[bold cyan]Model Comparison Benchmark[/bold cyan]\n\n"
-            "Compares the same research assistant tasks across multiple models.\n"
-            "Measures: accuracy (keyword match), latency, token usage, and cost.",
-            title="Benchmark Tutorial 1",
+            "[bold cyan]模型对比基准测试[/bold cyan]\n\n"
+            "使用多个模型比较相同的研究助手任务。\n"
+            "测量指标：准确率（关键词匹配）、延迟、Token 用量和成本。",
+            title="基准测试教程 1",
         )
     )
 
-    # Determine mode: live or simulated
+    # 确定运行模式：实时或模拟
     has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))
     has_openai = bool(os.environ.get("OPENAI_API_KEY"))
     live_mode = has_anthropic and has_openai
 
     if live_mode:
-        console.print("[green]API keys found — running live benchmark[/green]\n")
+        console.print("[green]已找到 API 密钥——正在运行实时基准测试[/green]\n")
         benchmark = ModelBenchmark()
         results = benchmark.run_benchmark(BENCHMARK_TASKS, MODEL_CONFIGS)
     else:
-        console.print("[yellow]API keys missing — using simulated results for demo[/yellow]\n")
+        console.print("[yellow]缺少 API 密钥——使用模拟结果进行演示[/yellow]\n")
         results = SIMULATED_RESULTS
 
-    # Per-task detail table
-    detail_table = Table(title="Per-Task Results", show_lines=True)
-    detail_table.add_column("Task", style="cyan", width=10)
-    detail_table.add_column("Model", width=14)
-    detail_table.add_column("Score", justify="center", width=7)
-    detail_table.add_column("Latency", justify="right", width=9)
-    detail_table.add_column("Tokens", justify="right", width=8)
-    detail_table.add_column("Cost", justify="right", width=9)
-    detail_table.add_column("Tools", justify="center", width=6)
+    # 各任务明细表
+    detail_table = Table(title="各任务结果", show_lines=True)
+    detail_table.add_column("任务", style="cyan", width=10)
+    detail_table.add_column("模型", width=14)
+    detail_table.add_column("得分", justify="center", width=7)
+    detail_table.add_column("延迟", justify="right", width=9)
+    detail_table.add_column("Token", justify="right", width=8)
+    detail_table.add_column("成本", justify="right", width=9)
+    detail_table.add_column("工具", justify="center", width=6)
 
     for r in results:
         score_color = (
@@ -464,15 +463,15 @@ def main() -> None:
     console.print(detail_table)
     console.print()
 
-    # Aggregated comparison table
+    # 聚合对比表
     summaries = aggregate_by_model(results)
 
-    summary_table = Table(title="Model Comparison Summary", show_lines=True)
-    summary_table.add_column("Model", style="bold", width=14)
-    summary_table.add_column("Accuracy", justify="center", width=10)
-    summary_table.add_column("Avg Latency", justify="right", width=12)
-    summary_table.add_column("Avg Tokens", justify="right", width=12)
-    summary_table.add_column("Avg Cost", justify="right", width=10)
+    summary_table = Table(title="模型对比汇总", show_lines=True)
+    summary_table.add_column("模型", style="bold", width=14)
+    summary_table.add_column("准确率", justify="center", width=10)
+    summary_table.add_column("平均延迟", justify="right", width=12)
+    summary_table.add_column("平均 Token", justify="right", width=12)
+    summary_table.add_column("平均成本", justify="right", width=10)
 
     for model, stats in summaries.items():
         acc = stats["accuracy"]
@@ -487,16 +486,16 @@ def main() -> None:
 
     console.print(summary_table)
 
-    # Highlight best model per dimension
-    console.print("\n[bold]Best Model by Dimension[/bold]")
+    # 突出显示各维度上的最佳模型
+    console.print("\n[bold]各维度最佳模型[/bold]")
     best_acc = max(summaries.items(), key=lambda x: x[1]["accuracy"])
     best_lat = min(summaries.items(), key=lambda x: x[1]["avg_latency_ms"])
     best_cost = min(summaries.items(), key=lambda x: x[1]["avg_cost"])
-    console.print(f"  Accuracy:  {best_acc[0]} ({best_acc[1]['accuracy']:.0%})")
-    console.print(f"  Latency:   {best_lat[0]} ({best_lat[1]['avg_latency_ms']:.0f}ms)")
-    console.print(f"  Cost:      {best_cost[0]} (${best_cost[1]['avg_cost']:.4f})")
+    console.print(f"  准确率：{best_acc[0]}（{best_acc[1]['accuracy']:.0%}）")
+    console.print(f"  延迟：  {best_lat[0]}（{best_lat[1]['avg_latency_ms']:.0f}ms）")
+    console.print(f"  成本：  {best_cost[0]}（${best_cost[1]['avg_cost']:.4f}）")
 
-    # Token usage report (live mode)
+    # Token 用量报告（实时模式）
     if live_mode:
         console.print()
         benchmark.anthropic_tracker.report()
