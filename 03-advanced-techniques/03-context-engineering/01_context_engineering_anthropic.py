@@ -1,11 +1,13 @@
 """
-上下文工程（Anthropic）
+上下文工程（DeepSeek，使用 Anthropic 兼容接口）
 
 演示如何通过令牌计数、预算分配和摘要自动压缩来管理上下文窗口。
 程序会人为设置一个较低的上下文预算，以便只进行几轮对话就能触发压缩。
 """
 
+import json
 from dataclasses import dataclass
+from typing import Any
 
 import anthropic
 from dotenv import find_dotenv, load_dotenv
@@ -23,7 +25,7 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 # 模型配置
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 
 SYSTEM_PROMPT = (
     "你是一名知识渊博的研究助理。你会承接之前的讨论要点，帮助用户深入探索主题。"
@@ -34,6 +36,12 @@ SYSTEM_PROMPT = (
 MAX_CONTEXT_TOKENS = 4096
 RESPONSE_RESERVE = 2048
 RECENT_MESSAGES_TO_KEEP = 4
+
+
+def _estimate_tokens(*values: Any) -> int:
+    """在网关不支持 count_tokens 时，按 UTF-8 字节数近似估算令牌数。"""
+    serialized = json.dumps(values, ensure_ascii=False, default=str)
+    return max(1, (len(serialized.encode("utf-8")) + 3) // 4)
 
 
 @dataclass
@@ -73,7 +81,7 @@ class ContextManager:
         self.budget = ContextBudget(max_context=max_context)
         self.compression_count = 0
 
-        # 初始化时只测量一次系统提示词的令牌数
+        # 初始化时只估算一次系统提示词的令牌数
         self.budget.system_tokens = self._count_tokens([])
         logger.info(
             "上下文预算——系统：%d，历史记录：%d，预留：%d",
@@ -105,22 +113,26 @@ class ContextManager:
 
         self.token_tracker.track(response.usage)
 
-        assistant_message = str(response.content[0].text)
+        assistant_message = _extract_text(response)
         self.messages.append({"role": "assistant", "content": assistant_message})
 
         return assistant_message
 
     def _count_tokens(self, messages: list[dict]) -> int:
-        """使用令牌计数 API 计算令牌数。"""
-        # API 要求至少有一条消息，因此使用最小占位消息来测量系统开销
+        """在 DeepSeek 兼容网关未提供计数端点时，本地估算令牌数。"""
+        # 原 Anthropic 实现：使用令牌计数 API 计算令牌数。
+        # API 要求至少有一条消息，因此使用最小占位消息来测量系统开销。
+        # msgs = messages if messages else [{"role": "user", "content": "."}]
+        # result = self.client.messages.count_tokens(
+        #     model=self.model,
+        #     system=SYSTEM_PROMPT,
+        #     messages=msgs,
+        # )
+        # token_count: int = result.input_tokens
+        # return token_count
+
         msgs = messages if messages else [{"role": "user", "content": "."}]
-        result = self.client.messages.count_tokens(
-            model=self.model,
-            system=SYSTEM_PROMPT,
-            messages=msgs,
-        )
-        token_count: int = result.input_tokens
-        return token_count
+        return _estimate_tokens(SYSTEM_PROMPT, msgs)
 
     def _compress_if_needed(self) -> None:
         """如果历史记录超出预算，则总结最早的消息。"""
@@ -189,7 +201,7 @@ class ContextManager:
 
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=1024,
+            max_tokens=21333,
             system=(
                 "简洁地总结以下对话。"
                 "保留关键事实、决策以及用户提到的具体细节。"
@@ -199,7 +211,7 @@ class ContextManager:
         )
 
         self.token_tracker.track(response.usage)
-        return str(response.content[0].text)
+        return _extract_text(response)
 
     def get_token_snapshot(self) -> TokenSnapshot:
         """返回当前令牌计数，用于预算面板。"""
@@ -249,6 +261,18 @@ def _render_budget_display(console: Console, snapshot: TokenSnapshot) -> None:
     )
 
 
+def _extract_text(response: Any) -> str:
+    """跳过思考块，只提取模型响应中的文本块。"""
+    text_parts = [block.text for block in response.content if block.type == "text"]
+    if not text_parts:
+        block_types = [block.type for block in response.content]
+        raise ValueError(
+            f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+            f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+        )
+    return "\n\n".join(text_parts)
+
+
 def main() -> None:
     """上下文工程演示的主编排函数。"""
     console = Console()
@@ -283,7 +307,7 @@ def main() -> None:
         try:
             response = manager.chat(user_input)
 
-            console.print("\n[bold blue]Claude:[/bold blue]")
+            console.print("\n[bold blue]DeepSeek:[/bold blue]")
             console.print(Markdown(response))
 
             # 每轮对话后显示预算

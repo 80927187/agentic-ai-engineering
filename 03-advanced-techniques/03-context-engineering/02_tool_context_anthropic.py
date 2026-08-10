@@ -1,5 +1,5 @@
 """
-工具输出上下文工程（Anthropic）
+工具输出上下文工程（DeepSeek，使用 Anthropic 兼容接口）
 
 演示在智能体上下文窗口中管理工具输出的三种策略：原样注入、截断（限制字符数）
 和摘要（由 LLM 提取）。程序使用会返回大量仿真 JSON 数据的模拟业务工具，
@@ -27,7 +27,7 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 # 模型配置
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 
 SYSTEM_PROMPT = (
     "你是一名业务数据助理，可以使用 CRM、订单和产品工具。"
@@ -38,6 +38,7 @@ SYSTEM_PROMPT = (
 MAX_CONTEXT_TOKENS = 4096
 RESPONSE_RESERVE = 2048
 RECENT_MESSAGES_TO_KEEP = 4
+MAX_TOOL_TURNS = 100
 
 # 策略常量
 TRUNCATE_MAX_CHARS = 500
@@ -103,6 +104,12 @@ TOOLS = [
 
 
 DB_PATH = Path(__file__).parent / "database.json"
+
+
+def _estimate_tokens(*values: Any) -> int:
+    """在网关不支持 count_tokens 时，按 UTF-8 字节数近似估算令牌数。"""
+    serialized = json.dumps(values, ensure_ascii=False, default=str)
+    return max(1, (len(serialized.encode("utf-8")) + 3) // 4)
 
 
 class MockDatabaseService:
@@ -200,7 +207,7 @@ class ToolContextAgent:
             "search_products": lambda **kw: self.db.search_products(kw["query"]),
         }
 
-        # 初始化时只测量一次系统提示词和工具定义的令牌数
+        # 初始化时只估算一次系统提示词和工具定义的令牌数
         self.budget.system_tokens = self._count_tokens([])
         logger.info(
             "上下文预算——系统+工具：%d，历史记录：%d，预留：%d，策略：%s",
@@ -217,7 +224,7 @@ class ToolContextAgent:
         # 如果历史记录超出预算，则在发送前压缩
         self._compress_if_needed()
 
-        while True:
+        for _turn in range(MAX_TOOL_TURNS):
             logger.info(
                 "正在发送请求（消息数：%d，历史记录令牌数：约 %d/%d）",
                 len(self.messages),
@@ -235,14 +242,11 @@ class ToolContextAgent:
 
             self.token_tracker.track(response.usage)
 
-            # 收集文本块和工具调用块
+            # 收集工具调用块；文本由 _extract_text 统一提取，以兼容思考块
             tool_uses = []
-            text_parts = []
 
             for block in response.content:
-                if block.type == "text":
-                    text_parts.append(block.text)
-                elif block.type == "tool_use":
+                if block.type == "tool_use":
                     tool_uses.append(block)
 
             # 将助手响应添加到历史记录
@@ -250,7 +254,7 @@ class ToolContextAgent:
 
             # 如果没有工具调用，则返回文本响应
             if response.stop_reason != "tool_use" or not tool_uses:
-                return "\n".join(text_parts) if text_parts else ""
+                return _extract_text(response)
 
             # 执行工具并对结果应用所选策略
             tool_results = []
@@ -286,6 +290,8 @@ class ToolContextAgent:
             # 如果工具结果使上下文超出预算，则再次压缩
             self._compress_if_needed()
 
+        raise RuntimeError(f"工具调用达到最大轮数（{MAX_TOOL_TURNS}），已停止继续调用。")
+
     def _process_tool_result(self, tool_name: str, raw_result: str) -> str:
         """将工具输出注入上下文前，应用所选策略。"""
         raw_chars = len(raw_result)
@@ -316,7 +322,7 @@ class ToolContextAgent:
         """调用 LLM 从工具输出中提取关键事实。"""
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=512,
+            max_tokens=21333,
             system=(
                 "从这份工具输出中提取关键事实，并生成简洁摘要。"
                 "保留所有姓名、ID、数字、日期和状态。"
@@ -331,19 +337,12 @@ class ToolContextAgent:
         )
 
         self.token_tracker.track(response.usage)
-        return str(response.content[0].text)
+        return _extract_text(response)
 
     def _count_tokens(self, messages: list[dict]) -> int:
-        """使用令牌计数 API 计算令牌数。"""
+        """在 DeepSeek 兼容网关未提供计数端点时，本地估算令牌数。"""
         msgs = messages if messages else [{"role": "user", "content": "."}]
-        result = self.client.messages.count_tokens(
-            model=self.model,
-            system=SYSTEM_PROMPT,
-            tools=TOOLS,
-            messages=msgs,
-        )
-        token_count: int = result.input_tokens
-        return token_count
+        return _estimate_tokens(SYSTEM_PROMPT, TOOLS, msgs)
 
     def _compress_if_needed(self) -> None:
         """如果历史记录超出预算，则总结最早的消息。"""
@@ -427,7 +426,7 @@ class ToolContextAgent:
 
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=1024,
+            max_tokens=21333,
             system=(
                 "简洁地总结以下对话。"
                 "保留关键事实、数据点、客户姓名、订单 ID 和工具结果。"
@@ -437,7 +436,7 @@ class ToolContextAgent:
         )
 
         self.token_tracker.track(response.usage)
-        return str(response.content[0].text)
+        return _extract_text(response)
 
     def get_token_snapshot(self) -> TokenSnapshot:
         """用于可视化的预算状态。"""
@@ -456,6 +455,18 @@ class ToolContextAgent:
 
 
 # --- 用户界面 ---
+
+
+def _extract_text(response: Any) -> str:
+    """跳过思考块，只提取模型响应中的文本块。"""
+    text_parts = [block.text for block in response.content if block.type == "text"]
+    if not text_parts:
+        block_types = [block.type for block in response.content]
+        raise ValueError(
+            f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+            f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+        )
+    return "\n\n".join(text_parts)
 
 
 def _render_budget_display(console: Console, snapshot: TokenSnapshot) -> None:
