@@ -164,10 +164,17 @@ class MemoryManager:
         try:
             response = client.messages.create(
                 model=model,
-                max_tokens=1024,
+                max_tokens=21333,
                 messages=[{"role": "user", "content": prompt}],
             )
-            raw = response.content[0].text.strip()
+            text_parts = [block.text for block in response.content if block.type == "text"]
+            if not text_parts:
+                block_types = [block.type for block in response.content]
+                raise ValueError(
+                    f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                    f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                )
+            raw = "\n\n".join(text_parts).strip()
 
             # 如果存在 Markdown 代码围栏，则将其去除
             if raw.startswith("```"):
@@ -180,7 +187,7 @@ class MemoryManager:
             if not isinstance(items, list):
                 return []
 
-        except (json.JSONDecodeError, anthropic.APIError) as e:
+        except (json.JSONDecodeError, anthropic.APIError, ValueError) as e:
             logger.error("记忆整合失败：%s", e)
             return []
 

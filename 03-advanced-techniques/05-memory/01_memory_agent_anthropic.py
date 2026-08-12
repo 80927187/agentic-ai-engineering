@@ -22,7 +22,7 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 
 SYSTEM_PROMPT = """\
 你是一名具备持久记忆的个人助手。你通过三层记忆系统跨会话记住用户信息：
@@ -123,7 +123,7 @@ class MemoryAgent:
         self.token_tracker = AnthropicTokenTracker()
         self.memory = MemoryManager()
         self.messages: list[dict[str, Any]] = []
-        self.max_iterations = 10
+        self.max_iterations = 100
 
     def _build_system_prompt(self) -> str:
         """将回忆起的记忆注入系统提示词。"""
@@ -163,7 +163,7 @@ class MemoryAgent:
             try:
                 response = self.client.messages.create(
                     model=MODEL,
-                    max_tokens=4096,
+                    max_tokens=21333,
                     system=self._build_system_prompt(),
                     tools=MEMORY_TOOLS,
                     messages=self.messages,
@@ -199,14 +199,23 @@ class MemoryAgent:
                     )
 
             if not assistant_content:
-                assistant_content = [{"type": "text", "text": "已完成。"}]
-                text_parts = ["已完成。"]
+                block_types = [block.type for block in response.content]
+                raise ValueError(
+                    f"模型响应中没有可处理内容（stop_reason={response.stop_reason}，"
+                    f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                )
 
             self.messages.append({"role": "assistant", "content": assistant_content})
 
             # 如果没有工具调用，则返回文本响应
             if response.stop_reason == "end_turn":
-                return "\n".join(text_parts) if text_parts else "已完成。"
+                if not text_parts:
+                    block_types = [block.type for block in response.content]
+                    raise ValueError(
+                        f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                        f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                    )
+                return "\n\n".join(text_parts)
 
             # 执行每个工具并显示进度
             tool_results: list[dict[str, Any]] = []

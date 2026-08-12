@@ -27,7 +27,7 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 # 模型配置
-MODEL = "claude-sonnet-4-6"
+MODEL = "deepseek-v4-flash"
 SAMPLE_DOCS_DIR = Path(__file__).parent / "sample_docs"
 CHROMA_PERSIST_DIR = str(Path(__file__).parent / ".chroma_db")
 
@@ -83,15 +83,15 @@ class AgenticRAG:
         self.token_tracker = token_tracker
         self.messages: list[dict] = []
 
-    def chat(self, user_input: str, console: Console) -> str:
+    def chat(self, user_input: str, console: Console, max_turns: int = 100) -> str:
         """智能体循环：发送 → 检测工具调用 → 执行搜索 → 继续。"""
         self.messages.append({"role": "user", "content": user_input})
 
         # 智能体循环：持续运行，直到模型生成文本响应
-        while True:
+        for _ in range(max_turns):
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=1024,
+                max_tokens=21333,
                 system=SYSTEM_PROMPT,
                 tools=TOOLS,
                 messages=self.messages,
@@ -125,13 +125,19 @@ class AgenticRAG:
                 continue
 
             # 模型已经生成最终文本响应
-            assistant_text = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    assistant_text += block.text
+            text_parts = [block.text for block in response.content if block.type == "text"]
+            if not text_parts:
+                block_types = [block.type for block in response.content]
+                raise ValueError(
+                    f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                    f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                )
+            assistant_text = "\n\n".join(text_parts)
 
             self.messages.append({"role": "assistant", "content": assistant_text})
             return assistant_text
+
+        raise RuntimeError(f"智能体达到最大循环次数（max_turns={max_turns}）。")
 
     def _execute_search(self, query: str, top_k: int) -> str:
         """执行检索，并为智能体格式化结果。"""

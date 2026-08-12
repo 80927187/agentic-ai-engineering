@@ -85,6 +85,7 @@ def _split_recursive(text: str, chunk_size: int, separators: list[str]) -> list[
                 else:
                     if current:
                         result.append(current)
+                        current = ""
                     # 如果单个片段超过 chunk_size，则使用粒度更细的分隔符继续切分
                     if len(part) > chunk_size:
                         remaining_seps = separators[separators.index(sep) + 1 :]
