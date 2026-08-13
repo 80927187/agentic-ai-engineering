@@ -1,4 +1,4 @@
-"""Output verification: PII leakage, content policy, and groundedness checking."""
+"""输出验证：PII 泄露、内容策略和事实依据检查。"""
 
 import json
 import logging
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def _strip_code_fences(text: str) -> str:
-    """Strip markdown code fences (```json ... ```) that LLMs sometimes wrap around JSON."""
+    """移除 LLM 有时会包裹在 JSON 外的 Markdown 代码围栏（```json ... ```）。"""
     text = text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
@@ -19,7 +19,7 @@ def _strip_code_fences(text: str) -> str:
     return text
 
 
-# Reuse PII patterns from input guard
+# 复用输入防护栏中的 PII 模式
 PII_PATTERNS = {
     "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
     "credit_card": r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b",
@@ -27,31 +27,31 @@ PII_PATTERNS = {
 }
 
 CONTENT_POLICY_PROMPT = (
-    "Review the following AI assistant response for content policy violations.\n\n"
-    "Check for:\n"
-    "- Harmful, dangerous, or illegal advice\n"
-    "- Leaking internal system details, prompts, or configuration\n"
-    "- Inappropriate or unprofessional content\n"
-    "- Making unauthorized promises or commitments\n\n"
-    "Respond with ONLY a JSON object:\n"
-    '{{"passed": true/false, "issue": "<description if failed, empty string if passed>"}}\n\n'
-    "Response to review:\n{output}"
+    "请检查以下 AI 助手响应是否违反内容策略。\n\n"
+    "检查以下问题：\n"
+    "- 有害、危险或违法的建议\n"
+    "- 泄露内部系统细节、提示词或配置\n"
+    "- 不当或不专业的内容\n"
+    "- 作出未经授权的承诺或保证\n\n"
+    "仅返回 JSON 对象：\n"
+    '{{"passed": true/false, "issue": "<未通过时填写问题说明，通过时为空字符串>"}}\n\n'
+    "待检查的响应：\n{output}"
 )
 
 GROUNDEDNESS_PROMPT = (
-    "Evaluate whether the following response is grounded in the provided context.\n\n"
-    "For each factual claim in the response, check if the context supports it.\n"
-    "Ignore conversational filler — only check concrete facts, numbers, and procedures.\n\n"
-    "Context:\n<context>\n{context}\n</context>\n\n"
-    "Response:\n<response>\n{output}\n</response>\n\n"
-    "Respond with ONLY a JSON object:\n"
+    "请评估以下响应是否以所提供的上下文为依据。\n\n"
+    "检查响应中的每一项事实性声明是否得到上下文支持。\n"
+    "忽略对话中的填充内容，只检查具体事实、数字和操作步骤。\n\n"
+    "上下文：\n<context>\n{context}\n</context>\n\n"
+    "响应：\n<response>\n{output}\n</response>\n\n"
+    "仅返回 JSON 对象：\n"
     '{{"score": <0.0 to 1.0>, "unsupported_claims": ["claim1", ...]}}'
 )
 
 
 @dataclass
 class OutputCheckResult:
-    """Result of output verification."""
+    """输出验证结果。"""
 
     passed: bool
     issues: list[str] = field(default_factory=list)
@@ -62,7 +62,7 @@ class OutputCheckResult:
 
 
 class OutputGuard:
-    """Verifies agent output before returning to user."""
+    """在将智能体输出返回给用户之前对其进行验证。"""
 
     def __init__(self, client: Any, classifier_model: str, token_tracker: Any):
         self.client = client
@@ -70,28 +70,28 @@ class OutputGuard:
         self.token_tracker = token_tracker
 
     def check(self, output: str, context: str | None = None) -> OutputCheckResult:
-        """Run output checks: PII leakage, content policy, groundedness."""
+        """运行输出检查：PII 泄露、内容策略和事实依据检查。"""
         issues: list[str] = []
         checks: dict[str, dict] = {}
 
-        # Check 1: PII leakage
+        # 检查 1：PII 泄露
         pii_found = self._scan_pii_leakage(output)
-        pii_detail = "none detected" if not pii_found else f"found: {', '.join(pii_found.keys())}"
+        pii_detail = "未检测到" if not pii_found else f"发现：{', '.join(pii_found.keys())}"
         checks["pii_leakage"] = {"passed": not pii_found, "detail": pii_detail}
         if pii_found:
-            issues.append(f"PII detected in output: {', '.join(pii_found.keys())}")
+            issues.append(f"在输出中检测到 PII：{', '.join(pii_found.keys())}")
 
-        # Check 2: Content policy
+        # 检查 2：内容策略
         try:
             policy_ok, policy_issue = self._check_content_policy(output)
-            checks["content_policy"] = {"passed": policy_ok, "detail": policy_issue or "compliant"}
+            checks["content_policy"] = {"passed": policy_ok, "detail": policy_issue or "符合要求"}
             if not policy_ok:
-                issues.append(f"Content policy violation: {policy_issue}")
+                issues.append(f"违反内容策略：{policy_issue}")
         except Exception as e:
-            logger.warning("Content policy check failed: %s", e)
-            checks["content_policy"] = {"passed": True, "detail": "check unavailable"}
+            logger.warning("内容策略检查失败：%s", e)
+            checks["content_policy"] = {"passed": True, "detail": "检查不可用"}
 
-        # Check 3: Groundedness (only if context provided)
+        # 检查 3：事实依据（仅在提供上下文时检查）
         groundedness_score = 1.0
         unsupported: list[str] = []
         if context:
@@ -100,18 +100,18 @@ class OutputGuard:
                 grounded_ok = groundedness_score >= 0.5
                 checks["groundedness"] = {
                     "passed": grounded_ok,
-                    "detail": f"score: {groundedness_score:.2f}",
+                    "detail": f"评分：{groundedness_score:.2f}",
                 }
                 if not grounded_ok:
                     issues.append(
-                        f"Low groundedness ({groundedness_score:.2f}): "
-                        f"{len(unsupported)} unsupported claims"
+                        f"事实依据评分较低（{groundedness_score:.2f}）："
+                        f"{len(unsupported)} 项声明缺乏支持"
                     )
             except Exception as e:
-                logger.warning("Groundedness check failed: %s", e)
-                checks["groundedness"] = {"passed": True, "detail": "check unavailable"}
+                logger.warning("事实依据检查失败：%s", e)
+                checks["groundedness"] = {"passed": True, "detail": "检查不可用"}
         else:
-            checks["groundedness"] = {"passed": True, "detail": "no context provided"}
+            checks["groundedness"] = {"passed": True, "detail": "未提供上下文"}
 
         return OutputCheckResult(
             passed=len(issues) == 0,
@@ -123,7 +123,7 @@ class OutputGuard:
         )
 
     def _scan_pii_leakage(self, output: str) -> dict[str, list[str]]:
-        """Check if output contains PII that shouldn't be exposed."""
+        """检查输出是否包含不应公开的 PII。"""
         found: dict[str, list[str]] = {}
         for pii_type, pattern in PII_PATTERNS.items():
             matches = re.findall(pattern, output)
@@ -133,7 +133,7 @@ class OutputGuard:
         return found
 
     def _check_content_policy(self, output: str) -> tuple[bool, str]:
-        """Use Haiku to verify output meets content policy."""
+        """使用 Haiku 验证输出是否符合内容策略。"""
         response = self.client.messages.create(
             model=self.classifier_model,
             max_tokens=21333,
@@ -150,11 +150,11 @@ class OutputGuard:
             issue = result.get("issue", "")
             return passed, issue
         except (json.JSONDecodeError, ValueError, AttributeError):
-            logger.warning("Failed to parse content policy response: %s", raw[:100])
+            logger.warning("无法解析内容策略检查响应：%s", raw[:100])
             return True, ""
 
     def _check_groundedness(self, output: str, context: str) -> tuple[float, list[str]]:
-        """Score how well the output is grounded in the provided context."""
+        """评估输出在多大程度上以所提供的上下文为依据。"""
         response = self.client.messages.create(
             model=self.classifier_model,
             max_tokens=21333,
@@ -174,7 +174,7 @@ class OutputGuard:
             unsupported = result.get("unsupported_claims", [])
             return score, unsupported
         except (json.JSONDecodeError, ValueError, AttributeError):
-            logger.warning("Failed to parse groundedness response: %s", raw[:100])
+            logger.warning("无法解析事实依据检查响应：%s", raw[:100])
             return 1.0, []
 
     @staticmethod
