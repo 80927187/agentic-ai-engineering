@@ -21,7 +21,7 @@ class Chunk:
 
 
 # 按顺序尝试分隔符，优先在语义最完整的边界处切分
-DEFAULT_SEPARATORS = ["\n\n", "\n", ". ", " "]
+DEFAULT_SEPARATORS = ["\n\n", "\n", "。", "！", "？", ". ", " "]
 
 
 def recursive_split(
@@ -48,7 +48,8 @@ def recursive_split(
         if i > 0 and chunk_overlap > 0:
             prev = raw_chunks[i - 1]
             overlap_text = prev[-chunk_overlap:]
-            raw = overlap_text + raw
+            # 保留边界的同时补一个空白，避免出现“标题标题”“限制限制”这类粘连文本。
+            raw = overlap_text.rstrip() + "\n" + raw.lstrip()
 
         start_char = (
             text.find(raw_chunks[i][:50]) if i == 0 else max(0, text.find(raw_chunks[i][:50]))

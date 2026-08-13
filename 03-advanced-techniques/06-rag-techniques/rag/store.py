@@ -1,6 +1,9 @@
 """带有 BM25 关键词索引的 ChromaDB 向量存储。"""
 
 import logging
+import re
+
+import jieba
 
 import bm25s
 import chromadb
@@ -9,6 +12,25 @@ from rag.chunker import Chunk
 from rag.embedder import LocalEmbedder
 
 logger = logging.getLogger(__name__)
+
+
+def _mixed_tokens(text: str) -> str:
+    """把中英混合文本转换成 BM25 可处理的空格分隔 token。
+
+    英文按单词处理，中文先用 jieba 切词，同时保留相邻双字作为未登录词兜底，
+    既能匹配“用户”，也能匹配没有空格的“用户的api有哪些”。
+    """
+    text = text.lower()
+    tokens: list[str] = []
+    for piece in re.findall(r"[a-z0-9_]+|[\u4e00-\u9fff]+", text):
+        if re.fullmatch(r"[a-z0-9_]+", piece):
+            tokens.append(piece)
+        else:
+            words = [word for word in jieba.lcut(piece, cut_all=False) if word.strip()]
+            tokens.extend(words)
+            # 双字片段只作为补充，避免纯字符 token 主导 BM25 排名。
+            tokens.extend(piece[i : i + 2] for i in range(len(piece) - 1))
+    return " ".join(tokens)
 
 
 class VectorStore:
@@ -56,7 +78,9 @@ class VectorStore:
         logger.info("已在 ChromaDB 中索引 %d 个文本块", len(chunks))
 
         # 构建 BM25 索引
-        tokenized = bm25s.tokenize(texts, stopwords="en", show_progress=False)
+        tokenized = bm25s.tokenize(
+            [_mixed_tokens(text) for text in texts], stopwords=None, show_progress=False
+        )
         self.bm25 = bm25s.BM25()
         self.bm25.index(tokenized, show_progress=False)
         logger.info("已为 %d 个文本块构建 BM25 索引", len(chunks))
@@ -86,7 +110,7 @@ class VectorStore:
         if self.bm25 is None or not self.chunks:
             return []
 
-        tokenized_query = bm25s.tokenize(query, stopwords="en")
+        tokenized_query = bm25s.tokenize(_mixed_tokens(query), stopwords=None, show_progress=False)
         results, scores = self.bm25.retrieve(tokenized_query, k=min(top_k, len(self.chunks)))
 
         scored: list[tuple[Chunk, float]] = []

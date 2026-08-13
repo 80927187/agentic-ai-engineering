@@ -14,7 +14,8 @@ class Reranker:
     GPU，非常适合教程和原型开发。
     """
 
-    def __init__(self, model: str = "ms-marco-MiniLM-L-12-v2"):
+    # FlashRank 支持列表中的多语言模型名称（注意没有 v2 后缀）。
+    def __init__(self, model: str = "ms-marco-MultiBERT-L-12"):
         from flashrank import Ranker
 
         self.ranker = Ranker(model_name=model)
@@ -30,6 +31,13 @@ class Reranker:
         passages = [{"id": c.id, "text": c.content, "meta": {"source": c.source}} for c in chunks]
         request = RerankRequest(query=query, passages=passages)
         results = self.ranker.rerank(request)
+
+        # 某些多语言 ONNX 模型在中文输入上会出现分数饱和（所有候选几乎同分）。
+        # 此时模型排序没有判别力，保留上游 RRF 顺序通常更可靠。
+        scores = [float(item["score"]) for item in results]
+        if scores and max(scores) - min(scores) < 0.01:
+            logger.info("重排序分数差异过小，保留 RRF 排名")
+            return chunks[:top_k]
 
         # 映射回 Chunk 对象，并按重排序分数降序排列
         chunk_lookup = {c.id: c for c in chunks}

@@ -6,8 +6,9 @@ from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 
-# 模型小、速度快、质量好，首次运行时下载约 80MB
-DEFAULT_MODEL = "all-MiniLM-L6-v2"
+# 支持中文、英文及中英混合查询；比纯英文 MiniLM 更适合本示例文档。
+# 首次运行会下载约 120MB。
+DEFAULT_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
 
 class LocalEmbedder:

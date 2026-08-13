@@ -190,7 +190,7 @@ def main() -> None:
     console = Console()
     token_tracker = AnthropicTokenTracker()
 
-    with console.status("[bold]正在加载嵌入模型（首次运行会下载约 80MB）...[/bold]"):
+    with console.status("[bold]正在加载多语言嵌入模型（首次运行会下载约 120MB）...[/bold]"):
         pipeline = RAGPipeline(MODEL, token_tracker)
 
     header = Panel(
