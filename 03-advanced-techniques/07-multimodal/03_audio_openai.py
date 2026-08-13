@@ -1,9 +1,8 @@
 """
-Voice Assistant with OpenAI Audio
+使用 OpenAI 音频的语音助手
 
-Demonstrates text-to-speech and speech-to-text using OpenAI's audio APIs.
-Features TTS with 6 voice options, Whisper transcription, and a round-trip
-demo that converts text → speech → transcription for verification.
+演示如何使用 OpenAI 音频 API 进行文本转语音和语音转文本。
+包含 6 种声音的 TTS、Whisper 转录，以及将文本转换为语音再转录以进行验证的往返演示。
 """
 
 from pathlib import Path

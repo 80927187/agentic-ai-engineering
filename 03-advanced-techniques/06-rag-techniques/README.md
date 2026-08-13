@@ -34,7 +34,7 @@ icon: "search"
 
 - `ANTHROPIC_API_KEY` — 用于 Claude（生成）
 
-嵌入模型通过 `sentence-transformers` 在本地运行（`all-MiniLM-L6-v2`，首次运行时下载约 80MB）。
+嵌入模型通过 `sentence-transformers` 在本地运行（支持中英混合的 `paraphrase-multilingual-MiniLM-L12-v2`，首次运行时下载约 120MB）。
 
 ```bash
 # RAG 流水线演示

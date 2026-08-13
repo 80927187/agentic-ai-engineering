@@ -1,9 +1,8 @@
 """
-Vision Analysis with Claude
+使用 Claude 进行视觉分析
 
-Demonstrates how to send images to Claude for visual understanding — the most
-fundamental multimodal skill. Supports URL-based images, local file analysis,
-and multi-image comparison.
+演示如何将图像发送给 Claude 进行视觉理解，这是最基础的多模态能力。
+支持基于 URL 的图像、本地文件分析以及多图像比较。
 """
 
 import base64
@@ -26,7 +25,7 @@ logger = setup_logging(__name__)
 
 MODEL = "claude-sonnet-4-6"
 
-# Publicly accessible sample images from Wikimedia Commons
+# 来自 Wikimedia Commons 的公开示例图像
 SAMPLE_IMAGES = {
     "Architecture — Colosseum": (
         "https://upload.wikimedia.org/wikipedia/commons/thumb/"
@@ -43,14 +42,13 @@ SAMPLE_IMAGES = {
 }
 
 ANALYSIS_TYPES = {
-    "Describe": "Describe this image in detail. What do you see?",
+    "Describe": "详细描述这张图像。你看到了什么？",
     "OCR / Text Extraction": (
-        "Extract all text visible in this image. Preserve the layout as closely as possible."
+        "提取图像中可见的全部文字，并尽可能保持原有布局。"
     ),
     "Detailed Analysis": (
-        "Provide a detailed analysis of this image including: composition, colors, "
-        "subjects, mood, and any notable details. If it's a chart or document, explain "
-        "the data or content."
+        "请详细分析这张图像，包括构图、色彩、主体、氛围和显著细节。"
+        "如果是图表或文档，请解释其中的数据或内容。"
     ),
 }
 

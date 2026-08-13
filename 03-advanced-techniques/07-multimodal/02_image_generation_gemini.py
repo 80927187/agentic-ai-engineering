@@ -1,9 +1,8 @@
 """
-Image Generation with Gemini
+使用 Gemini 生成图像
 
-Demonstrates native image generation using Google Gemini — a single model that both
-understands and creates images. No separate endpoint needed; just set response_modalities
-to include IMAGE.
+演示 Google Gemini 的原生图像生成功能——同一个模型既能理解也能创建图像。
+无需独立端点，只需将 IMAGE 加入 response_modalities。
 """
 
 from datetime import datetime
@@ -23,7 +22,7 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
-# Gemini model with native image generation support
+# 支持原生图像生成的 Gemini 模型
 MODEL = "gemini-2.0-flash-exp-image-generation"
 
 SAMPLE_PROMPTS = {
