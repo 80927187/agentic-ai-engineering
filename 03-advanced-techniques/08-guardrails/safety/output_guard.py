@@ -136,14 +136,14 @@ class OutputGuard:
         """Use Haiku to verify output meets content policy."""
         response = self.client.messages.create(
             model=self.classifier_model,
-            max_tokens=150,
+            max_tokens=21333,
             messages=[
                 {"role": "user", "content": CONTENT_POLICY_PROMPT.format(output=output)},
             ],
         )
         self.token_tracker.track(response.usage)
 
-        raw = str(response.content[0].text).strip()
+        raw = self._extract_text(response).strip()
         try:
             result = json.loads(_strip_code_fences(raw))
             passed = bool(result.get("passed", True))
@@ -157,7 +157,7 @@ class OutputGuard:
         """Score how well the output is grounded in the provided context."""
         response = self.client.messages.create(
             model=self.classifier_model,
-            max_tokens=300,
+            max_tokens=21333,
             messages=[
                 {
                     "role": "user",
@@ -167,7 +167,7 @@ class OutputGuard:
         )
         self.token_tracker.track(response.usage)
 
-        raw = str(response.content[0].text).strip()
+        raw = self._extract_text(response).strip()
         try:
             result = json.loads(_strip_code_fences(raw))
             score = float(result.get("score", 1.0))
@@ -176,3 +176,15 @@ class OutputGuard:
         except (json.JSONDecodeError, ValueError, AttributeError):
             logger.warning("Failed to parse groundedness response: %s", raw[:100])
             return 1.0, []
+
+    @staticmethod
+    def _extract_text(response: Any) -> str:
+        """提取响应中的文本块，跳过 DeepSeek 思考块。"""
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
+        return "\n\n".join(text_parts)

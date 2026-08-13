@@ -26,8 +26,8 @@ load_dotenv(find_dotenv())
 logger = setup_logging(__name__)
 
 # 模型配置
-MODEL_AGENT = "claude-sonnet-4-6"
-MODEL_CLASSIFIER = "claude-haiku-4-5-20251001"
+MODEL_AGENT = "deepseek-v4-flash"
+MODEL_CLASSIFIER = "deepseek-v4-flash"
 
 SYSTEM_PROMPT = (
     "你是 TechFlow Solutions 的客户支持智能体。\n\n"
@@ -65,6 +65,18 @@ class GuardedAgent:
         self.input_guard = InputGuard(self.client, classifier_model, token_tracker)
         self.output_guard = OutputGuard(self.client, classifier_model, token_tracker)
 
+    @staticmethod
+    def _extract_text(response: anthropic.types.Message) -> str:
+        """提取响应中的文本块，跳过 DeepSeek 思考块。"""
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
+        return "\n\n".join(text_parts)
+
     def chat(self, user_input: str) -> tuple[str | None, dict, dict]:
         """完整流程：输入防护栏 → 智能体 → 输出防护栏。
 
@@ -82,7 +94,7 @@ class GuardedAgent:
         try:
             response = self.client.messages.create(
                 model=self.agent_model,
-                max_tokens=1024,
+                max_tokens=21333,
                 system=SYSTEM_PROMPT,
                 messages=self.messages,
             )
@@ -91,7 +103,7 @@ class GuardedAgent:
             self.messages.pop()
             raise
 
-        assistant_text = str(response.content[0].text)
+        assistant_text = self._extract_text(response)
         self.messages.append({"role": "assistant", "content": assistant_text})
 
         # 步骤 3：输出防护栏

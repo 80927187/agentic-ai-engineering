@@ -163,14 +163,21 @@ class InputGuard:
         """Use Haiku to classify input harmfulness on a 0-3 scale."""
         response = self.client.messages.create(
             model=self.classifier_model,
-            max_tokens=150,
+            max_tokens=21333,
             messages=[
                 {"role": "user", "content": HARMLESSNESS_PROMPT.format(input=text)},
             ],
         )
         self.token_tracker.track(response.usage)
 
-        raw = str(response.content[0].text).strip()
+        text_parts = [block.text for block in response.content if block.type == "text"]
+        if not text_parts:
+            block_types = [block.type for block in response.content]
+            raise ValueError(
+                f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+            )
+        raw = "\n\n".join(text_parts).strip()
 
         try:
             # Extract JSON from response (strip code fences LLMs may add)
