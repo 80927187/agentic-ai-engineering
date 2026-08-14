@@ -115,7 +115,11 @@ class InputGuard:
         # 第 3 层：PII 检测（警告但不拦截）
         pii_found = self._scan_pii(user_input)
         pii_detail = "未检测到" if not pii_found else f"发现：{', '.join(pii_found.keys())}"
-        checks["pii_scan"] = {"passed": True, "detail": pii_detail}
+        checks["pii_scan"] = {
+            "passed": True,
+            "warning": bool(pii_found),
+            "detail": pii_detail,
+        }
 
         # 第 4 层：LLM 无害性筛查
         try:

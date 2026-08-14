@@ -122,19 +122,24 @@ def _render_guard_panel(console: Console, title: str, checks: dict, style: str =
     table.add_column("结果", min_width=10)
     table.add_column("详情", ratio=1)
 
-    all_passed = True
+    has_failure = False
+    has_warning = False
     for check_name, result in checks.items():
         passed = result.get("passed", True)
+        warning = result.get("warning", False)
         detail = result.get("detail", "")
-        if passed:
+        if warning:
+            status = "[yellow]⚠ 警告[/yellow]"
+            has_warning = True
+        elif passed:
             status = "[green]✓ 通过[/green]"
         else:
             status = "[red]✗ 失败[/red]"
-            all_passed = False
+            has_failure = True
 
         table.add_row(check_name, status, f"[dim]{detail}[/dim]")
 
-    border = "green" if all_passed else "red"
+    border = "red" if has_failure else "yellow" if has_warning else "green"
     console.print(Panel(table, title=title, border_style=border, padding=(0, 1)))
 
 
@@ -181,12 +186,19 @@ def main() -> None:
             console.print()
             _render_guard_panel(console, "输入防护栏", input_checks)
 
-            if response is None:
+            if response is None and not output_checks:
                 console.print("\n[red bold]已拦截[/red bold]——输入未通过安全检查。")
                 continue
 
             # 显示输出防护栏结果
             _render_guard_panel(console, "输出防护栏", output_checks)
+
+            if response is None:
+                console.print(
+                    "\n[red bold]已拦截[/red bold]——智能体响应未通过输出安全检查，"
+                    "不会向用户展示。"
+                )
+                continue
 
             # 显示响应
             console.print("\n[bold blue]客服智能体：[/bold blue]")
