@@ -261,6 +261,24 @@ class EvalPipeline:
 
         elapsed_ms = (time.perf_counter() - start) * 1000
 
+        tool_summary = [
+            {
+                "name": call.get("name"),
+                "input": call.get("input", {}),
+                "result_count": len(call.get("results", [])),
+            }
+            for call in response.get("tool_calls", [])
+        ]
+        logger.info(
+            "模型试验响应 | task=%s trial=%d latency=%.0fms\n问题：%s\n答案：%s\n工具调用：%s",
+            task.id,
+            trial_number,
+            elapsed_ms,
+            task.question,
+            response.get("answer", ""),
+            json.dumps(tool_summary, ensure_ascii=False),
+        )
+
         return EvalTrial(
             task_id=task.id,
             trial_number=0,
@@ -272,11 +290,27 @@ class EvalPipeline:
 
     def grade_trial(self, task: EvalTask, trial: EvalTrial) -> dict[str, GraderResult]:
         """使用所有评分器评估单次试验。"""
-        return {
+        results = {
             "keywords": self.keyword_grader.grade(trial.answer, task.expected_keywords),
             "citations": self.citation_grader.grade(trial.answer, task.expected_source_ids),
             "tool_calls": self.tool_grader.grade(trial.tool_calls),
         }
+        result_summary = {
+            name: {"score": result.score, "passed": result.passed, "reason": result.reason}
+            for name, result in results.items()
+        }
+        logger.info(
+            "评分明细 | task=%s trial=%d\n预期关键词：%s\n预期来源：%s\n结果：%s",
+            task.id,
+            trial.trial_number,
+            json.dumps(task.expected_keywords, ensure_ascii=False),
+            json.dumps(task.expected_source_ids, ensure_ascii=False),
+            json.dumps(result_summary, ensure_ascii=False),
+        )
+        failed = [name for name, result in results.items() if not result.passed]
+        if failed:
+            logger.warning("低分定位 | task=%s trial=%d 失败评分器：%s", task.id, trial.trial_number, ", ".join(failed))
+        return results
 
     def run_evaluation(self, tasks: list[EvalTask], num_trials: int = 1) -> list[EvalResult]:
         """运行完整评估：每个任务执行多次试验，并逐一评分。"""
@@ -299,7 +333,6 @@ class EvalPipeline:
                 grader_results = self.grade_trial(task, trial)
                 for name, result in grader_results.items():
                     all_grader_results[name].append(result)
-
             # 确定通过的试验（所有评分器都必须判定通过）
             pass_count = 0
             for i in range(num_trials):

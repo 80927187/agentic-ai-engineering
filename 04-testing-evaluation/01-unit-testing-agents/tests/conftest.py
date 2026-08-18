@@ -78,8 +78,8 @@ class CassetteClient:
         """尚未重放的已记录响应数量。"""
         return len(self._interactions) - self._call_index
 
-
 def serialize_response(response: Any) -> dict[str, Any]:
+
     """将 Anthropic API 响应序列化为适合写入 JSON 的字典。"""
     content = []
     for block in response.content:

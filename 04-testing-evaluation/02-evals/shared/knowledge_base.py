@@ -3,11 +3,14 @@
 提供所有评估教程脚本共用的研究语料库、系统提示词和 Anthropic 工具模式。
 """
 
+import re
 from typing import Any
 
 from common import setup_logging
 
 logger = setup_logging(__name__)
+
+_CHINESE_STOPWORDS = {"如何", "使用", "搭建", "前端", "有哪些", "哪种", "最适合"}
 
 # ---------------------------------------------------------------------------
 # 知识库语料
@@ -135,16 +138,30 @@ TOOLS = [
 # ---------------------------------------------------------------------------
 
 
+def _tokenize(text: str) -> set[str]:
+    """提取中英文检索词，避免中文连续文本被当成一个整词。"""
+    tokens: set[str] = set()
+    for segment in re.findall(r"[a-z0-9]+|[\u4e00-\u9fff]+", text.lower()):
+        if re.fullmatch(r"[\u4e00-\u9fff]+", segment):
+            # 中文没有空格分隔；使用二、三字片段保留短语匹配能力。
+            tokens.add(segment)
+            tokens.update(segment[i : i + 2] for i in range(len(segment) - 1))
+            tokens.update(segment[i : i + 3] for i in range(len(segment) - 2))
+        else:
+            tokens.add(segment)
+    return {token for token in tokens if token not in _CHINESE_STOPWORDS}
+
+
 def search_knowledge_base(
     query: str, max_results: int = 3, corpus: list[dict[str, Any]] | None = None
 ) -> list[dict[str, Any]]:
     """使用关键词匹配搜索知识库。"""
     docs = corpus if corpus is not None else KNOWLEDGE_BASE
-    query_words = set(query.lower().split())
+    query_words = _tokenize(query)
     scored: list[tuple[int, dict[str, Any]]] = []
     for doc in docs:
-        text = f"{doc['title']} {doc['content']} {' '.join(doc['tags'])}".lower()
-        score = sum(1 for word in query_words if word in text)
+        text = f"{doc['title']} {doc['content']} {' '.join(doc['tags'])}"
+        score = len(query_words & _tokenize(text))
         if score > 0:
             scored.append((score, doc))
     scored.sort(key=lambda x: x[0], reverse=True)

@@ -24,7 +24,7 @@ class TestToolUseAgent:
         self.agent = ToolUseAgent(client=self.mock_client)
 
     def test_agent_calls_calculator_tool(self) -> None:
-        """验证代理会在大语言模型提出请求时执行计算器。"""
+        """测试代理收到模拟的工具调用响应后执行计算器。"""
         # 第一次响应：大语言模型要求使用计算器
         tool_block = make_tool_use_block(
             "call_1",

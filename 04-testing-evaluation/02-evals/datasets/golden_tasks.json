@@ -118,7 +118,7 @@
         {
             "id": "task_013",
             "question": "哪种编程语言最适合机器学习？",
-            "expected_keywords": ["没有相关", "未找到", "没有信息"],
+            "expected_keywords": ["没有相关信息"],
             "expected_source_ids": [],
             "difficulty": "简单",
             "category": "超出范围",
@@ -127,7 +127,7 @@
         {
             "id": "task_014",
             "question": "如何使用 TypeScript 搭建 React 前端？",
-            "expected_keywords": ["没有相关", "未找到", "没有信息"],
+            "expected_keywords": ["没有相关信息"],
             "expected_source_ids": [],
             "difficulty": "简单",
             "category": "超出范围",

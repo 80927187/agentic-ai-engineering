@@ -2,7 +2,7 @@
 
 演示如何使用 LLM 按结构化评分标准评估智能体响应。
 评委从准确性、完整性和依据充分性三个维度按 1～5 分评分，
-并使用 tool_choice 强制输出结构化结果。
+并使用工具请求结构化结果。
 """
 
 import json
@@ -30,7 +30,7 @@ logger = setup_logging(__name__)
 # LLM 充当评委——使用评分标准进行结构化评估
 # ---------------------------------------------------------------------------
 
-# 评委使用 tool_choice 强制输出结构化结果
+# 评委使用 submit_evaluation 工具输出结构化结果
 JUDGE_TOOLS = [
     {
         "name": "submit_evaluation",
@@ -101,7 +101,7 @@ JUDGE_SYSTEM_PROMPT = """你是一名研究助手智能体评估专家。
 4：几乎所有说法都得到恰当引用
 5：每项说法都有引用来源作为依据
 
-始终使用 submit_evaluation 工具提供结构化评估结果。"""
+请优先使用 submit_evaluation 工具提供结构化评估结果。"""
 
 
 @dataclass
@@ -128,7 +128,7 @@ class LLMJudge:
     def __init__(
         self,
         client: anthropic.Anthropic,
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str = "deepseek-v4-flash",
     ) -> None:
         self.client = client
         self.model = model
@@ -154,13 +154,13 @@ class LLMJudge:
 
         logger.info("LLM 评委正在评估答案（问题：%s...）", question[:50])
 
-        # 通过 submit_evaluation 工具和 tool_choice 强制输出结构化结果
+        # 通过 submit_evaluation 工具请求结构化结果。
+        # DeepSeek 思考模式不支持 tool_choice，因此保留教学注释但不发送该参数。
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=1024,
+            max_tokens=21333,
             system=JUDGE_SYSTEM_PROMPT,
             tools=JUDGE_TOOLS,
-            tool_choice={"type": "tool", "name": "submit_evaluation"},
             messages=[{"role": "user", "content": prompt}],
         )
         self.token_tracker.track(response.usage)
@@ -178,7 +178,7 @@ class LLMJudge:
                     grounding_reason=block.input["grounding_reason"],
                 )
 
-        # 未找到工具调用时的后备结果（使用 tool_choice 时不应发生）
+        # 未找到工具调用时的后备结果
         logger.warning("评委未返回结构化评估结果")
         return JudgeResult(
             reasoning="解析失败",
@@ -245,7 +245,7 @@ def main() -> None:
             "[bold cyan]LLM 充当评委的评估[/bold cyan]\n\n"
             "使用 LLM 从三个维度评估智能体响应：\n"
             "准确性、完整性和依据充分性（每项 1～5 分）。\n"
-            "通过 tool_choice 强制输出结构化结果。",
+            "通过 submit_evaluation 工具请求结构化结果。",
             title="评估教程 2",
         )
     )
