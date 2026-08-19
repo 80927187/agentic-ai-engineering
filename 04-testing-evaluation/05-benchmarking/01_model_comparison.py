@@ -246,10 +246,10 @@ class ModelBenchmark:
         start = time.perf_counter()
 
         # 智能体循环——处理工具调用，直至获得最终响应
-        while True:
+        for _turn in range(100):
             response = client.messages.create(
                 model=config.model_id,
-                max_tokens=1024,
+                max_tokens=21333,
                 system=SYSTEM_PROMPT,
                 tools=TOOLS_ANTHROPIC,
                 messages=messages,
@@ -257,7 +257,14 @@ class ModelBenchmark:
             self.anthropic_tracker.track(response.usage)
 
             if response.stop_reason != "tool_use":
-                answer = "".join(b.text for b in response.content if hasattr(b, "text"))
+                text_parts = [b.text for b in response.content if b.type == "text"]
+                if not text_parts:
+                    block_types = [b.type for b in response.content]
+                    raise ValueError(
+                        f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                        f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                    )
+                answer = "\n\n".join(text_parts)
                 break
 
             # 处理工具调用
@@ -275,6 +282,9 @@ class ModelBenchmark:
                         }
                     )
             messages.append({"role": "user", "content": tool_results})
+
+        else:
+            raise RuntimeError("工具调用循环超过 100 轮")
 
         latency_ms = (time.perf_counter() - start) * 1000
         input_tok = response.usage.input_tokens
@@ -306,11 +316,11 @@ class ModelBenchmark:
         start = time.perf_counter()
 
         # 智能体循环——处理函数调用，直至获得最终响应
-        while True:
+        for _turn in range(100):
             response = client.responses.create(
                 model=config.model_id,
                 instructions=SYSTEM_PROMPT,
-                max_output_tokens=1024,
+                max_output_tokens=21333,
                 tools=TOOLS_OPENAI,
                 input=messages,
             )
@@ -335,6 +345,9 @@ class ModelBenchmark:
                         "output": json.dumps(result, ensure_ascii=False),
                     }
                 )
+
+        else:
+            raise RuntimeError("工具调用循环超过 100 轮")
 
         latency_ms = (time.perf_counter() - start) * 1000
         input_tok = response.usage.input_tokens

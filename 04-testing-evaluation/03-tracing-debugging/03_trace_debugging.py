@@ -30,7 +30,7 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
-MODEL = "claude-sonnet-4-5-20250929"
+MODEL = "deepseek-v4-flash"
 
 
 # ---------------------------------------------------------------------------
@@ -476,17 +476,21 @@ class TraceReplay:
             start = time.time()
             response = client.messages.create(
                 model=MODEL,
-                max_tokens=1024,
+                max_tokens=21333,
                 system=system_prompt,
                 messages=[{"role": "user", "content": context_text}],
             )
             elapsed = (time.time() - start) * 1000
             token_tracker.track(response.usage)
 
-            answer = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    answer += block.text
+            text_parts = [block.text for block in response.content if block.type == "text"]
+            if not text_parts:
+                block_types = [block.type for block in response.content]
+                raise ValueError(
+                    f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                    f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                )
+            answer = "\n\n".join(text_parts)
 
             result["replayed_answer"] = answer
             result["replay_duration_ms"] = round(elapsed, 2)

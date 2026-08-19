@@ -34,6 +34,8 @@ load_dotenv(find_dotenv())
 
 logger = setup_logging(__name__)
 
+MODEL = "deepseek-v4-flash"
+
 
 # ---------------------------------------------------------------------------
 # 预生成的攻击与回复（模拟模式）
@@ -214,7 +216,7 @@ class RedTeamGenerator:
     def __init__(
         self,
         client: anthropic.Anthropic,
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str = MODEL,
     ) -> None:
         self.client = client
         self.model = model
@@ -248,12 +250,19 @@ class RedTeamGenerator:
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=4096,
+                max_tokens=21333,
                 messages=[{"role": "user", "content": prompt}],
             )
             self.token_tracker.track(response.usage)
 
-            response_text = response.content[0].text
+            text_parts = [block.text for block in response.content if block.type == "text"]
+            if not text_parts:
+                block_types = [block.type for block in response.content]
+                raise ValueError(
+                    f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                    f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                )
+            response_text = "\n\n".join(text_parts)
 
             # 从回复中提取 JSON 数组
             start = response_text.find("[")

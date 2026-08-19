@@ -145,31 +145,31 @@ BENCHMARK_TASKS = [
     {
         "id": "bench_001",
         "question": "微服务架构有哪些主要优势？",
-        "expected_keywords": ["可扩展性", "故障隔离", "独立"],
+        "expected_keywords": ["可扩展性", "故障隔离", "独立部署"],
         "category": "架构",
     },
     {
         "id": "bench_002",
         "question": "应该如何设计 REST API 端点？",
-        "expected_keywords": ["名词", "http 方法", "状态码"],
+        "expected_keywords": ["名词", "HTTP 方法", "状态码"],
         "category": "API",
     },
     {
         "id": "bench_003",
         "question": "数据库索引有哪些策略？",
-        "expected_keywords": ["b 树", "复合", "查询性能"],
+        "expected_keywords": ["B 树索引", "复合索引", "查询性能"],
         "category": "数据库",
     },
     {
         "id": "bench_004",
         "question": "请解释身份认证与授权之间的区别。",
-        "expected_keywords": ["身份", "访问", "jwt", "oauth"],
+        "expected_keywords": ["身份认证", "访问权限", "JWT 令牌", "OAuth 2.0"],
         "category": "安全",
     },
     {
         "id": "bench_005",
         "question": "CI/CD 有哪些关键实践？",
-        "expected_keywords": ["持续", "自动", "反馈"],
+        "expected_keywords": ["自动构建", "自动部署", "反馈循环"],
         "category": "DevOps",
     },
 ]

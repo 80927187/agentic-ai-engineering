@@ -77,10 +77,10 @@ class InputGuardrail:
     """在用户输入到达智能体前进行验证和清理。"""
 
     INJECTION_PATTERNS: ClassVar[list[str]] = [
-        r"(?i)(ignore|forget|disregard)\s+(all\s+)?(previous|prior)\s+(instructions|rules)",
-        r"(?i)(you are now|act as|pretend to be)\s+\w+",
-        r"(?i)(system\s+prompt|internal\s+instructions)",
-        r"(?i)(admin|root)\s+(override|access|mode)",
+        r"(?i)(ignore|forget|disregard)\s+(all\s+)?(previous|prior)\s+(instructions|rules)|(?:忽略|忘记|无视)(?:之前|以前|先前|上文)?的?(?:所有)?(?:指令|规则|说明)",
+        r"(?i)(you are now|act as|pretend to be)\s+\w+|(?:你现在是|扮演|假装是)\s*\S+",
+        r"(?i)(system\s+prompt|internal\s+instructions)|(?:系统提示词|系统提示|内部指令|内部说明)",
+        r"(?i)(admin|root)\s+(override|access|mode)|(?:管理员|根用户|超级用户)\s*(?:覆盖|越权|访问|模式)",
         r"(?i)(base64|eval)\s*[\(\-]",
     ]
 

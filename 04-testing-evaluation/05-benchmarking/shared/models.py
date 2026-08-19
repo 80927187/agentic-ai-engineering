@@ -43,9 +43,13 @@ class BenchmarkConfig:
     system_prompt: str
 
 
+# DeepSeek 模型常量（保留两个层级名称，便于课程示例对照）。
+MODEL = "deepseek-v4-flash"
+PRO_MODEL = "deepseek-v4-pro"
+
 # 默认模型配置
 MODEL_CONFIGS = [
-    ModelConfig("Claude Sonnet", "anthropic", "claude-sonnet-4-5-20250929", 3.0, 15.0),
-    ModelConfig("Claude Haiku", "anthropic", "claude-haiku-4-5-20251001", 0.80, 4.0),
+    ModelConfig("DeepSeek Flash", "anthropic", MODEL, 0.14, 0.28),
+    ModelConfig("DeepSeek Pro", "anthropic", PRO_MODEL, 0.55, 2.19),
     ModelConfig("GPT-4.1 mini", "openai", "gpt-4.1-mini", 0.40, 1.60),
 ]

@@ -63,7 +63,7 @@ PROMPT_STRATEGY_LABELS = {
 }
 
 # 提示词对比的默认模型——隔离提示词变量
-DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+DEFAULT_MODEL = "deepseek-v4-flash"
 COST_PER_INPUT = 3.0  # 每 100 万输入 Token 的美元价格
 COST_PER_OUTPUT = 15.0  # 每 100 万输出 Token 的美元价格
 
@@ -298,10 +298,10 @@ class PromptBenchmark:
 
         start = time.perf_counter()
 
-        while True:
+        for _turn in range(100):
             response = client.messages.create(
                 model=self.model,
-                max_tokens=1024,
+                max_tokens=21333,
                 system=system_prompt,
                 tools=TOOLS_ANTHROPIC,
                 messages=messages,
@@ -309,7 +309,14 @@ class PromptBenchmark:
             self.token_tracker.track(response.usage)
 
             if response.stop_reason != "tool_use":
-                answer = "".join(b.text for b in response.content if hasattr(b, "text"))
+                text_parts = [b.text for b in response.content if b.type == "text"]
+                if not text_parts:
+                    block_types = [b.type for b in response.content]
+                    raise ValueError(
+                        f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                        f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                    )
+                answer = "\n\n".join(text_parts)
                 break
 
             messages.append({"role": "assistant", "content": response.content})
@@ -326,6 +333,9 @@ class PromptBenchmark:
                         }
                     )
             messages.append({"role": "user", "content": tool_results})
+
+        else:
+            raise RuntimeError("工具调用循环超过 100 轮")
 
         latency_ms = (time.perf_counter() - start) * 1000
         input_tok = response.usage.input_tokens

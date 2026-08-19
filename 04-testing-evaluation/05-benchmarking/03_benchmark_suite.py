@@ -196,10 +196,10 @@ class BenchmarkSuite:
         tool_call_count = 0
 
         start = time.perf_counter()
-        while True:
+        for _turn in range(100):
             response = client.messages.create(
                 model=config.model.model_id,
-                max_tokens=1024,
+                max_tokens=21333,
                 system=config.system_prompt,
                 tools=TOOLS_ANTHROPIC,
                 messages=messages,
@@ -207,7 +207,14 @@ class BenchmarkSuite:
             self.anthropic_tracker.track(response.usage)
 
             if response.stop_reason != "tool_use":
-                answer = "".join(b.text for b in response.content if hasattr(b, "text"))
+                text_parts = [b.text for b in response.content if b.type == "text"]
+                if not text_parts:
+                    block_types = [b.type for b in response.content]
+                    raise ValueError(
+                        f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                        f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                    )
+                answer = "\n\n".join(text_parts)
                 break
 
             messages.append({"role": "assistant", "content": response.content})
@@ -251,11 +258,11 @@ class BenchmarkSuite:
         tool_call_count = 0
 
         start = time.perf_counter()
-        while True:
+        for _turn in range(100):
             response = client.responses.create(
                 model=config.model.model_id,
                 instructions=config.system_prompt,
-                max_output_tokens=1024,
+                max_output_tokens=21333,
                 tools=TOOLS_OPENAI,
                 input=messages,
             )
@@ -278,6 +285,9 @@ class BenchmarkSuite:
                         "output": json.dumps(result, ensure_ascii=False),
                     }
                 )
+
+        else:
+            raise RuntimeError("工具调用循环超过 100 轮")
 
         latency_ms = (time.perf_counter() - start) * 1000
         inp = response.usage.input_tokens

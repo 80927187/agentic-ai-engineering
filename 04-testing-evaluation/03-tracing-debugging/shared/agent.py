@@ -15,7 +15,7 @@ from shared.tracer import TraceCollector
 
 logger = setup_logging(__name__)
 
-MODEL = "claude-sonnet-4-5-20250929"
+MODEL = "deepseek-v4-flash"
 
 
 class TracedResearchAssistant:
@@ -45,7 +45,7 @@ class TracedResearchAssistant:
                 ) as llm_span:
                     response = self.client.messages.create(
                         model=MODEL,
-                        max_tokens=1024,
+                        max_tokens=21333,
                         system=SYSTEM_PROMPT,
                         tools=TOOLS,
                         messages=messages,
@@ -61,15 +61,21 @@ class TracedResearchAssistant:
                 tool_uses = []
                 text_parts: list[str] = []
                 for block in response.content:
-                    if hasattr(block, "text"):
+                    if block.type == "text":
                         text_parts.append(block.text)
-                    elif hasattr(block, "name") and hasattr(block, "input"):
+                    elif block.type == "tool_use":
                         tool_uses.append(block)
 
                 messages.append({"role": "assistant", "content": response.content})
 
                 if response.stop_reason != "tool_use" or not tool_uses:
-                    answer_text = "\n".join(text_parts)
+                    if not text_parts:
+                        block_types = [block.type for block in response.content]
+                        raise ValueError(
+                            f"模型响应中没有文本内容（stop_reason={response.stop_reason}，"
+                            f"内容块={block_types}，output_tokens={response.usage.output_tokens}）。"
+                        )
+                    answer_text = "\n\n".join(text_parts)
                     root.outputs = {"answer": answer_text[:200], "llm_calls": llm_call_count}
                     return {
                         "answer": answer_text,
@@ -98,6 +104,6 @@ class TracedResearchAssistant:
 
                 messages.append({"role": "user", "content": tool_results})
 
-                if llm_call_count >= 10:
+                if llm_call_count >= 100:
                     root.error = "已达到最大迭代次数"
                     return {"answer": "已达到最大迭代次数", "llm_calls": llm_call_count}
