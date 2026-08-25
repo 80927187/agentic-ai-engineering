@@ -13,7 +13,7 @@
 
 支持两种模式：
 - 模拟模式（默认）：使用预定义回答，不调用 API，立即得到结果
-- 实时模式：通过工具调用智能体循环发起真实的 Anthropic API 请求
+- 实时模式：通过工具调用智能体循环发起真实的模型 API 请求
 """
 
 import json
@@ -48,13 +48,13 @@ logger = setup_logging(__name__)
 
 MODE_OPTIONS = [
     "模拟模式——使用预定义回答，不调用 API",
-    "实时模式——发起真实的 Anthropic API 请求",
+    "实时模式——发起真实的模型 API 请求",
 ]
 
 AVAILABLE_MODELS = [
-    "claude-sonnet-4-5-20250929",
-    "claude-haiku-4-5-20251001",
-    "claude-opus-4-0-20250514",
+    "deepseek-v4-flash",
+    "glm-5.2",
+    "glm-4.7",
 ]
 
 

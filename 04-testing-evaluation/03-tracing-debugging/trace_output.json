@@ -1,18 +1,18 @@
 {
-  "trace_id": "e2247a63",
+  "trace_id": "6b8e0636",
   "spans": [
     {
       "name": "answer_question",
       "span_type": "agent_step",
-      "start_time": 1772771706.309427,
-      "end_time": 1772771715.711722,
-      "duration_ms": 9402.29,
+      "start_time": 1787063565.249251,
+      "end_time": 1787063570.4832616,
+      "duration_ms": 5234.01,
       "inputs": {
-        "question": "微服务有哪些优势？"
+        "question": "\u5fae\u670d\u52a1\u6709\u54ea\u4e9b\u4f18\u52bf\uff1f"
       },
       "outputs": {
-        "answer": "根据知识库，微服务架构具有以下优势：\n\n1. **可扩展性**——微服务可以独立扩缩容，因此只需扩展有需要的特定服务。\n2. **故障隔离**——单个服务发生故障时，不会导致整个应用程序崩溃。",
-        "llm_calls": 3
+        "answer": "\u6839\u636e\u77e5\u8bc6\u5e93\u4e2d\u7684\u6587\u6863\u300a\u5fae\u670d\u52a1\u67b6\u6784\u300b\uff1a\n\n**\u5fae\u670d\u52a1\u67b6\u6784\u5c06\u5e94\u7528\u7a0b\u5e8f\u62c6\u5206\u4e3a\u5c0f\u578b\u3001\u72ec\u7acb\u7684\u670d\u52a1\u3002\u6bcf\u4e2a\u670d\u52a1\u90fd\u5728\u81ea\u5df1\u7684\u8fdb\u7a0b\u4e2d\u8fd0\u884c\uff0c\u901a\u8fc7 API \u901a\u4fe1\uff0c\u5e76\u4e14\u53ef\u4ee5\u72ec\u7acb\u90e8\u7f72\u3002**\n\n\u6587\u6863\u4e2d\u660e\u786e\u6307\u51fa\u5176\u4f18\u52bf\u5305\u62ec\uff1a\n\n1. **\u53ef\u6269\u5c55\u6027\uff08\u53ef\u4f38\u7f29\u6027\uff09** \u2014\u2014 \u6bcf\u4e2a\u670d\u52a1\u53ef\u4ee5\u72ec\u7acb\u6269\u5c55\uff0c\u6839\u636e\u9700\u6c42\u7075\u6d3b\u8c03\u6574\u8d44\u6e90\u3002\n2. **\u6545\u969c\u9694\u79bb** \u2014\u2014 \u67d0\u4e2a\u670d\u52a1\u51fa\u73b0\u6545\u969c\u4e0d\u4f1a\u5f71\u54cd\u6574\u4e2a\u7cfb\u7edf\uff0c\u63d0\u9ad8\u4e86\u7cfb\u7edf\u7684\u53ef\u9760\u6027\u3002\n3. **\u6280\u672f\u7075\u6d3b\u6027** \u2014\u2014 \u5404",
+        "llm_calls": 4
       },
       "metadata": {},
       "tokens": {},
@@ -21,9 +21,9 @@
         {
           "name": "llm_call_1",
           "span_type": "llm_call",
-          "start_time": 1772771706.309437,
-          "end_time": 1772771708.0584562,
-          "duration_ms": 1749.02,
+          "start_time": 1787063565.2492588,
+          "end_time": 1787063566.405006,
+          "duration_ms": 1155.75,
           "inputs": {
             "message_count": 1
           },
@@ -32,8 +32,8 @@
           },
           "metadata": {},
           "tokens": {
-            "input": 715,
-            "output": 73
+            "input": 110,
+            "output": 106
           },
           "error": null,
           "children": []
@@ -41,17 +41,37 @@
         {
           "name": "tool_search_knowledge_base",
           "span_type": "tool_call",
-          "start_time": 1772771708.058495,
-          "end_time": 1772771708.058559,
-          "duration_ms": 0.06,
+          "start_time": 1787063566.4050128,
+          "end_time": 1787063566.4054651,
+          "duration_ms": 0.45,
           "inputs": {
             "tool": "search_knowledge_base",
             "input": {
-              "query": "微服务的优势"
+              "query": "\u5fae\u670d\u52a1\u4f18\u52bf"
             }
           },
           "outputs": {
-            "result": "[{'id': 'doc_001', 'title': '微服务架构', 'score': 2}, {'id': 'doc_007', 'title': '事件驱动架构', 'score': 1}]"
+            "result": "[]"
+          },
+          "metadata": {},
+          "tokens": {},
+          "error": null,
+          "children": []
+        },
+        {
+          "name": "tool_search_knowledge_base",
+          "span_type": "tool_call",
+          "start_time": 1787063566.4054837,
+          "end_time": 1787063566.405499,
+          "duration_ms": 0.02,
+          "inputs": {
+            "tool": "search_knowledge_base",
+            "input": {
+              "query": "\u5fae\u670d\u52a1\u67b6\u6784\u4f18\u70b9"
+            }
+          },
+          "outputs": {
+            "result": "[]"
           },
           "metadata": {},
           "tokens": {},
@@ -61,9 +81,9 @@
         {
           "name": "llm_call_2",
           "span_type": "llm_call",
-          "start_time": 1772771708.058593,
-          "end_time": 1772771709.8966131,
-          "duration_ms": 1838.02,
+          "start_time": 1787063566.4055052,
+          "end_time": 1787063567.708486,
+          "duration_ms": 1302.98,
           "inputs": {
             "message_count": 3
           },
@@ -72,26 +92,46 @@
           },
           "metadata": {},
           "tokens": {
-            "input": 849,
-            "output": 57
+            "input": 110,
+            "output": 102
           },
           "error": null,
           "children": []
         },
         {
-          "name": "tool_get_document",
+          "name": "tool_search_knowledge_base",
           "span_type": "tool_call",
-          "start_time": 1772771709.8966389,
-          "end_time": 1772771709.8966599,
-          "duration_ms": 0.02,
+          "start_time": 1787063567.7085016,
+          "end_time": 1787063567.7099745,
+          "duration_ms": 1.47,
           "inputs": {
-            "tool": "get_document",
+            "tool": "search_knowledge_base",
             "input": {
-              "doc_id": "doc_001"
+              "query": "\u5fae\u670d\u52a1"
             }
           },
           "outputs": {
-            "result": "{'id': 'doc_001', 'title': '微服务架构', 'content': '微服务架构将应用程序拆分为小型、独立的服务。每个服务都在自己的进程中运行，通过 API 通信，并且可以独立部署。'}"
+            "result": "[{'id': 'doc_001', 'title': '\u5fae\u670d\u52a1\u67b6\u6784', 'score': 1}]"
+          },
+          "metadata": {},
+          "tokens": {},
+          "error": null,
+          "children": []
+        },
+        {
+          "name": "tool_search_knowledge_base",
+          "span_type": "tool_call",
+          "start_time": 1787063567.709996,
+          "end_time": 1787063567.7100177,
+          "duration_ms": 0.02,
+          "inputs": {
+            "tool": "search_knowledge_base",
+            "input": {
+              "query": "microservices"
+            }
+          },
+          "outputs": {
+            "result": "[{'id': 'doc_001', 'title': '\u5fae\u670d\u52a1\u67b6\u6784', 'score': 1}]"
           },
           "metadata": {},
           "tokens": {},
@@ -101,19 +141,59 @@
         {
           "name": "llm_call_3",
           "span_type": "llm_call",
-          "start_time": 1772771709.896696,
-          "end_time": 1772771715.7116768,
-          "duration_ms": 5814.98,
+          "start_time": 1787063567.710025,
+          "end_time": 1787063568.5290177,
+          "duration_ms": 818.99,
           "inputs": {
             "message_count": 5
+          },
+          "outputs": {
+            "stop_reason": "tool_use"
+          },
+          "metadata": {},
+          "tokens": {
+            "input": 178,
+            "output": 57
+          },
+          "error": null,
+          "children": []
+        },
+        {
+          "name": "tool_get_document",
+          "span_type": "tool_call",
+          "start_time": 1787063568.5290225,
+          "end_time": 1787063568.5290322,
+          "duration_ms": 0.01,
+          "inputs": {
+            "tool": "get_document",
+            "input": {
+              "doc_id": "doc_001"
+            }
+          },
+          "outputs": {
+            "result": "{'id': 'doc_001', 'title': '\u5fae\u670d\u52a1\u67b6\u6784', 'content': '\u5fae\u670d\u52a1\u67b6\u6784\u5c06\u5e94\u7528\u7a0b\u5e8f\u62c6\u5206\u4e3a\u5c0f\u578b\u3001\u72ec\u7acb\u7684\u670d\u52a1\u3002\u6bcf\u4e2a\u670d\u52a1\u90fd\u5728\u81ea\u5df1\u7684\u8fdb\u7a0b\u4e2d\u8fd0\u884c\uff0c\u901a\u8fc7 API \u901a\u4fe1\uff0c\u5e76\u4e14\u53ef\u4ee5\u72ec\u7acb\u90e8\u7f72\u3002\u5176\u4f18\u52bf\u5305\u62ec\u53ef\u6269\u5c55\u6027\u3001\u6545\u969c\u9694\u79bb\u548c\u6280\u672f\u7075\u6d3b\u6027\u3002\u5176\u6311\u6218\u5305\u62ec\u5206\u5e03\u5f0f\u7cfb\u7edf\u7684\u590d\u6742\u6027\u3001\u6570\u636e\u4e00\u81f4\u6027\u548c\u8fd0\u7ef4\u5f00\u9500\u3002', 'tags': ['architecture', 'microservices', 'dis"
+          },
+          "metadata": {},
+          "tokens": {},
+          "error": null,
+          "children": []
+        },
+        {
+          "name": "llm_call_4",
+          "span_type": "llm_call",
+          "start_time": 1787063568.5290468,
+          "end_time": 1787063570.483233,
+          "duration_ms": 1954.19,
+          "inputs": {
+            "message_count": 7
           },
           "outputs": {
             "stop_reason": "end_turn"
           },
           "metadata": {},
           "tokens": {
-            "input": 1016,
-            "output": 245
+            "input": 518,
+            "output": 171
           },
           "error": null,
           "children": []
@@ -123,14 +203,14 @@
     {
       "name": "answer_question",
       "span_type": "agent_step",
-      "start_time": 1772771715.7137501,
-      "end_time": 1772771725.633127,
-      "duration_ms": 9919.38,
+      "start_time": 1787063570.4846766,
+      "end_time": 1787063577.5395935,
+      "duration_ms": 7054.92,
       "inputs": {
-        "question": "应该如何设计 REST API？"
+        "question": "\u5e94\u8be5\u5982\u4f55\u8bbe\u8ba1 REST API\uff1f"
       },
       "outputs": {
-        "answer": "根据文档，设计 REST API 时应遵循以下关键原则：\n\n## 核心设计原则\n\n**面向资源的设计：**\n- 围绕资源（名词）而不是动作来组织 API。\n- 使用 HTTP 方法表示操作，并使用状态码表示结果。",
+        "answer": "\u6839\u636e\u77e5\u8bc6\u5e93\u4e2d\u7684\u6587\u6863\uff08\u300aREST API \u8bbe\u8ba1\u300b\uff09\uff0c\u4ee5\u4e0b\u662f\u5173\u4e8e\u5982\u4f55\u8bbe\u8ba1 REST API \u7684\u6838\u5fc3\u8981\u70b9\uff1a\n\n## \u9762\u5411\u8d44\u6e90\u7684\u8bbe\u8ba1\u539f\u5219\n\nREST API \u5e94\u9075\u5faa**\u9762\u5411\u8d44\u6e90**\u7684\u8bbe\u8ba1\u539f\u5219\uff0c\u8fd9\u662f REST \u67b6\u6784\u98ce\u683c\u7684\u6838\u5fc3\uff1a\n\n## \u4e09\u4e2a\u5173\u952e\u7ea6\u5b9a\n\n1. **\u7aef\u70b9\u4f7f\u7528\u540d\u8bcd**\uff1aURL \u4e2d\u8868\u793a\u7684\u662f\u8d44\u6e90\uff08\u5982 `/users`\u3001`/orders`\uff09\uff0c\u800c\u4e0d\u662f\u52a8\u8bcd\uff08\u5982 `/getUser`\uff09\u3002\n\n2. **\u64cd\u4f5c\u4f7f\u7528",
         "llm_calls": 3
       },
       "metadata": {},
@@ -140,9 +220,9 @@
         {
           "name": "llm_call_1",
           "span_type": "llm_call",
-          "start_time": 1772771715.713759,
-          "end_time": 1772771717.441584,
-          "duration_ms": 1727.83,
+          "start_time": 1787063570.4846811,
+          "end_time": 1787063571.6469216,
+          "duration_ms": 1162.24,
           "inputs": {
             "message_count": 1
           },
@@ -151,8 +231,8 @@
           },
           "metadata": {},
           "tokens": {
-            "input": 714,
-            "output": 75
+            "input": 110,
+            "output": 110
           },
           "error": null,
           "children": []
@@ -160,17 +240,37 @@
         {
           "name": "tool_search_knowledge_base",
           "span_type": "tool_call",
-          "start_time": 1772771717.441605,
-          "end_time": 1772771717.441652,
-          "duration_ms": 0.05,
+          "start_time": 1787063571.6469283,
+          "end_time": 1787063571.6469624,
+          "duration_ms": 0.03,
           "inputs": {
             "tool": "search_knowledge_base",
             "input": {
-              "query": "REST API 设计原则 最佳实践"
+              "query": "REST API \u8bbe\u8ba1"
             }
           },
           "outputs": {
-            "result": "[{'id': 'doc_002', 'title': 'REST API 设计', 'score': 6}, {'id': 'doc_001', 'title': '微服务架构', 'score': 1}, {'id': 'doc_005', 'title': 'CI/CD 流水线', 'score': 1}]"
+            "result": "[{'id': 'doc_002', 'title': 'REST API \u8bbe\u8ba1', 'score': 3}, {'id': 'doc_001', 'title': '\u5fae\u670d\u52a1\u67b6\u6784', 'score': 1}]"
+          },
+          "metadata": {},
+          "tokens": {},
+          "error": null,
+          "children": []
+        },
+        {
+          "name": "tool_search_knowledge_base",
+          "span_type": "tool_call",
+          "start_time": 1787063571.6469784,
+          "end_time": 1787063571.6469946,
+          "duration_ms": 0.02,
+          "inputs": {
+            "tool": "search_knowledge_base",
+            "input": {
+              "query": "REST API design best practices"
+            }
+          },
+          "outputs": {
+            "result": "[{'id': 'doc_002', 'title': 'REST API \u8bbe\u8ba1', 'score': 3}, {'id': 'doc_001', 'title': '\u5fae\u670d\u52a1\u67b6\u6784', 'score': 1}]"
           },
           "metadata": {},
           "tokens": {},
@@ -180,9 +280,9 @@
         {
           "name": "llm_call_2",
           "span_type": "llm_call",
-          "start_time": 1772771717.441683,
-          "end_time": 1772771719.392132,
-          "duration_ms": 1950.45,
+          "start_time": 1787063571.6470013,
+          "end_time": 1787063573.0260394,
+          "duration_ms": 1379.04,
           "inputs": {
             "message_count": 3
           },
@@ -191,8 +291,8 @@
           },
           "metadata": {},
           "tokens": {
-            "input": 873,
-            "output": 57
+            "input": 246,
+            "output": 92
           },
           "error": null,
           "children": []
@@ -200,8 +300,8 @@
         {
           "name": "tool_get_document",
           "span_type": "tool_call",
-          "start_time": 1772771719.392149,
-          "end_time": 1772771719.392162,
+          "start_time": 1787063573.0260444,
+          "end_time": 1787063573.0260544,
           "duration_ms": 0.01,
           "inputs": {
             "tool": "get_document",
@@ -210,7 +310,27 @@
             }
           },
           "outputs": {
-            "result": "{'id': 'doc_002', 'title': 'REST API 设计', 'content': 'REST API 遵循面向资源的设计原则。端点使用名词，操作使用 HTTP 方法，结果使用状态码。最佳实践包括版本控制和分页。'}"
+            "result": "{'id': 'doc_002', 'title': 'REST API \u8bbe\u8ba1', 'content': 'REST API \u9075\u5faa\u9762\u5411\u8d44\u6e90\u7684\u8bbe\u8ba1\u539f\u5219\u3002\u7aef\u70b9\u4f7f\u7528\u540d\u8bcd\uff0c\u64cd\u4f5c\u4f7f\u7528 HTTP \u65b9\u6cd5\uff0c\u7ed3\u679c\u4f7f\u7528\u72b6\u6001\u7801\u3002\u6700\u4f73\u5b9e\u8df5\u5305\u62ec\u7248\u672c\u63a7\u5236\u3001\u96c6\u5408\u5206\u9875\u548c\u4e00\u81f4\u7684\u9519\u8bef\u54cd\u5e94\u683c\u5f0f\u3002', 'tags': ['api', 'rest', 'design']}"
+          },
+          "metadata": {},
+          "tokens": {},
+          "error": null,
+          "children": []
+        },
+        {
+          "name": "tool_get_document",
+          "span_type": "tool_call",
+          "start_time": 1787063573.0260673,
+          "end_time": 1787063573.026078,
+          "duration_ms": 0.01,
+          "inputs": {
+            "tool": "get_document",
+            "input": {
+              "doc_id": "doc_001"
+            }
+          },
+          "outputs": {
+            "result": "{'id': 'doc_001', 'title': '\u5fae\u670d\u52a1\u67b6\u6784', 'content': '\u5fae\u670d\u52a1\u67b6\u6784\u5c06\u5e94\u7528\u7a0b\u5e8f\u62c6\u5206\u4e3a\u5c0f\u578b\u3001\u72ec\u7acb\u7684\u670d\u52a1\u3002\u6bcf\u4e2a\u670d\u52a1\u90fd\u5728\u81ea\u5df1\u7684\u8fdb\u7a0b\u4e2d\u8fd0\u884c\uff0c\u901a\u8fc7 API \u901a\u4fe1\uff0c\u5e76\u4e14\u53ef\u4ee5\u72ec\u7acb\u90e8\u7f72\u3002\u5176\u4f18\u52bf\u5305\u62ec\u53ef\u6269\u5c55\u6027\u3001\u6545\u969c\u9694\u79bb\u548c\u6280\u672f\u7075\u6d3b\u6027\u3002\u5176\u6311\u6218\u5305\u62ec\u5206\u5e03\u5f0f\u7cfb\u7edf\u7684\u590d\u6742\u6027\u3001\u6570\u636e\u4e00\u81f4\u6027\u548c\u8fd0\u7ef4\u5f00\u9500\u3002', 'tags': ['architecture', 'microservices', 'dis"
           },
           "metadata": {},
           "tokens": {},
@@ -220,9 +340,9 @@
         {
           "name": "llm_call_3",
           "span_type": "llm_call",
-          "start_time": 1772771719.3921862,
-          "end_time": 1772771725.633085,
-          "duration_ms": 6240.9,
+          "start_time": 1787063573.0260847,
+          "end_time": 1787063577.5395455,
+          "duration_ms": 4513.46,
           "inputs": {
             "message_count": 5
           },
@@ -231,8 +351,8 @@
           },
           "metadata": {},
           "tokens": {
-            "input": 1016,
-            "output": 287
+            "input": 760,
+            "output": 527
           },
           "error": null,
           "children": []

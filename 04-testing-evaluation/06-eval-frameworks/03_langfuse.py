@@ -111,6 +111,79 @@ class SimulatedLangfuse:
             }
         )
 
+    def end_trace(self, trace: SimulatedTrace) -> None:
+        """结束模拟追踪（真实客户端需要关闭根观测）。"""
+
+    def flush(self) -> None:
+        """模拟客户端无需刷新。"""
+
+
+class RealLangfuse:
+    """将本示例使用的接口适配到真实 Langfuse SDK。"""
+
+    def __init__(self) -> None:
+        from langfuse import Langfuse
+
+        self.client = Langfuse()
+        self.traces: list[SimulatedTrace] = []
+        self._current_trace: SimulatedTrace | None = None
+
+    def start_trace(self, name: str, trace_id: str) -> SimulatedTrace:
+        # 保持根观测上下文，后续 start_as_current_observation 会自动成为子跨度。
+        context = self.client.start_as_current_observation(name=name, as_type="chain")
+        observation = context.__enter__()
+        trace = SimulatedTrace(trace_id=observation.trace_id, name=name)
+        trace._context = context
+        trace._observation = observation
+        self.traces.append(trace)
+        self._current_trace = trace
+        return trace
+
+    def start_span(self, name: str, span_type: str = "span") -> SimulatedSpan:
+        span = SimulatedSpan(name=name, span_type=span_type, start_time=time.perf_counter())
+        as_type = "generation" if span_type == "generation" else "span"
+        context = self.client.start_as_current_observation(name=name, as_type=as_type)
+        span._context = context
+        span._observation = context.__enter__()
+        if self._current_trace is not None:
+            self._current_trace.spans.append(span)
+        return span
+
+    def end_span(self, span: SimulatedSpan, output: dict[str, Any] | None = None) -> None:
+        span.end_time = time.perf_counter()
+        if output:
+            span.output_data = output
+            span._observation.update(output=output)
+        span._context.__exit__(None, None, None)
+
+    def score_trace(
+        self,
+        trace: SimulatedTrace,
+        name: str,
+        value: float | str | bool,
+        data_type: str = "NUMERIC",
+        comment: str = "",
+    ) -> None:
+        self.client.create_score(
+            trace_id=trace.trace_id,
+            name=name,
+            value=value,
+            data_type=data_type,
+            comment=comment,
+        )
+        trace.scores.append({"name": name, "value": value, "data_type": data_type, "comment": comment})
+
+    def end_trace(self, trace: SimulatedTrace) -> None:
+        trace._context.__exit__(None, None, None)
+        self._current_trace = None
+
+    def flush(self) -> None:
+        self.client.flush()
+
+    def shutdown(self) -> None:
+        """等待后台 OTEL 导出线程完成，避免进程退出时丢失追踪。"""
+        self.client.shutdown()
+
 
 # ---------------------------------------------------------------------------
 # 使用链路追踪和评分进行评测
@@ -190,6 +263,7 @@ def run_traced_eval(
         )
 
         langfuse_client.end_span(grading_span)
+        langfuse_client.end_trace(trace)
 
         results.append(
             {
@@ -248,10 +322,12 @@ def main() -> None:
         console.print("[yellow]未安装 Langfuse——运行模拟演示[/yellow]")
     console.print()
 
-    # 使用模拟的 Langfuse 客户端运行评测
-    # 在生产环境中，请将 SimulatedLangfuse 替换为真正的 Langfuse SDK
-    langfuse_client = SimulatedLangfuse()
+    # 有凭据时使用真实 SDK，否则使用本地模拟客户端。
+    langfuse_client = RealLangfuse() if has_langfuse and has_langfuse_keys else SimulatedLangfuse()
     results = run_traced_eval(langfuse_client, EVAL_TASKS)
+    langfuse_client.flush()
+    if hasattr(langfuse_client, "shutdown"):
+        langfuse_client.shutdown()
 
     # 结果表格
     table = Table(title="Langfuse 链路追踪评测结果", show_lines=True)

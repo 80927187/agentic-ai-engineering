@@ -38,7 +38,15 @@ uv sync --extra promptfoo    # 添加 pyyaml，用于生成 YAML
 uv sync --extra braintrust   # 添加 autoevals 评分器
 uv sync --extra langfuse     # 添加 langfuse SDK
 uv sync --extra all          # 安装所有框架
+
+
+# 个人总结
+export PROMPTFOO_PYTHON="$(cygpath -m "$PWD/04-testing-evaluation/06-eval-frameworks/.venv/Scripts/python.exe")"
+promptfoo eval -c 04-testing-evaluation/06-eval-frameworks/promptfooconfig.yaml
 ```
+
+
+
 
 也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，一键运行当前打开的脚本。
 

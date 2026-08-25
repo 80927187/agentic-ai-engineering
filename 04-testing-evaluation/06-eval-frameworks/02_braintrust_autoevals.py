@@ -73,7 +73,7 @@ def run_llm_scorers(question: str, output: str, expected: str, task_id: str) -> 
         scores: dict[str, float] = {}
 
         # Factuality：检查输出在事实层面是否与预期答案一致
-        factuality = Factuality()
+        factuality = Factuality("gpt-5.6-terra")
         fact_result = factuality.eval(
             input=question,
             output=output,
@@ -82,11 +82,12 @@ def run_llm_scorers(question: str, output: str, expected: str, task_id: str) -> 
         scores["factuality"] = fact_result.score or 0.0
 
         # ClosedQA：根据问题评估答案质量
-        closedqa = ClosedQA()
+        closedqa = ClosedQA("gpt-5.6-terra")
         cqa_result = closedqa.eval(
             input=question,
             output=output,
             expected=expected,
+            criteria=f"回答应正确回答问题，并符合参考答案：{expected}",
         )
         scores["closedqa"] = cqa_result.score or 0.0
 
@@ -117,6 +118,7 @@ def run_custom_classifier(output: str, task_id: str) -> dict[str, float]:
 
         grounding_classifier = LLMClassifier(
             name="来源依据",
+            model="gpt-5.6-terra",
             prompt_template=(
                 "以下回答是否引用了具体来源（如 doc_001）来支持其陈述？"
                 "\n\n回答：{{output}}\n\n"

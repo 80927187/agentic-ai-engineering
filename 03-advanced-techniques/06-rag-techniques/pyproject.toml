@@ -8,6 +8,7 @@ dependencies = [
     "sentence-transformers>=3.0.0",
     "chromadb>=1.0.0",
     "bm25s>=0.2.0",
+    "jieba>=0.42.1",
     "flashrank>=0.2.0",
     "python-dotenv>=1.0.0",
     "common",

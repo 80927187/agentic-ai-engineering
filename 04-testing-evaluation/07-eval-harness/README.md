@@ -45,7 +45,7 @@ uv run --directory 04-testing-evaluation/07-eval-harness python 01_eval_harness.
 启动后，可通过交互式菜单选择：
 
 - **模拟模式**（默认）——使用预定义回答，不调用 API，立即得到结果
-- **实时模式**——通过工具调用智能体循环发起真实的 Anthropic API 请求（需要 `ANTHROPIC_API_KEY`）。实时模式还需要选择所用模型。评测试验和安全测试会调用 API；基准测试需要比较多种模型配置，因此仍使用模拟数据。
+- **实时模式**——通过工具调用智能体循环发起真实的模型 API 请求（需要 `ANTHROPIC_API_KEY`）。实时模式可选择 `deepseek-v4-flash`、`glm-5.2` 或 `glm-4.7`。评测试验和安全测试会调用 API；基准测试需要比较多种模型配置，因此仍使用模拟数据。
 
 也可以使用 VS Code 的 [Code Runner](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner) 扩展，单击即可运行当前打开的脚本。
 

@@ -96,7 +96,7 @@ def generate_promptfoo_config(tasks: list[dict], output_dir: Path) -> str:
         "tests": tests,
         "defaultTest": {
             "options": {
-                "provider": "anthropic:messages:claude-sonnet-4-5-20250929",
+                "provider": "anthropic:messages:deepseek-v4-flash",
             }
         },
     }

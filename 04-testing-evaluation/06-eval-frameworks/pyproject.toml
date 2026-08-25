@@ -11,9 +11,9 @@ dependencies = [
 
 [project.optional-dependencies]
 promptfoo = ["pyyaml>=6.0"]
-braintrust = ["autoevals>=0.0.80"]
+braintrust = ["autoevals>=0.0.80", "openai>=1.0.0"]
 langfuse = ["langfuse>=2.0.0"]
-all = ["pyyaml>=6.0", "autoevals>=0.0.80", "langfuse>=2.0.0"]
+all = ["pyyaml>=6.0", "autoevals>=0.0.80", "openai>=1.0.0", "langfuse>=2.0.0"]
 
 [tool.uv.sources]
 common = { path = "../../common", editable = true }

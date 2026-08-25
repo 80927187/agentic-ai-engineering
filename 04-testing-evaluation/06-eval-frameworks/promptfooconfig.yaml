@@ -1,0 +1,75 @@
+description: 研究助手评测套件
+providers:
+  - id: file://provider_agent.py
+    label: 研究助手
+    config:
+      mode: simulated
+prompts:
+  - "{{question}}"
+tests:
+  - vars:
+      question: 微服务架构的主要优势有哪些？
+    assert:
+      - type: python
+        value: file://assertion_keywords.py
+        metadata:
+          keywords:
+            - 可扩展性
+            - 故障隔离
+            - 独立部署
+      - type: contains
+        value: doc_001_
+      - type: llm-rubric
+        value: 回答应准确解答：‘微服务架构的主要优势有哪些？’。回答应引用来源并涵盖以下主题：可扩展性, 故障隔离, 独立部署。
+  - vars:
+      question: REST API 的设计最佳实践有哪些？
+    assert:
+      - type: python
+        value: file://assertion_keywords.py
+        metadata:
+          keywords:
+            - 名词
+            - 端点
+            - HTTP 方法
+            - 状态码
+      - type: contains
+        value: doc_002
+      - type: llm-rubric
+        value: 回答应准确解答：‘REST API 的设计最佳实践有哪些？’。回答应引用来源并涵盖以下主题：名词, 端点, HTTP 方法, 状态码。
+  - vars:
+      question: 数据库索引如何提升查询性能？
+    assert:
+      - type: python
+        value: file://assertion_keywords.py
+        metadata:
+          keywords:
+            - B 树
+            - 查找
+            - 查询
+      - type: contains
+        value: doc_003
+      - type: llm-rubric
+        value: 回答应准确解答：‘数据库索引如何提升查询性能？’。回答应引用来源并涵盖以下主题：B 树, 查找, 查询。
+  - vars:
+      question: 身份认证与权限授权有什么区别？
+    assert:
+      - type: python
+        value: file://assertion_keywords.py
+        metadata:
+          keywords:
+            - 身份
+            - 访问
+            - 身份认证
+            - 权限授权
+      - type: contains
+        value: doc_004
+      - type: llm-rubric
+        value: 回答应准确解答：‘身份认证与权限授权有什么区别？’。回答应引用来源并涵盖以下主题：身份, 访问, 身份认证, 权限授权。
+  - vars:
+      question: 哪种编程语言最适合机器学习？
+    assert:
+      - type: icontains
+        value: 无法在知识库中找到
+defaultTest:
+  options:
+    provider: anthropic:messages:deepseek-v4-flash

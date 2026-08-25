@@ -11,24 +11,24 @@ logger = logging.getLogger(__name__)
 # 具有现实性能特征的模拟模型配置
 DEFAULT_CONFIGS: list[dict[str, Any]] = [
     {
-        "name": "claude-haiku",
-        "model": "claude-3-5-haiku-20241022",
+        "name": "deepseek-v4-flash",
+        "model": "deepseek-v4-flash",
         "avg_latency_ms": 600.0,
         "cost_per_1k_input": 0.001,
         "cost_per_1k_output": 0.005,
         "accuracy_modifier": 0.75,
     },
     {
-        "name": "claude-sonnet",
-        "model": "claude-sonnet-4-5-20250929",
+        "name": "glm-5.2",
+        "model": "glm-5.2",
         "avg_latency_ms": 1500.0,
         "cost_per_1k_input": 0.003,
         "cost_per_1k_output": 0.015,
         "accuracy_modifier": 0.90,
     },
     {
-        "name": "claude-opus",
-        "model": "claude-opus-4-0-20250514",
+        "name": "glm-4.7",
+        "model": "glm-4.7",
         "avg_latency_ms": 3000.0,
         "cost_per_1k_input": 0.015,
         "cost_per_1k_output": 0.075,
